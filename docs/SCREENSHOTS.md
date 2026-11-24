@@ -2,6 +2,8 @@
 
 [← Project home](../README.md) · [العربية](../README_AR.md#صور-البرنامج)
 
+The playback screenshots show *Cartoon Sky*, a demo clip made from original AI-generated 3D-style artwork with an animated camera move.
+
 ## Player interface
 
 ![Main VLC Modern window](screenshots/player.png)
