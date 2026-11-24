@@ -7,8 +7,8 @@
 
 > **Public Beta.** VLC Modern is in active development. You may encounter bugs or unfinished features. This build is available for testing and feedback.
 
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Windows-x86.zip"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows%20ZIP-1473E6?style=for-the-badge"></a> <a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img alt="Report a bug" src="https://img.shields.io/badge/Report%20a%20bug-GitHub-586069?style=for-the-badge"></a></p>
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Windows-x86.zip">Download for Windows</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">Report a bug</a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0">v0.1.0 Beta</a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-2026-11-24-Windows-x86.zip"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows%20ZIP-1473E6?style=for-the-badge"></a> <a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img alt="Report a bug" src="https://img.shields.io/badge/Report%20a%20bug-GitHub-586069?style=for-the-badge"></a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-2026-11-24-Windows-x86.zip">Download for Windows</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">Report a bug</a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0">v0.1.0 Beta</a></p>
 
 ---
 
@@ -27,6 +27,12 @@
 | --- | --- | --- |
 | ![Playlist during playback](docs/screenshots/playlist.png) | ![Fullscreen dock](docs/screenshots/fullscreen.png) | ![IPTV setup](docs/screenshots/iptv.png) |
 | Docked queue with the active item highlighted. | Rounded floating dock over the video. | Source selection and connection fields. |
+
+### Light Mode
+
+![VLC Modern General settings in Light Mode](docs/screenshots/light-mode.jpg)
+
+Choose **Light**, **Dark**, or **Follow system** under **Settings → General → Theme**. The default is **Follow system**. Theme changes apply when the player restarts.
 
 [Browse full-size screenshots and captions →](docs/SCREENSHOTS.md)
 

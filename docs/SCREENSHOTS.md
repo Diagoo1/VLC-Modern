@@ -22,6 +22,12 @@ The playback screenshots show *Cartoon Sky*, a demo clip made from original AI-g
 
 **Settings.** The sidebar groups playback, video, audio, subtitles, and network options. The General page brings together window behavior, on-screen messages, and mouse controls.
 
+### Light Mode
+
+![VLC Modern Preferences in Light Mode](screenshots/light-mode.jpg)
+
+**Light Mode.** The General page shows the Theme selector. Follow system is the default, and theme changes apply when the player restarts.
+
 ## Audio and video effects
 
 ![Equalizer and audio effects](screenshots/equalizer.png)
