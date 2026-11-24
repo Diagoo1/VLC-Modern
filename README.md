@@ -3,13 +3,16 @@
 <p align="center">A native Windows media player built with Delphi, VCL, and LibVLC.</p>
 <p align="center"><a href="README_AR.md">العربية</a> · <a href="#screenshots">Screenshots</a> · <a href="#build-from-source">Build from source</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">Report an issue</a></p>
 
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Windows-x86.zip"><img alt="Download for Windows (ZIP)" src="https://img.shields.io/badge/Download-Windows%20ZIP-1473E6?style=for-the-badge"></a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Windows-x86.zip">Download for Windows (ZIP)</a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0">v0.1.0</a></p>
+
 ---
 
 ## Screenshots
 
 ![VLC Modern main player](docs/screenshots/player.png)
 
-**Main player.** A local demo video plays above the seek bar and rounded control dock.
+**Main player.** The VLC Modern splash screen on startup, with the rounded control dock below.
 
 | Opening media | Preferences | Audio effects |
 | --- | --- | --- |

@@ -8,7 +8,7 @@ The playback screenshots show *Cartoon Sky*, a demo clip made from original AI-g
 
 ![Main VLC Modern window](screenshots/player.png)
 
-**Main player.** The video area sits above the seek bar and playback controls, with volume, speed, playlist, and fullscreen actions in the bottom dock.
+**Main player.** The distinctive VLC Modern splash screen appears above the seek bar and rounded playback controls.
 
 ## Opening media
 

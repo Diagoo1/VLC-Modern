@@ -7,11 +7,14 @@
 
 ![واجهة VLC Modern الرئيسية](docs/screenshots/player.png)
 
-**واجهة المشغّل.** مساحة العرض بالأعلى، وأسفلها شريط التقدّم وأزرار التشغيل والصوت والسرعة وقائمة التشغيل وملء الشاشة.
+**واجهة المشغّل.** شاشة البداية بهوية VLC Modern، وأسفلها شريط التحكم بحوافه المستديرة.
 
 | فتح الوسائط | الإعدادات | المؤثرات الصوتية |
 | --- | --- | --- |
-| ![نافذة فتح الوسائط](docs/screenshots/open-media.png) | ![نافذة الإعدادات](docs/screenshots/preferences.png) | ![الإكولايزر](docs/screenshots/equalizer.png) |
+| ![نافذة فتح<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Windows-x86.zip"><img alt="تحميل نسخة ويندوز (ZIP)" src="https://img.shields.io/badge/Download-Windows%20ZIP-1473E6?style=for-the-badge"></a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Windows-x86.zip">تحميل نسخة ويندوز (ZIP)</a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0">v0.1.0</a></p>
+
+ الوسائط](docs/screenshots/open-media.png) | ![نافذة الإعدادات](docs/screenshots/preferences.png) | ![الإكولايزر](docs/screenshots/equalizer.png) |
 | بث الشبكة والأقراص وأجهزة الالتقاط. | قائمة جانبية لتنظيم خيارات المشغّل. | إعدادات جاهزة وتحكم في كل نطاق ترددي. |
 
 | قائمة التشغيل | ملء الشاشة | Live TV وIPTV |
