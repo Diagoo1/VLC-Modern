@@ -30,7 +30,7 @@
 
 ### Light Mode
 
-![VLC Modern General settings in Light Mode](docs/screenshots/light-mode.jpg)
+![VLC Modern General settings in Light Mode](docs/screenshots/open-media.png)
 
 Choose **Light**, **Dark**, or **Follow system** under **Settings → General → Theme**. The default is **Follow system**. Theme changes apply when the player restarts.
 
