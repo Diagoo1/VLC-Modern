@@ -1,0 +1,8 @@
+/bin/
+/build/
+*.dcu
+*.drc
+*.map
+*.res
+*.ini
+*.reg

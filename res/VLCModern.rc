@@ -1,0 +1,11 @@
+MAINICON ICON "app_icon.ico"
+APP_ICON_PNG RCDATA "app_icon.png"
+SPLASH_SCREEN RCDATA "splash_screen.png"
+1 24 "VLCModern.manifest"
+
+PREF_TABPLAYBACK RCDATA "preferences\\tabPlayback.dfm"
+PREF_TABVIDEO RCDATA "preferences\\tabVideo.dfm"
+PREF_TABAUDIO RCDATA "preferences\\tabAudio.dfm"
+PREF_TABSUBTITLES RCDATA "preferences\\tabSubtitles.dfm"
+PREF_TABNETWORK RCDATA "preferences\\tabNetwork.dfm"
+PREF_TABASSOCIATIONS RCDATA "preferences\\tabAssociations.dfm"
