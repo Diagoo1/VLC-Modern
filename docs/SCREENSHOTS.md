@@ -25,3 +25,21 @@
 ![Equalizer and audio effects](screenshots/equalizer.png)
 
 **Equalizer.** Separate tabs organize audio effects, picture adjustments, and synchronization. The equalizer shows presets, preamp, and per-band gain.
+
+## Playlist
+
+![Docked playlist during playback](screenshots/playlist.png)
+
+**Docked playlist.** The active item is highlighted, and the panel reserves space alongside the playing video.
+
+## Fullscreen
+
+![Fullscreen playback with the floating dock](screenshots/fullscreen.png)
+
+**Fullscreen playback.** The rounded control dock floats over the video and hides when idle.
+
+## Live TV and IPTV
+
+![Live TV and IPTV source setup](screenshots/iptv.png)
+
+**IPTV setup.** Choose Xtream Codes, Stalker / MAC, an M3U URL, or a local playlist. The screenshot shows the connection form with empty credentials.

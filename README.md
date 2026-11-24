@@ -9,12 +9,17 @@
 
 ![VLC Modern main player](docs/screenshots/player.png)
 
-**Main player.** The video canvas, seek bar, and rounded transport dock make up the primary workspace.
+**Main player.** A local demo video plays above the seek bar and rounded control dock.
 
 | Opening media | Preferences | Audio effects |
 | --- | --- | --- |
 | ![Open Media](docs/screenshots/open-media.png) | ![Preferences](docs/screenshots/preferences.png) | ![Equalizer](docs/screenshots/equalizer.png) |
 | Network streams, discs, and capture devices. | Sidebar navigation and playback preferences. | Presets, preamp, and individual frequency bands. |
+
+| Playlist | Fullscreen | Live TV and IPTV |
+| --- | --- | --- |
+| ![Playlist during playback](docs/screenshots/playlist.png) | ![Fullscreen dock](docs/screenshots/fullscreen.png) | ![IPTV setup](docs/screenshots/iptv.png) |
+| Docked queue with the active item highlighted. | Rounded floating dock over the video. | Source selection and connection fields. |
 
 [Browse full-size screenshots and captions →](docs/SCREENSHOTS.md)
 
