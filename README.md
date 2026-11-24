@@ -7,16 +7,16 @@
 
 ## Screenshots
 
-| Open Media |
-| --- |
-| ![Open Media dialog with Network, Disc and Capture Device tabs](docs/screenshots/open-media.png) |
+![VLC Modern main player](docs/screenshots/player.png)
 
-<details>
-<summary>View the startup artwork</summary>
+**Main player.** The video canvas, seek bar, and rounded transport dock make up the primary workspace.
 
-![VLC Modern startup artwork](res/splash_screen.png)
+| Opening media | Preferences | Audio effects |
+| --- | --- | --- |
+| ![Open Media](docs/screenshots/open-media.png) | ![Preferences](docs/screenshots/preferences.png) | ![Equalizer](docs/screenshots/equalizer.png) |
+| Network streams, discs, and capture devices. | Sidebar navigation and playback preferences. | Presets, preamp, and individual frequency bands. |
 
-</details>
+[Browse full-size screenshots and captions →](docs/SCREENSHOTS.md)
 
 ## Features
 
