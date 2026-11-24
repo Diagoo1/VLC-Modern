@@ -82,6 +82,23 @@ object FrmPreferences: TFrmPreferences
           Height = 180
           Caption = ' Startup & Instances '
           TabOrder = 0
+          object lblTheme: TLabel
+            Left = 260
+            Top = 28
+            Caption = 'Theme (applies on restart)'
+          end
+          object cboTheme: TComboBox
+            Left = 260
+            Top = 51
+            Width = 222
+            Height = 25
+            Style = csDropDownList
+            TabOrder = 7
+            Items.Strings = (
+              'Follow system'
+              'Light'
+              'Dark')
+          end
           object chkSingleInstance: TCheckBox
             Left = 18
             Top = 24

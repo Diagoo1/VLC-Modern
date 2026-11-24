@@ -19,10 +19,29 @@ uses
   System.Classes, System.Types, System.UITypes, System.SysUtils, System.IOUtils, System.Math, Winapi.Windows, Winapi.Messages,
   Winapi.CommCtrl, Winapi.UxTheme, Winapi.Dwmapi,
   Vcl.StdCtrls, Vcl.Themes, Vcl.Styles, Vcl.AppEvnts,
-  Vcl.Controls, Vcl.Graphics, Vcl.ExtCtrls, Vcl.ComCtrls, CurvedControls, PageTransitions,
+  System.Win.Registry, Vcl.Controls, Vcl.Graphics, Vcl.ExtCtrls, Vcl.ComCtrls, CurvedControls, PageTransitions,
   Winapi.GDIPAPI, Winapi.GDIPOBJ, WatermarkOSD, PlayerFlyout, PlayerChrome, ComboMenus, DarkMemo, SettingsStore, CrashTrace;
 
 type
+  TPlayerHint = class(THintWindow)
+  protected
+    procedure CreateParams(var Params: TCreateParams); override;
+  public
+    function MeasureCard(const Text: string; PPI: Integer): TRect;
+    procedure ShowCard(const Bounds: TRect; const Text: string; PPI: Integer; OwnerWindow: HWND);
+  end;
+
+  TPlayerHintTracker = class(TTimer)
+  private
+    FPopup: TPlayerHint;
+    FLastTarget: HWND;
+    FLastControl: TControl;
+    FSince: UInt64;
+    procedure Track(Sender: TObject);
+  public
+    constructor Create(AOwner: TComponent); override;
+  end;
+
   TControlAccess = class(TWinControl)
   public
     property Color;
@@ -73,7 +92,11 @@ begin
     end;
     if Application.Terminated or GAppClosing or (Application.MainForm=nil) or
       (csDestroying in Application.ComponentState) or
-      (csDestroying in Application.MainForm.ComponentState) then Exit;
+      (csDestroying in Application.MainForm.ComponentState) then
+    begin
+      Application.Terminate;
+      Exit;
+    end;
     PlayerMessage('The action could not be completed.'+#13#10+#13#10+E.Message);
   finally HandlingError:=False; end;
 end;
@@ -1296,7 +1319,7 @@ begin
         if Application.MainForm.Components[I] is TPlayerFlyout then
           TPlayerFlyout(Application.MainForm.Components[I]).Dismiss;
   end;
-  DarkMode := 1;
+  DarkMode := Ord(not PlayerLightTheme);
   DwmSetWindowAttribute(Form.Handle, 20, @DarkMode, SizeOf(DarkMode));
   EnableDwmRoundedCorners(Form.Handle);
   NeedsBind:=not GetWindowSubclass(Form.Handle,@DarkFormSubclass,100,Existing);
@@ -1312,7 +1335,7 @@ var
   DarkMode: Integer;
 begin
   if Form.PopupMode<>pmExplicit then Form.PopupMode := pmAuto;
-  DarkMode := 1;
+  DarkMode := Ord(not PlayerLightTheme);
   // DWMWA_USE_IMMERSIVE_DARK_MODE = 20
   DwmSetWindowAttribute(Form.Handle, 20, @DarkMode, SizeOf(DarkMode));
   EnableDwmRoundedCorners(Form.Handle);
@@ -1330,11 +1353,256 @@ begin
   ApplyPlayerChrome(Form);
 end;
 
+procedure TPlayerHint.CreateParams(var Params: TCreateParams);
+begin
+  inherited;
+  Params.Style := Params.Style and not WS_BORDER;
+  Params.ExStyle := Params.ExStyle or WS_EX_NOACTIVATE or WS_EX_TRANSPARENT or WS_EX_LAYERED;
+  Params.WindowClass.Style := Params.WindowClass.Style and not CS_DROPSHADOW;
+end;
+
+function CreateHintFont(PPI: Integer): HFONT;
+begin
+  Result := CreateFont(-MulDiv(13, PPI, 96), 0, 0, 0, FW_NORMAL, 0, 0, 0,
+    DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_NATURAL_QUALITY,
+    DEFAULT_PITCH or FF_DONTCARE, 'Segoe UI');
+end;
+
+function TPlayerHint.MeasureCard(const Text: string; PPI: Integer): TRect;
+var
+  Font: HFONT;
+  DC: HDC;
+  Previous: HGDIOBJ;
+begin
+  DC := CreateCompatibleDC(0);
+  Font := CreateHintFont(PPI);
+  Previous := SelectObject(DC, Font);
+  try
+    Result := Rect(0, 0, MulDiv(320, PPI, 96), 0);
+    DrawText(DC, PChar(Text), Length(Text), Result, DT_CALCRECT or DT_NOPREFIX or DT_WORDBREAK);
+    Inc(Result.Right, MulDiv(24, PPI, 96));
+    Inc(Result.Bottom, MulDiv(12, PPI, 96));
+  finally
+    SelectObject(DC, Previous);
+    DeleteObject(Font);
+    DeleteDC(DC);
+  end;
+end;
+
+procedure TPlayerHint.ShowCard(const Bounds: TRect; const Text: string; PPI: Integer; OwnerWindow: HWND);
+var
+  Info: TBitmapInfo;
+  Bits: Pointer;
+  DC: HDC;
+  DIB, Previous: HGDIOBJ;
+  Bitmap: TGPBitmap;
+  G: TGPGraphics;
+  Path: TGPGraphicsPath;
+  Fill: TGPSolidBrush;
+  Font: HFONT;
+  PreviousFont: HGDIOBJ;
+  TextBounds, Measured: TRect;
+  Pixel: PCardinal;
+  Blend: TBlendFunction;
+  Dest, Origin: TPoint;
+  Size: TSize;
+  W, H, D: Single;
+begin
+  Size.cx := Bounds.Width;
+  Size.cy := Bounds.Height;
+  ZeroMemory(@Info, SizeOf(Info));
+  Info.bmiHeader.biSize := SizeOf(TBitmapInfoHeader);
+  Info.bmiHeader.biWidth := Size.cx;
+  Info.bmiHeader.biHeight := -Size.cy;
+  Info.bmiHeader.biPlanes := 1;
+  Info.bmiHeader.biBitCount := 32;
+  DC := CreateCompatibleDC(0);
+  if DC = 0 then Exit;
+  try
+    DIB := CreateDIBSection(DC, Info, DIB_RGB_COLORS, Bits, 0, 0);
+    if DIB = 0 then Exit;
+    try
+      Previous := SelectObject(DC, DIB);
+      Bitmap := TGPBitmap.Create(Size.cx, Size.cy, Size.cx * 4, PixelFormat32bppPARGB, Bits);
+      try
+        G := TGPGraphics.Create(Bitmap);
+        Path := TGPGraphicsPath.Create;
+        Fill := TGPSolidBrush.Create(MakeGDIColor(DP_COLOR_BORDER));
+        try
+          G.Clear(0);
+          G.SetSmoothingMode(SmoothingModeAntiAlias);
+          W := Size.cx - 1;
+          H := Size.cy - 1;
+          D := 16 * PPI / 96;
+          Path.AddArc(0.5, 0.5, D, D, 180, 90);
+          Path.AddArc(W - D + 0.5, 0.5, D, D, 270, 90);
+          Path.AddArc(W - D + 0.5, H - D + 0.5, D, D, 0, 90);
+          Path.AddArc(0.5, H - D + 0.5, D, D, 90, 90);
+          Path.CloseFigure;
+          var Edge := TGPPen.Create(MakeGDIColor(DP_COLOR_BORDER), 1);
+          try
+            Fill.SetColor(MakeGDIColor(DP_COLOR_ELEVATED));
+            G.FillPath(Fill, Path);
+            G.DrawPath(Edge, Path);
+          finally Edge.Free; end;
+        finally
+          Fill.Free;
+          Path.Free;
+          G.Free;
+        end;
+      finally Bitmap.Free; end;
+      Font := CreateHintFont(PPI);
+      PreviousFont := SelectObject(DC, Font);
+      try
+        SetBkMode(DC, TRANSPARENT);
+        SetTextColor(DC, ColorToRGB(DP_COLOR_TEXT));
+        TextBounds := Rect(MulDiv(10, PPI, 96), 0,
+          Size.cx - MulDiv(10, PPI, 96), Size.cy);
+        Measured := TextBounds;
+        DrawText(DC, PChar(Text), Length(Text), Measured, DT_CALCRECT or DT_NOPREFIX or DT_WORDBREAK);
+        TextBounds.Top := Max(2, (Size.cy - Measured.Height) div 2);
+        TextBounds.Bottom := Min(Size.cy - 2, TextBounds.Top + Measured.Height);
+        DrawText(DC, PChar(Text), Length(Text), TextBounds, DT_CENTER or DT_NOPREFIX or DT_WORDBREAK);
+        GdiFlush;
+        // GDI text may clear alpha. Restore it only within the opaque interior.
+        for var Y := TextBounds.Top to TextBounds.Bottom - 1 do
+        begin
+          Pixel := PCardinal(NativeUInt(Bits) + NativeUInt(Y * Size.cx + TextBounds.Left) * SizeOf(Cardinal));
+          for var X := TextBounds.Left to TextBounds.Right - 1 do
+          begin
+            Pixel^ := Pixel^ or $FF000000;
+            Inc(Pixel);
+          end;
+        end;
+      finally
+        SelectObject(DC, PreviousFont);
+        DeleteObject(Font);
+      end;
+      Caption := Text;
+      SetWindowLongPtr(Handle, GWLP_HWNDPARENT, LONG_PTR(OwnerWindow));
+      Dest := Bounds.TopLeft;
+      Origin := Point(0, 0);
+      Blend.BlendOp := AC_SRC_OVER;
+      Blend.BlendFlags := 0;
+      Blend.SourceConstantAlpha := 255;
+      Blend.AlphaFormat := AC_SRC_ALPHA;
+      if UpdateLayeredWindow(Handle, 0, @Dest, @Size, DC, @Origin, 0, @Blend, ULW_ALPHA) then
+        SetWindowPos(Handle, HWND_TOPMOST, 0, 0, 0, 0,
+          SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE or SWP_SHOWWINDOW);
+      SelectObject(DC, Previous);
+    finally DeleteObject(DIB); end;
+  finally DeleteDC(DC); end;
+end;
+
+constructor TPlayerHintTracker.Create(AOwner: TComponent);
+begin
+  inherited;
+  FPopup := TPlayerHint.Create(Self);
+  FPopup.Font.Name := 'Segoe UI';
+  Interval := 25;
+  OnTimer := Track;
+end;
+
+procedure TPlayerHintTracker.Track(Sender: TObject);
+var
+  Cursor, Anchor: TPoint;
+  Hit: TControl;
+  Wnd: HWND;
+  R, Work: TRect;
+  Gap: Integer;
+  HintText: string;
+begin
+  Hit := nil;
+  Wnd := 0;
+  if not GAppClosing and (GetAsyncKeyState(VK_LBUTTON) >= 0) and
+    (GetAsyncKeyState(VK_RBUTTON) >= 0) and GetCursorPos(Cursor) then
+  begin
+    Wnd := WindowFromPoint(Cursor);
+    if (GetWindowThreadProcessId(GetForegroundWindow, nil) = GetCurrentThreadId) and
+      IsWindowEnabled(GetAncestor(Wnd, GA_ROOT)) then
+      Hit := FindDragTarget(Cursor, False);
+    if (Hit <> nil) and (not Hit.ShowHint or (Hit.Hint = '')) then Hit := nil;
+    if Hit = nil then Wnd := 0;
+  end;
+  if (Wnd <> FLastTarget) or (Hit <> FLastControl) then
+  begin
+    FLastTarget := Wnd;
+    FLastControl := Hit;
+    FSince := GetTickCount64;
+    FPopup.ReleaseHandle;
+  end;
+  if (Hit = nil) or FPopup.HandleAllocated or (GetTickCount64 - FSince < 100) then Exit;
+  Work := Screen.MonitorFromPoint(Cursor).WorkareaRect;
+  var PPI := Hit.CurrentPPI;
+  Gap := MulDiv(6, PPI, 96);
+  HintText := GetShortHint(Hit.Hint);
+  R := FPopup.MeasureCard(HintText, PPI);
+  Anchor := Hit.ClientToScreen(Point(0, Hit.Height + Gap));
+  Anchor.X := EnsureRange(Anchor.X, Work.Left, Max(Work.Left, Work.Right - R.Width));
+  if Anchor.Y + R.Height > Work.Bottom then
+    Anchor.Y := Hit.ClientToScreen(Point(0, 0)).Y - R.Height - Gap;
+  OffsetRect(R, Anchor.X, Max(Anchor.Y, Work.Top));
+  FPopup.ShowCard(R, HintText, PPI, GetAncestor(Wnd, GA_ROOT));
+end;
+
+procedure LoadPlayerPalette;
+var
+  Settings: TAppSettings;
+  Registry: TRegistry;
+  Theme: Integer;
+begin
+  Settings := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try
+    Theme := Settings.ReadInteger('Interface', 'Theme', 0);
+  finally
+    Settings.Free;
+  end;
+  PlayerLightTheme := Theme = 1;
+  if Theme <> 2 then
+    if Theme <> 1 then
+    begin
+      Registry := TRegistry.Create(KEY_READ);
+      try
+        Registry.RootKey := HKEY_CURRENT_USER;
+        if Registry.OpenKeyReadOnly('Software\Microsoft\Windows\CurrentVersion\Themes\Personalize') and
+          (Registry.GetDataType('AppsUseLightTheme') = rdInteger) then
+          PlayerLightTheme := Registry.ReadInteger('AppsUseLightTheme') <> 0
+        else
+          PlayerLightTheme := ColorToRGB(clWindow) = clWhite;
+      finally
+        Registry.Free;
+      end;
+    end;
+  if not PlayerLightTheme then Exit;
+
+  DP_COLOR_BG := $00F5F3F1;
+  DP_COLOR_SURFACE := $00FCFAF8;
+  DP_COLOR_ELEVATED := $00FFFFFF;
+  DP_COLOR_HOVER := $00F9EDE1;
+  DP_COLOR_BORDER := $00D8D1C9;
+  DP_COLOR_SCROLL := $00857A70;
+  DP_COLOR_TEXT := $00261D16;
+  DP_COLOR_MUTED := $0062564C;
+  DP_COLOR_ACCENT := $00A06200;
+  DP_COLOR_ACCHOVER := $00945600;
+  DP_COLOR_ACCPRESS := $00854B00;
+  DP_COLOR_ACCSOFT := $00F9E7D5;
+  DP_COLOR_HEAD_A := DP_COLOR_BG;
+  DP_COLOR_HEAD_B := DP_COLOR_BG;
+  DeleteObject(GDarkSurfaceBrush);
+  DeleteObject(GDarkElevatedBrush);
+  GDarkSurfaceBrush := CreateSolidBrush(ColorToRGB(DP_COLOR_SURFACE));
+  GDarkElevatedBrush := CreateSolidBrush(ColorToRGB(DP_COLOR_ELEVATED));
+end;
+
 procedure InitializePlayerAppearance;
 begin
-  // Set DWM system hooks if desired
+  LoadPlayerPalette;
   TStyleManager.FormBorderStyle := fbsSystemStyle;
-  TStyleManager.SystemHooks := [shToolTips];
+  TStyleManager.SystemHooks := [];
+  Application.ShowHint := False;
+  if Application.FindComponent('PlayerHintTracker') = nil then
+    TPlayerHintTracker.Create(Application).Name := 'PlayerHintTracker';
   TStyleManager.AnimationOnControls := False;
   if Application.FindComponent('PlayerWheelRouter')=nil then
     TWheelRouter.Create(Application).Name := 'PlayerWheelRouter';

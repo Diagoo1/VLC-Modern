@@ -24,6 +24,8 @@ type
     tabGeneral: TTabSheet;
     grpStartup: TGroupBox;
     chkSingleInstance: TCheckBox;
+    lblTheme: TLabel;
+    cboTheme: TComboBox;
     chkRememberSize: TCheckBox;
     chkStartFullscreen: TCheckBox;
     chkBossKeyHide: TCheckBox;
@@ -186,7 +188,7 @@ begin
   Constraints.MinHeight := MulDiv(640, CurrentPPI, 96);
   ClientWidth := MulDiv(960, CurrentPPI, 96);
   ClientHeight := MulDiv(660, CurrentPPI, 96);
-  pnlLeft.Width := MulDiv(240, CurrentPPI, 96);
+  pnlLeft.Width := MulDiv(262, CurrentPPI, 96);
   FEnterFullscreen:=TCheckBox.Create(Self);
   FEnterFullscreen.Parent:=grpMouse;
   FEnterFullscreen.Caption:='Enter toggles fullscreen';
@@ -482,6 +484,7 @@ begin
   try
     // General
     if ((PageIndex<0) or (PageIndex=0)) and FPageLoaded[0] then begin
+    cboTheme.ItemIndex := EnsureRange(Ini.ReadInteger('Interface', 'Theme', 0), 0, 2);
     chkSingleInstance.Checked := Ini.ReadBool('General', 'SingleInstance', True);
     chkRememberSize.Checked := Ini.ReadBool('General', 'RememberSize', True);
     chkStartFullscreen.Checked := Ini.ReadBool('General', 'StartFullscreen', False);
@@ -573,6 +576,7 @@ begin
   try
     // General
     if FPageLoaded[0] then begin
+    Ini.WriteInteger('Interface', 'Theme', cboTheme.ItemIndex);
     Ini.WriteBool('General', 'SingleInstance', chkSingleInstance.Checked);
     Ini.WriteBool('General', 'RememberSize', chkRememberSize.Checked);
     Ini.WriteBool('General', 'StartFullscreen', chkStartFullscreen.Checked);
@@ -684,6 +688,7 @@ procedure TFrmPreferences.btnResetClick(Sender: TObject);
 begin
   for var I:=1 to 9 do EnsurePage(I);
   FEnterFullscreen.Checked:=True;
+  cboTheme.ItemIndex := 0;
   chkSingleInstance.Checked := True;
   chkRememberSize.Checked := True;
   chkStartFullscreen.Checked := False;

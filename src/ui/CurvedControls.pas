@@ -38,22 +38,22 @@ type
     ikSettings
   );
 
-  // Helper color constants matching DriverPack-Modern "Classic Teal"
-const
-  DP_COLOR_BG       = $00181818; // #142735 (BGR)
-  DP_COLOR_SURFACE  = $00202020; // #1D3646
-  DP_COLOR_ELEVATED = $00292929; // #244457
-  DP_COLOR_HOVER    = $00343434; // #2F5268
-  DP_COLOR_BORDER   = $00383838; // #375263
-  DP_COLOR_SCROLL   = $00787878; // #638697
-  DP_COLOR_TEXT     = $00ECECEC; // #F3F9FB
-  DP_COLOR_MUTED    = $00ABABAB; // #B5C7D2
-  DP_COLOR_ACCENT   = $00FFCD60; // #00AFA5
-  DP_COLOR_ACCHOVER = $00FFDA85; // #00BDB1
-  DP_COLOR_ACCPRESS = $00D8A842; // #00857D
-  DP_COLOR_ACCSOFT  = $00383838; // #BDF7EF
-  DP_COLOR_HEAD_A   = $00181818; // #075078
-  DP_COLOR_HEAD_B   = $00181818; // #08605B
+var
+  DP_COLOR_BG: TColor = $00181818;
+  DP_COLOR_SURFACE: TColor = $00202020;
+  DP_COLOR_ELEVATED: TColor = $00292929;
+  DP_COLOR_HOVER: TColor = $00343434;
+  DP_COLOR_BORDER: TColor = $00383838;
+  DP_COLOR_SCROLL: TColor = $00787878;
+  DP_COLOR_TEXT: TColor = $00ECECEC;
+  DP_COLOR_MUTED: TColor = $00ABABAB;
+  DP_COLOR_ACCENT: TColor = $00FFCD60;
+  DP_COLOR_ACCHOVER: TColor = $00FFDA85;
+  DP_COLOR_ACCPRESS: TColor = $00D8A842;
+  DP_COLOR_ACCSOFT: TColor = $00383838;
+  DP_COLOR_HEAD_A: TColor = $00181818;
+  DP_COLOR_HEAD_B: TColor = $00181818;
+  PlayerLightTheme: Boolean = False;
 
 type
   // 1. Modern Vector Button with crisp GDI+ anti-aliased icon rendering
@@ -131,6 +131,7 @@ type
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    function DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean; override;
   public
     constructor Create(AOwner: TComponent); override;
   published
@@ -201,8 +202,8 @@ type
     property Align;
     property Anchors;
     property CornerRadius: Single read FCornerRadius write SetCornerRadius;
-    property BorderColor: TColor read FBorderColor write SetBorderColor default DP_COLOR_BORDER;
-    property CardColor: TColor read FCardColor write SetCardColor default DP_COLOR_SURFACE;
+    property BorderColor: TColor read FBorderColor write SetBorderColor default $00383838;
+    property CardColor: TColor read FCardColor write SetCardColor default $00202020;
     property FlushRight: Boolean read FFlushRight write SetFlushRight default False;
     property Visible;
     property OnMouseDown;
@@ -1086,6 +1087,25 @@ begin
   end;
 end;
 
+function TModernSeekBar.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean;
+var
+  Step, NewPos: Single;
+begin
+  Result := Enabled;
+  if not Result then Exit;
+  if FTotalTimeMs > 0 then
+    Step := 5000.0 / FTotalTimeMs
+  else
+    Step := 0.01;
+  if WheelDelta < 0 then Step := -Step;
+  NewPos := FPosition + Step;
+  if NewPos < 0.0 then NewPos := 0.0;
+  if NewPos > 1.0 then NewPos := 1.0;
+  SetPosition(NewPos);
+  if Assigned(FOnSeek) then FOnSeek(Self, FPosition);
+  Result := True;
+end;
+
 procedure TModernSeekBar.SetPosition(const Value: Single);
 var
   Clamped: Single;
@@ -1814,7 +1834,7 @@ begin
     @DwmSetWindowAttribute := GetProcAddress(DwmDll, 'DwmSetWindowAttribute');
     if Assigned(DwmSetWindowAttribute) then
     begin
-      DarkMode := True;
+      DarkMode := not PlayerLightTheme;
       DwmSetWindowAttribute(Wnd, 20, @DarkMode, SizeOf(DarkMode));
       DwmSetWindowAttribute(Wnd, 19, @DarkMode, SizeOf(DarkMode));
 
