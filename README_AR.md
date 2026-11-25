@@ -15,7 +15,7 @@
 
 - **Full** تشمل إضافات تشغيل LibVLC وFFmpeg للقص الدقيق على ويندوز 64 بت.
 - **Lite** تشمل المشغّل وملفات DLL الأساسية. ثبّت إضافات LibVLC لتشغيل الوسائط، واختر FFmpeg بشكل منفصل للقص الدقيق.
-- **YouTube** يستخدم Node.js المحمول المرفق في النسختين على ويندوز 64 بت، من غير تثبيت يدوي.
+- **YouTube** ممكن يحتاج Node.js متوافق ومتاح على PATH لبعض الفيديوهات. تشغيل الملفات المحلية يعمل من غيره.
 - **الإعدادات ← Playback Components** تفتح نافذة تثبيت المكوّنات ومزامنتها. أعد تشغيل المشغّل بعد تثبيت أو تحديث إضافات LibVLC.
 <p align="center"><a href="https://diagoo1.github.io/VLC-Modern/#download"><img alt="تحميل لويندوز" src="https://img.shields.io/badge/%D8%AA%D8%AD%D9%85%D9%8A%D9%84%20%D9%84%D9%88%D9%8A%D9%86%D8%AF%D9%88%D8%B2-1262A3?style=for-the-badge&amp;logo=windows&amp;logoColor=white"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img alt="الإبلاغ عن خطأ" src="https://img.shields.io/badge/%D8%A7%D9%84%D8%A5%D8%A8%D9%84%D8%A7%D8%BA%20%D8%B9%D9%86%20%D8%AE%D8%B7%D8%A3-243850?style=for-the-badge&amp;logo=github&amp;logoColor=white"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.2"><img alt="v1.0.2" src="https://img.shields.io/badge/v1.0.2-243850?style=for-the-badge&amp;logo=github&amp;logoColor=white"></a></p>
 
