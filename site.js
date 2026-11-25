@@ -1,19 +1,26 @@
-const language = document.querySelector("#language");
+const languageButtons = [...document.querySelectorAll("[data-language]")];
 function setLanguage(value) {
-  const arabic = value === "ar";
-  document.documentElement.lang = arabic ? "ar" : "en";
-  document.documentElement.dir = arabic ? "rtl" : "ltr";
-  language.textContent = arabic ? "English" : "العربية";
-  language.setAttribute("aria-label", arabic ? "Switch to English" : "التبديل إلى العربية");
+  const chosen = value === "ar" ? "ar" : "en";
+  document.documentElement.lang = chosen;
+  document.documentElement.dir = chosen === "ar" ? "rtl" : "ltr";
+  languageButtons.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.language === chosen)));
 }
 let preferred = new URLSearchParams(location.search).get("lang");
 try { preferred ||= localStorage.getItem("vlc-modern-language"); } catch {}
 setLanguage(preferred || (navigator.language.startsWith("ar") ? "ar" : "en"));
-language.addEventListener("click", () => {
-  const next = document.documentElement.lang === "ar" ? "en" : "ar";
-  setLanguage(next);
-  try { localStorage.setItem("vlc-modern-language", next); } catch {}
-});
+for (const button of languageButtons) {
+  button.addEventListener("click", () => {
+    setLanguage(button.dataset.language);
+    try { localStorage.setItem("vlc-modern-language", button.dataset.language); } catch {}
+  });
+}
+
+const topLink = document.querySelector(".to-top");
+function updateTopLink() {
+  topLink.hidden = window.scrollY < 320;
+}
+window.addEventListener("scroll", updateTopLink, {passive: true});
+updateTopLink();
 
 if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
   const observer = new IntersectionObserver((entries) => {
@@ -41,16 +48,25 @@ if (shots.length) {
   const title = document.createElement("div");
   const tools = document.createElement("div");
   tools.className = "slider-tools";
+  const dialog = document.createElement("dialog");
+  dialog.className = "image-viewer";
+  dialog.setAttribute("aria-label", "Screenshot slideshow / عرض الصور");
+  const viewerImage = document.createElement("img");
+  const viewerTitle = document.createElement("div");
+  viewerTitle.className = "viewer-title";
+  const viewerTools = document.createElement("div");
+  viewerTools.className = "slider-tools";
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
   let current = 0;
   let playing = !motion.matches;
   let visible = !("IntersectionObserver" in window);
   let timer;
 
-  function control(english, arabic, action) {
+  function control(icon, english, arabic, action) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "secondary";
+    button.className = "secondary icon-control";
+    button.dataset.icon = icon;
     for (const [lang, text] of [["en", english], ["ar", arabic]]) {
       const label = document.createElement("span");
       label.lang = lang;
@@ -63,23 +79,63 @@ if (shots.length) {
 
   function updatePlayback() {
     clearTimeout(timer);
-    playButton.setAttribute("aria-pressed", String(playing));
-    playButton.querySelector("[lang=en]").textContent = playing ? "Pause" : "Play";
-    playButton.querySelector("[lang=ar]").textContent = playing ? "إيقاف مؤقت" : "تشغيل";
-    if (playing && visible && !document.hidden) {
+    for (const button of [playButton, viewerPlay]) {
+      button.setAttribute("aria-pressed", String(playing));
+      button.dataset.icon = playing ? "pause" : "play";
+      button.querySelector("[lang=en]").textContent = playing ? "Pause" : "Play";
+      button.querySelector("[lang=ar]").textContent = playing ? "إيقاف مؤقت" : "تشغيل";
+    }
+    if (playing && (visible || dialog.open) && !document.hidden) {
       timer = setTimeout(() => showScreenshot(current + 1), 5200);
     }
   }
 
-  const playButton = control("Pause", "إيقاف مؤقت", () => {
+  const playButton = control("pause", "Pause", "إيقاف مؤقت", () => {
     playing = !playing;
     updatePlayback();
   });
   tools.append(
-    control("Previous", "السابق", () => showScreenshot(current - 1)),
+    control("previous", "Previous", "السابق", () => showScreenshot(current - 1)),
     playButton,
-    control("Next", "التالي", () => showScreenshot(current + 1))
+    control("next", "Next", "التالي", () => showScreenshot(current + 1))
   );
+  const viewerPlay = control("play", "Play", "تشغيل", () => {
+    playing = !playing;
+    updatePlayback();
+  });
+  const closeViewer = control("close", "Close", "إغلاق", () => dialog.close());
+  viewerTools.append(
+    control("previous", "Previous", "السابق", () => showScreenshot(current - 1)),
+    viewerPlay,
+    control("next", "Next", "التالي", () => showScreenshot(current + 1)),
+    closeViewer
+  );
+  dialog.append(viewerTitle, viewerImage, viewerTools);
+  document.body.append(dialog);
+  fullSize.addEventListener("click", (event) => {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    dialog.showModal();
+    closeViewer.focus();
+    updatePlayback();
+  });
+  dialog.addEventListener("click", event => {
+    if (event.target === dialog) {
+      const bounds = dialog.getBoundingClientRect();
+      if (event.clientX < bounds.left || event.clientX > bounds.right ||
+          event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
+    }
+  });
+  dialog.addEventListener("close", () => {
+    fullSize.focus({preventScroll: true});
+    updatePlayback();
+  });
+  dialog.addEventListener("keydown", event => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    const forward = event.key === (document.documentElement.dir === "rtl" ? "ArrowLeft" : "ArrowRight");
+    event.preventDefault();
+    showScreenshot(current + (forward ? 1 : -1));
+  });
   fullSize.append(screenshot);
   caption.append(title, tools);
   figure.append(caption, fullSize);
@@ -101,6 +157,9 @@ if (shots.length) {
     screenshot.src = original.src;
     screenshot.alt = original.alt;
     title.replaceChildren(...[...shot.querySelectorAll("span")].map(label => label.cloneNode(true)));
+    viewerImage.src = original.src;
+    viewerImage.alt = original.alt;
+    viewerTitle.replaceChildren(...[...shot.querySelectorAll("span")].map(label => label.cloneNode(true)));
     buttons.forEach((button, position) => button.setAttribute("aria-pressed", String(position === current)));
     figure.getAnimations().forEach(animation => animation.cancel());
     if (!motion.matches) figure.animate(

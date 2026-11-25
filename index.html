@@ -6,11 +6,14 @@
 <title>VLC Modern — Windows Media Player</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&amp;display=swap"><link rel="icon" href="assets/icon.png"><link rel="stylesheet" href="style.css"><script src="site.js" defer></script>
 </head>
-<body>
+<body id="top">
 <header class="wrap header">
 <a class="brand" href="#"><img src="assets/icon.png" alt="" width="34" height="34"> VLC Modern</a>
 <nav aria-label="Main navigation"><a href="#features"><span lang="en">Features</span><span lang="ar">المزايا</span></a><a href="#gallery"><span lang="en">Screenshots</span><span lang="ar">الصور</span></a><a href="#download"><span lang="en">Download</span><span lang="ar">التحميل</span></a></nav>
-<button id="language" type="button" class="secondary" aria-label="Change language">العربية</button>
+<div id="language" class="language-switch" role="group" aria-label="Language / اللغة" dir="ltr">
+  <button type="button" data-language="en" aria-label="English" aria-pressed="true">EN</button>
+  <button type="button" data-language="ar" aria-label="العربية" aria-pressed="false">AR</button>
+</div>
 </header>
 <main class="wrap">
 <section class="hero">
@@ -52,4 +55,5 @@
 </section>
 </main>
 <footer class="wrap footer"><div class="footer-links"><a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><span lang="en">Report a bug</span><span lang="ar">الإبلاغ عن مشكلة</span></a><a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0"><span lang="en">Release notes</span><span lang="ar">ملاحظات الإصدار</span></a></div><div class="designer"><span lang="en">Designed with</span><span lang="ar">صُمّم بحب</span><span class="heart" aria-hidden="true">♥</span><span lang="en">by</span><a href="https://github.com/Diagoo1"><span lang="en">Tarek Sadek</span><span lang="ar">طارق صادق</span></a></div></footer>
+<a class="to-top" href="#top" aria-label="Back to top / الرجوع للأعلى" hidden><span aria-hidden="true">↑</span></a>
 </body></html>
