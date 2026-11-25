@@ -37,7 +37,14 @@
 
 ### Light Mode
 
-![VLC Modern Light Mode Soon](docs/screenshots/player.png)
+![VLC Modern playing Cartoon Sky in Light Mode](docs/screenshots/light-player.png)
+
+**Main player.** Light Mode applies to the title bar, menus, and playback controls while the video keeps its original colors.
+
+| Settings | Equalizer |
+| --- | --- |
+| [![General settings in Light Mode](docs/screenshots/light-preferences.png)](docs/screenshots/light-preferences.png) | [![Audio equalizer in Light Mode](docs/screenshots/light-equalizer.png)](docs/screenshots/light-equalizer.png) |
+| Theme selector and playback components. | Presets, preamp, and per-band gain. |
 
 Choose **Light**, **Dark**, or **Follow system** under **Settings → General → Theme**. The default is **Follow system**. Theme changes apply when the player restarts.
 

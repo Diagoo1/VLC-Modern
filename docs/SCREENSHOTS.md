@@ -24,9 +24,17 @@ The playback screenshots show *Cartoon Sky*, a demo clip made from original AI-g
 
 ### Light Mode
 
-![VLC Modern Preferences in Light Mode](screenshots/light-mode.jpg)
+![VLC Modern playing Cartoon Sky in Light Mode](screenshots/light-player.png)
 
-**Light Mode.** The General page shows the Theme selector. Follow system is the default, and theme changes apply when the player restarts.
+**Main player.** Light title bar, menus, and playback controls around the original video.
+
+![VLC Modern General settings in Light Mode](screenshots/light-preferences.png)
+
+**Settings.** The General page shows the theme selector and the sidebar provides access to playback components.
+
+![VLC Modern equalizer in Light Mode](screenshots/light-equalizer.png)
+
+**Equalizer.** The light layout keeps the preset, preamp, and per-band gain controls visible.
 
 ## Audio and video effects
 
