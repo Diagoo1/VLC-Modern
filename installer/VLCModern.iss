@@ -23,8 +23,8 @@
 [Setup]
 AppId={#InstallId}
 AppName={#RegisteredName}
-AppVersion=1.0.1
-AppVerName={#RegisteredName} 1.0.1 ({#Edition})
+AppVersion=1.0.2
+AppVerName={#RegisteredName} 1.0.2 ({#Edition})
 AppPublisher=Tarek Sadek
 AppPublisherURL=https://diagoo1.github.io/VLC-Modern/
 AppSupportURL=https://github.com/Diagoo1/VLC-Modern/issues
@@ -40,7 +40,7 @@ ChangesAssociations=yes
 SetupIconFile=..\res\app_icon.ico
 UninstallDisplayIcon={app}\VLCModern.exe
 OutputDir={#OutputPath}
-OutputBaseFilename=VLC-Modern-v1.0.1-Setup-{#Edition}-Windows
+OutputBaseFilename=VLC-Modern-v1.0.2-Setup-{#Edition}-Windows
 WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes
@@ -66,7 +66,6 @@ Source: "{#Payload}\libvlc.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\libvlccore.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\VideoLAN-COPYING.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#Payload}\tools\node\*"; DestDir: "{app}\tools\node"; Flags: ignoreversion recursesubdirs createallsubdirs
 #if Edition == "Full"
 Source: "{#Payload}\plugins\*"; DestDir: "{app}\plugins"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#Payload}\tools\ffmpeg.exe"; DestDir: "{app}\tools"; Flags: ignoreversion
@@ -144,6 +143,11 @@ Root: HKLM; Subkey: "Software\Classes\.pls\OpenWithProgids"; ValueType: string; 
 Filename: "{app}\VLCModern.exe"; WorkingDir: "{app}"; Description: "Launch VLC Modern"; Flags: nowait postinstall skipifsilent runasoriginaluser
 Filename: "ms-settings:defaultapps?registeredAppMachine=VLC%20Modern"; Description: "Open Windows Default Apps to choose file associations"; Flags: shellexec nowait postinstall skipifsilent runasoriginaluser unchecked
 
+[InstallDelete]
+Type: files; Name: "{app}\tools\node\node.exe"
+Type: files; Name: "{app}\tools\node\LICENSE"
+Type: dirifempty; Name: "{app}\tools\node"
+
 [UninstallDelete]
 Type: files; Name: "{app}\VLCModern.installed.ini"
 ; Lite can create these runtime folders after installation.
@@ -163,7 +167,7 @@ const
   #endif
   ReleaseURL = 'http://127.0.0.1:9/';
 #else
-  ReleaseURL = 'https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/';
+  ReleaseURL = 'https://github.com/Diagoo1/VLC-Modern/releases/download/components-v1/';
 #endif
   PluginsArchive = 'VLC-Modern-LibVLC3-971959D4-x86-Plugins.zip';
   PluginsSHA = '452c93c5f119bb4e81cffc2b497d49cb30cac712917cae08bef6f3f90c03d3a3';

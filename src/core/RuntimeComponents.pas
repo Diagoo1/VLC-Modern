@@ -16,8 +16,8 @@ uses System.Classes, System.SysUtils, System.IOUtils, System.Zip, System.JSON,
   Vcl.Controls, Vcl.StdCtrls, Vcl.ComCtrls, CurvedControls, PlayerDialogs, LibVLC, PlayerPaths;
 
 const
-  ReleaseAPI = 'https://api.github.com/repos/Diagoo1/VLC-Modern/releases/tags/v0.1.0';
-  DownloadBase = 'https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/';
+  ReleaseAPI = 'https://api.github.com/repos/Diagoo1/VLC-Modern/releases/tags/components-v1';
+  DownloadBase = 'https://github.com/Diagoo1/VLC-Modern/releases/download/components-v1/';
   PluginsAsset = 'VLC-Modern-LibVLC3-971959D4-x86-Plugins.zip';
   EncoderAsset = 'VLC-Modern-FFmpeg-Windows-x64.zip';
 
@@ -285,7 +285,7 @@ begin
   AddLabel('Select components to install or synchronize from VLC Modern on GitHub.', 24, 22);
   Plugins := AddChoice('LibVLC playback plugins',
     'Adds the complete LibVLC playback and streaming plugin set.',
-    62, not PlaybackPluginsInstalled);
+    62, not HasPlaybackPlugins(ComponentPath('plugins')));
   Encoder := AddChoice('FFmpeg (64-bit Windows)',
     'Enables precise MP4 clipping with frame-accurate start positions.',
     151, False);
