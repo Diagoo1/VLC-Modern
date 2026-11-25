@@ -6,7 +6,7 @@ uses SettingsStore,
   Winapi.Windows, Winapi.Messages, Winapi.UxTheme, System.SysUtils, System.Classes, System.Types, System.Math,
   System.UITypes, System.Generics.Collections, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Menus, Vcl.Themes, Vcl.FileCtrl,
-  Winapi.ShellAPI, Winapi.ActiveX, Winapi.GDIPAPI, Winapi.GDIPOBJ, LibVLC, Lut3D, D3D11ShaderRenderer, CurvedControls, TaskbarManager, SeekPreview, PlayerSettings, PlayerFlyout, AudioMeter, MediaImport, OpenSubtitlesDownloader, PlaybackResumeStore, WebRemoteServer, YtDlpResolver;
+  Winapi.ShellAPI, Winapi.ActiveX, Winapi.GDIPAPI, Winapi.GDIPOBJ, LibVLC, Lut3D, D3D11ShaderRenderer, CurvedControls, TaskbarManager, SeekPreview, PlayerSettings, PlayerFlyout, AudioMeter, MediaImport, OpenSubtitlesDownloader, PlaybackResumeStore, WebRemoteServer, YtDlpResolver, VideoSaveProgress;
 
 const
   WM_USER_VIDEO_RIGHTCLICK = WM_USER + 101;
@@ -512,7 +512,8 @@ type
     FPlatformCacheFiles: TStringList;
     FPlatformRequest: Cardinal;
     FOnlineVideoURL, FOnlineVideoAgent, FOnlineVideoTitle: string;
-    FOnlineVideoSaving: Boolean;
+    FOnlineVideoSaveProgress: TVideoSaveProgress;
+    FCloseAfterOnlineSave: Boolean;
     FPlaylistOptions: TObjectDictionary<string, TStringList>;
     FCurrentPlaylistIndex: Integer;
     FUpdatingTrackBar: Boolean;
@@ -2830,6 +2831,13 @@ end;
 
 procedure TFrmMain.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
+  if Assigned(FOnlineVideoSaveProgress) then
+  begin
+    CanClose := False;
+    FCloseAfterOnlineSave := True;
+    FOnlineVideoSaveProgress.RequestCancel;
+    Exit;
+  end;
   if FClosing then
   begin
     CanClose := True;
@@ -5221,7 +5229,7 @@ end;
 
 procedure TFrmMain.SaveOnlineVideoClick(Sender: TObject);
 begin
-  if FOnlineVideoSaving then
+  if Assigned(FOnlineVideoSaveProgress) then
   begin
     ShowOSD('A YouTube video is already being saved.');
     Exit;
@@ -5252,16 +5260,32 @@ begin
       ShowOSD('Choose a filename that does not already exist.');
       Exit;
     end;
-    FOnlineVideoSaving := True;
-    ShowOSD('Saving YouTube video in the background...');
-    SaveOnlineMP4Async(URL, Agent, Destination,
-      procedure(const ErrorMessage: string)
-      begin
-        if GAppClosing then Exit;
-        FOnlineVideoSaving := False;
-        if ErrorMessage = '' then ShowOSD('Saved: ' + ExtractFileName(Destination))
-        else PlayerMessage('Could not save the YouTube video.' + sLineBreak + ErrorMessage);
-      end);
+    FOnlineVideoSaveProgress := TVideoSaveProgress.Create(Self);
+    try
+      FOnlineVideoSaveProgress.Task := SaveOnlineMP4Async(URL, Agent, Destination,
+        procedure(Percent, RemainingSeconds: Integer)
+        begin
+          if not GAppClosing and Assigned(FOnlineVideoSaveProgress) then
+            FOnlineVideoSaveProgress.UpdateProgress(Percent, RemainingSeconds);
+        end,
+        procedure(const ErrorMessage: string; Cancelled: Boolean)
+        begin
+          if GAppClosing then Exit;
+          FreeAndNil(FOnlineVideoSaveProgress);
+          if FCloseAfterOnlineSave then
+          begin
+            Close;
+            Exit;
+          end;
+          if Cancelled then ShowOSD('Video save cancelled.')
+          else if ErrorMessage = '' then ShowOSD('Saved: ' + ExtractFileName(Destination))
+          else PlayerMessage('Could not save the YouTube video.' + sLineBreak + ErrorMessage);
+        end);
+      FOnlineVideoSaveProgress.Show;
+    except
+      FreeAndNil(FOnlineVideoSaveProgress);
+      raise;
+    end;
   finally
     Dialog.Free;
   end;

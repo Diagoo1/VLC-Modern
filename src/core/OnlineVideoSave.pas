@@ -3,15 +3,79 @@ unit OnlineVideoSave;
 interface
 
 type
-  TOnlineVideoSaveResult = reference to procedure(const ErrorMessage: string);
+  IOnlineVideoSave = interface
+    procedure Cancel;
+  end;
+  TOnlineVideoSaveProgress = reference to procedure(Percent, RemainingSeconds: Integer);
+  TOnlineVideoSaveResult = reference to procedure(const ErrorMessage: string; Cancelled: Boolean);
 
-procedure SaveOnlineMP4Async(const URL, UserAgent, Destination: string;
-  const OnComplete: TOnlineVideoSaveResult);
+function SaveOnlineMP4Async(const URL, UserAgent, Destination: string;
+  const OnProgress: TOnlineVideoSaveProgress;
+  const OnComplete: TOnlineVideoSaveResult): IOnlineVideoSave;
 
 implementation
 
 uses
-  Winapi.Windows, System.SysUtils, System.Classes, System.Net.HttpClient;
+  Winapi.Windows, System.SysUtils, System.Classes, System.Net.HttpClient, System.SyncObjs,
+  System.Math;
+
+type
+  TOnlineVideoSave = class(TInterfacedObject, IOnlineVideoSave)
+  private
+    FState: Integer;
+    FStarted, FLastProgress: UInt64;
+    FOnProgress: TOnlineVideoSaveProgress;
+    function IsCancelled: Boolean;
+    procedure Receive(const Sender: TObject; TotalBytes, ReadBytes: Int64; var Abort: Boolean);
+    procedure PublishProgress(Percent, RemainingSeconds: Integer);
+  public
+    procedure Cancel;
+  end;
+
+procedure TOnlineVideoSave.Cancel;
+begin
+  TInterlocked.CompareExchange(FState, 1, 0);
+end;
+
+function TOnlineVideoSave.IsCancelled: Boolean;
+begin
+  Result := TInterlocked.CompareExchange(FState, 0, 0) = 1;
+end;
+
+procedure TOnlineVideoSave.PublishProgress(Percent, RemainingSeconds: Integer);
+begin
+  if Assigned(FOnProgress) then
+    TThread.Queue(nil, TThreadProcedure(
+      procedure begin FOnProgress(Percent, RemainingSeconds); end));
+end;
+
+procedure TOnlineVideoSave.Receive(const Sender: TObject; TotalBytes, ReadBytes: Int64;
+  var Abort: Boolean);
+var
+  NowTick: UInt64;
+  Percent, ETA: Integer;
+begin
+  Abort := Abort or IsCancelled;
+  if Abort then Exit;
+  NowTick := GetTickCount64;
+  if ReadBytes = 0 then
+  begin
+    FStarted := NowTick;
+    Exit;
+  end;
+  if (NowTick - FLastProgress < 200) and (ReadBytes <> TotalBytes) then Exit;
+  FLastProgress := NowTick;
+  Percent := -1;
+  ETA := -1;
+  if TotalBytes > 0 then
+  begin
+    Percent := EnsureRange(Trunc(100.0 * ReadBytes / TotalBytes), 0, 99);
+    if (NowTick - FStarted >= 500) and (ReadBytes < TotalBytes) then
+      ETA := Ceil(Min(359999.0, (TotalBytes - ReadBytes) / ReadBytes *
+        (NowTick - FStarted) / 1000.0));
+  end;
+  PublishProgress(Percent, ETA);
+end;
 
 function ReadBigEndian(Stream: TStream; Count: Integer): UInt64;
 var
@@ -54,53 +118,71 @@ begin
     raise Exception.Create('The downloaded file is not a complete MP4.');
 end;
 
-procedure SaveOnlineMP4Async(const URL, UserAgent, Destination: string;
-  const OnComplete: TOnlineVideoSaveResult);
+function SaveOnlineMP4Async(const URL, UserAgent, Destination: string;
+  const OnProgress: TOnlineVideoSaveProgress;
+  const OnComplete: TOnlineVideoSaveResult): IOnlineVideoSave;
+var
+  Task: TOnlineVideoSave;
+  KeepAlive: IOnlineVideoSave;
 begin
+  Task := TOnlineVideoSave.Create;
+  KeepAlive := Task;
+  Result := KeepAlive;
+  Task.FOnProgress := OnProgress;
   TThread.CreateAnonymousThread(
     procedure
     var
       TempName, ErrorMessage: string;
       Client: THTTPClient;
       Output: TFileStream;
+      Cancelled: Boolean;
     begin
       TempName := Destination + '.' + TGUID.NewGuid.ToString + '.part';
       try
+        if Task.IsCancelled then Abort;
+        if FileExists(Destination) then
+          raise Exception.Create('A file with that name already exists. Choose a new name.');
+        Client := THTTPClient.Create;
         try
-          if FileExists(Destination) then
-            raise Exception.Create('A file with that name already exists. Choose a new name.');
-          Client := THTTPClient.Create;
+          Client.ConnectionTimeout := 10000;
+          Client.ResponseTimeout := 30000;
+          if UserAgent <> '' then Client.UserAgent := UserAgent;
+          Task.FStarted := GetTickCount64;
+          Client.OnReceiveData := Task.Receive;
+          Output := TFileStream.Create(TempName, fmCreate or fmShareExclusive);
           try
-            Client.ConnectionTimeout := 10000;
-            Client.ResponseTimeout := 30000;
-            if UserAgent <> '' then Client.UserAgent := UserAgent;
-            Output := TFileStream.Create(TempName, fmCreate or fmShareExclusive);
-            try
-              var Response := Client.Get(URL, Output);
-              if (Response.StatusCode <> 200) or (Response.ContentLength <= 0) or
-                 (Response.ContentLength <> Output.Size) then
-                raise Exception.Create('The server did not return the complete video. Reopen the video and try again.');
-              VerifyMP4(Output);
-            finally
-              Output.Free;
-            end;
+            var Response := Client.Get(URL, Output);
+            if Task.IsCancelled then Abort;
+            if (Response.StatusCode <> 200) or (Response.ContentLength <= 0) or
+               (Response.ContentLength <> Output.Size) then
+              raise Exception.Create('The server did not return the complete video. Reopen the video and try again.');
+            Task.PublishProgress(100, 0);
+            VerifyMP4(Output);
           finally
-            Client.Free;
+            Output.Free;
           end;
-          if not MoveFileEx(PChar(TempName), PChar(Destination), MOVEFILE_WRITE_THROUGH) then
-            RaiseLastOSError;
-        except
-          on E: Exception do ErrorMessage := E.Message;
+        finally
+          Client.Free;
         end;
-      finally
-        if FileExists(TempName) then DeleteFile(TempName);
+        // Claim the final rename only if cancellation did not win.
+        if TInterlocked.CompareExchange(Task.FState, 2, 0) <> 0 then Abort;
+        if not MoveFileEx(PChar(TempName), PChar(Destination), MOVEFILE_WRITE_THROUGH) then
+          RaiseLastOSError;
+      except
+        on E: Exception do ErrorMessage := E.Message;
       end;
-      if Assigned(OnComplete) then
-        TThread.Queue(nil, TThreadProcedure(
-          procedure
-          begin
-            OnComplete(ErrorMessage);
-          end));
+      Cancelled := Task.IsCancelled;
+      if FileExists(TempName) and not System.SysUtils.DeleteFile(TempName) then
+      begin
+        ErrorMessage := 'Could not remove the temporary file: ' + TempName;
+        Cancelled := False;
+      end;
+      TThread.Queue(nil, TThreadProcedure(
+        procedure
+        begin
+          if KeepAlive <> nil then
+            if Assigned(OnComplete) then OnComplete(ErrorMessage, Cancelled);
+        end));
     end).Start;
 end;
 

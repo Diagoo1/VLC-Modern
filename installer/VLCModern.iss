@@ -23,8 +23,8 @@
 [Setup]
 AppId={#InstallId}
 AppName={#RegisteredName}
-AppVersion=1.0.6
-AppVerName={#RegisteredName} 1.0.6 ({#Edition})
+AppVersion=1.0.7
+AppVerName={#RegisteredName} 1.0.7 ({#Edition})
 AppPublisher=Tarek Sadek
 AppPublisherURL=https://diagoo1.github.io/VLC-Modern/
 AppSupportURL=https://github.com/Diagoo1/VLC-Modern/issues
@@ -40,7 +40,7 @@ ChangesAssociations=yes
 SetupIconFile=..\res\app_icon.ico
 UninstallDisplayIcon={app}\VLCModern.exe
 OutputDir={#OutputPath}
-OutputBaseFilename=VLC-Modern-v1.0.6-Setup-{#Edition}-Windows
+OutputBaseFilename=VLC-Modern-v1.0.7-Setup-{#Edition}-Windows
 WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes
