@@ -10,10 +10,13 @@
 <header class="wrap header">
 <a class="brand" href="#"><img src="assets/icon.png" alt="" width="34" height="34"> VLC Modern</a>
 <nav aria-label="Main navigation"><a href="#features"><span lang="en">Features</span><span lang="ar">المزايا</span></a><a href="#gallery"><span lang="en">Screenshots</span><span lang="ar">الصور</span></a><a href="#download"><span lang="en">Download</span><span lang="ar">التحميل</span></a></nav>
-<div id="language" class="language-switch" role="group" aria-label="Language / اللغة" dir="ltr">
-  <button type="button" data-language="en" aria-label="English" aria-pressed="true">EN</button>
-  <button type="button" data-language="ar" aria-label="العربية" aria-pressed="false">AR</button>
-</div>
+<details id="language" class="language-menu">
+  <summary aria-label="Language / اللغة"><span class="language-icon" aria-hidden="true"></span></summary>
+  <div class="language-options">
+    <button type="button" data-language="en" aria-pressed="true">English</button>
+    <button type="button" data-language="ar" aria-pressed="false">العربية</button>
+  </div>
+</details>
 </header>
 <main class="wrap">
 <section class="hero">

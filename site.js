@@ -1,3 +1,4 @@
+const languageMenu = document.querySelector(".language-menu");
 const languageButtons = [...document.querySelectorAll("[data-language]")];
 function setLanguage(value) {
   const chosen = value === "ar" ? "ar" : "en";
@@ -11,9 +12,26 @@ setLanguage(preferred || (navigator.language.startsWith("ar") ? "ar" : "en"));
 for (const button of languageButtons) {
   button.addEventListener("click", () => {
     setLanguage(button.dataset.language);
+    languageMenu.open = false;
+    languageMenu.querySelector("summary").focus();
+    const url = new URL(location.href);
+    if (url.searchParams.has("lang")) {
+      url.searchParams.set("lang", button.dataset.language);
+      history.replaceState(null, "", url);
+    }
     try { localStorage.setItem("vlc-modern-language", button.dataset.language); } catch {}
   });
 }
+
+document.addEventListener("click", event => {
+  if (languageMenu.open && !languageMenu.contains(event.target)) languageMenu.open = false;
+});
+languageMenu.addEventListener("keydown", event => {
+  if (event.key === "Escape" && languageMenu.open) {
+    languageMenu.open = false;
+    languageMenu.querySelector("summary").focus();
+  }
+});
 
 const topLink = document.querySelector(".to-top");
 function updateTopLink() {
@@ -137,12 +155,12 @@ if (shots.length) {
     showScreenshot(current + (forward ? 1 : -1));
   });
   fullSize.append(screenshot);
-  caption.append(title, tools);
-  figure.append(caption, fullSize);
+  caption.append(title, tools, controls);
+  figure.append(fullSize, caption);
   const buttons = shots.map((shot, index) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "secondary";
+    button.className = "slide-dot";
     for (const label of shot.querySelectorAll("span")) button.append(label.cloneNode(true));
     button.addEventListener("click", () => showScreenshot(index));
     controls.append(button);
@@ -170,7 +188,7 @@ if (shots.length) {
   }
 
   gallery.classList.add("is-interactive");
-  gallery.replaceChildren(controls, figure);
+  gallery.replaceChildren(figure);
   if ("IntersectionObserver" in window) {
     new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
