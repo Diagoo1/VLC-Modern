@@ -204,18 +204,36 @@ if (shots.length) {
   showScreenshot(0);
 }
 const navLinks = [...document.querySelectorAll(".header nav a")];
-if ("IntersectionObserver" in window) {
-  const sections = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      for (const link of navLinks) {
-        if (link.hash === "#" + entry.target.id) link.setAttribute("aria-current", "location");
-        else link.removeAttribute("aria-current");
-      }
-    }
-  }, { rootMargin: "-25% 0px -55%" });
-  for (const link of navLinks) {
-    const target = document.querySelector(link.hash);
-    if (target) sections.observe(target);
+const navSections = navLinks.map(link => document.querySelector(link.hash));
+
+function updateCurrentSection() {
+  let active = -1;
+  for (const [index, section] of navSections.entries()) {
+    if (!section) continue;
+    const offset = parseFloat(getComputedStyle(section).scrollMarginTop) || 0;
+    if (section.getBoundingClientRect().top <= offset + 2) active = index;
   }
+  const page = document.documentElement;
+  if (window.scrollY > 0 && window.scrollY + window.innerHeight >= page.scrollHeight - 2) {
+    active = navSections.length - 1;
+  }
+  navLinks.forEach((link, index) => {
+    if (index === active) link.setAttribute("aria-current", "location");
+    else link.removeAttribute("aria-current");
+  });
 }
+
+let sectionFrame = 0;
+function scheduleSectionUpdate() {
+  if (sectionFrame) return;
+  sectionFrame = requestAnimationFrame(() => {
+    sectionFrame = 0;
+    updateCurrentSection();
+  });
+}
+
+window.addEventListener("scroll", scheduleSectionUpdate, {passive: true});
+window.addEventListener("resize", scheduleSectionUpdate);
+window.addEventListener("hashchange", scheduleSectionUpdate);
+window.addEventListener("load", scheduleSectionUpdate);
+scheduleSectionUpdate();
