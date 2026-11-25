@@ -13,6 +13,7 @@
 
 - **Full** includes the LibVLC playback plugins and FFmpeg. Precise MP4 clipping uses the bundled encoder on 64-bit Windows.
 - **Lite** includes the player and its core DLLs. Install the LibVLC plugins to enable playback and select FFmpeg separately for precise clipping.
+- **YouTube** uses the portable Node.js runtime included in both editions on 64-bit Windows.
 - **Settings → Playback Components** reopens the component installer and synchronizes selected packages. Restart the player after installing or updating the LibVLC plugins.
 <p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-Full-Windows.zip">Download for Windows</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">Report a bug</a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0">v0.1.0 Beta</a></p>
 
