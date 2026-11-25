@@ -35,7 +35,7 @@ begin
   FStatus := TLabel.Create(Self);
   FStatus.Parent := Self;
   FStatus.SetBounds(24, 24, 392, 24);
-  FStatus.Caption := 'Connecting…';
+  FStatus.Caption := 'Connecting...';
 
   FBar := TProgressBar.Create(Self);
   FBar.Parent := Self;
@@ -58,24 +58,24 @@ begin
   if not FCancel.Enabled then Exit;
   if Percent < 0 then
   begin
-    FStatus.Caption := 'Downloading…';
+    FStatus.Caption := 'Downloading...';
     Exit;
   end;
   FBar.Position := Percent;
   if Percent = 100 then
-    FStatus.Caption := '100% · Verifying MP4…'
+    FStatus.Caption := '100% | Verifying MP4...'
   else
   begin
-    if RemainingSeconds < 0 then Estimate := 'Estimating time remaining…'
+    if RemainingSeconds < 0 then Estimate := 'Estimating time remaining...'
     else Estimate := Format('~%d:%.2d remaining', [RemainingSeconds div 60, RemainingSeconds mod 60]);
-    FStatus.Caption := IntToStr(Percent) + '% · ' + Estimate;
+    FStatus.Caption := IntToStr(Percent) + '% | ' + Estimate;
   end;
 end;
 
 procedure TVideoSaveProgress.RequestCancel;
 begin
   if Task <> nil then Task.Cancel;
-  FStatus.Caption := 'Cancelling…';
+  FStatus.Caption := 'Cancelling...';
   FCancel.Enabled := False;
 end;
 
