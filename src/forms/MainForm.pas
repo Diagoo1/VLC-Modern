@@ -1,4 +1,4 @@
-unit MainForm;
+﻿unit MainForm;
 
 interface
 
@@ -563,6 +563,8 @@ type
     btnTitleClose: TModernVectorButton;
 
     cardBottomDock: TModernCardPanel;
+    FDockDragging: Boolean;
+    FDockDragStart, FDockWindowStart: TPoint;
     modernSeekBar: TModernSeekBar;
     modernVolumeSlider: TModernVolumeSlider;
     lblTimeDisplay: TLabel;
@@ -732,6 +734,8 @@ type
     procedure WMNCCalcSize(var Msg: TWMNCCalcSize); message WM_NCCALCSIZE;
     procedure WMNCHitTest(var Msg: TWMNCHitTest); message WM_NCHITTEST;
     procedure OnDockMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+    procedure OnDockMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure OnDockMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure FormResize(Sender: TObject);
     procedure PlayerActivated(Sender: TObject);
     procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES;
@@ -1247,8 +1251,14 @@ begin
     cardBottomDock.CardColor := DP_COLOR_SURFACE;
     cardBottomDock.BorderColor := DP_COLOR_BORDER;
     cardBottomDock.OnMouseDown := OnDockMouseDown;
+    cardBottomDock.OnMouseMove := OnDockMouseMove;
+    cardBottomDock.OnMouseUp := OnDockMouseUp;
     pnlBottom.OnMouseDown := OnDockMouseDown;
+    pnlBottom.OnMouseMove := OnDockMouseMove;
+    pnlBottom.OnMouseUp := OnDockMouseUp;
     pnlMenuBar.OnMouseDown := OnDockMouseDown;
+    pnlMenuBar.OnMouseMove := OnDockMouseMove;
+    pnlMenuBar.OnMouseUp := OnDockMouseUp;
 
     // Modern Glowing Seek Bar
     modernSeekBar := TModernSeekBar.Create(Self);
@@ -1347,6 +1357,8 @@ begin
     lblVolPctDisplay := TLabel.Create(Self);
     lblVolPctDisplay.Parent := cardBottomDock;
     lblVolPctDisplay.OnMouseDown := OnDockMouseDown;
+    lblVolPctDisplay.OnMouseMove := OnDockMouseMove;
+    lblVolPctDisplay.OnMouseUp := OnDockMouseUp;
     lblVolPctDisplay.AutoSize := True;
     lblVolPctDisplay.Font.Name := 'Segoe UI';
     lblVolPctDisplay.Font.Size := 9;
@@ -1848,9 +1860,36 @@ begin
   if Assigned(FSeekDecoder) then FSeekDecoder.Suspend;
 end;
 
+type
+  TAudioDragCard = class(TModernCardPanel)
+  protected
+    procedure WndProc(var Message: TMessage); override;
+  end;
+
+procedure TAudioDragCard.WndProc(var Message: TMessage);
+var
+  Player: TCustomForm;
+  Cursor: TPoint;
+begin
+  if Message.Msg = WM_LBUTTONDOWN then
+  begin
+    Player := GetParentForm(Self);
+    if (Player is TFrmMain) and not TFrmMain(Player).FIsFullscreen and
+       (Player.WindowState = wsNormal) and GetCursorPos(Cursor) then
+    begin
+      ReleaseCapture;
+      SendMessage(Player.Handle, WM_NCLBUTTONDOWN, HTCAPTION,
+        MakeLParam(Word(Cursor.X), Word(Cursor.Y)));
+      Message.Result := 0;
+      Exit;
+    end;
+  end;
+  inherited;
+end;
+
 procedure TFrmMain.InitAudioModeUI;
 begin
-  cardAudioMode := TModernCardPanel.Create(Self);
+  cardAudioMode := TAudioDragCard.Create(Self);
   cardAudioMode.Name:='AudioModeCard';
   cardAudioMode.Parent := pnlVideoContainer;
   cardAudioMode.Width := 520;
@@ -1861,7 +1900,7 @@ begin
   cardAudioMode.Visible := False;
 
   // Center Album Artwork Frame
-  cardAlbumArt := TModernCardPanel.Create(cardAudioMode);
+  cardAlbumArt := TAudioDragCard.Create(cardAudioMode);
   cardAlbumArt.Parent := cardAudioMode;
   cardAlbumArt.Left := (cardAudioMode.Width - 170) div 2;
   cardAlbumArt.Top := 22;
@@ -1878,7 +1917,7 @@ begin
   imgAlbumArt.Center := True;
 
   // Title Label - with WordWrap and multi-line support
-  lblAudioTitle := TLabel.Create(cardAudioMode);
+  lblAudioTitle := TOverflowHintLabel.Create(cardAudioMode);
   lblAudioTitle.Parent := cardAudioMode;
   lblAudioTitle.Left := 20;
   lblAudioTitle.Top := 204;
@@ -2187,12 +2226,9 @@ begin
   pnlVideo.BringToFront;
 
   if (WindowState = wsNormal) and not FIsFullscreen and (FOldVideoWidth > 0) then
-  begin
-    Width := FOldVideoWidth;
-    Height := FOldVideoHeight;
-    FOldVideoWidth := 0;
-    FOldVideoHeight := 0;
-  end;
+    SetBounds(Left, Top, FOldVideoWidth, FOldVideoHeight);
+  FOldVideoWidth := 0;
+  FOldVideoHeight := 0;
 
   RepositionModernControls;
 end;
@@ -2882,6 +2918,11 @@ begin
         SavedBounds := FOldBounds;
         Maximized := FOldWindowState = wsMaximized;
       end;
+      if FIsAudioOnly and (FOldVideoWidth > 0) and (FOldVideoHeight > 0) then
+      begin
+        SavedBounds.Right := SavedBounds.Left + FOldVideoWidth;
+        SavedBounds.Bottom := SavedBounds.Top + FOldVideoHeight;
+      end;
       WindowStore.WriteInteger('Window', 'Left', SavedBounds.Left);
       WindowStore.WriteInteger('Window', 'Top', SavedBounds.Top);
       WindowStore.WriteInteger('Window', 'Width', SavedBounds.Width);
@@ -2899,36 +2940,8 @@ begin
   end;
 
   FreeAndNil(FSeekDecoder);
-  // 3. Stop LibVLC playback while windows are completely intact
-  if FMediaPlayer <> nil then
-  begin
-    try
-      libvlc_media_player_set_hwnd(FMediaPlayer, nil);
-      libvlc_media_player_stop(FMediaPlayer);
-      libvlc_media_player_release(FMediaPlayer);
-    except
-    end;
-    FMediaPlayer := nil;
-  end;
-
-  if FCurrentMedia <> nil then
-  begin
-    try
-      libvlc_media_release(FCurrentMedia);
-    except
-    end;
-    FCurrentMedia := nil;
-  end;
-
-  if FVlcInstance <> nil then
-  begin
-    try
-      libvlc_release(FVlcInstance);
-    except
-    end;
-    FVlcInstance := nil;
-  end;
-
+  HidePlaybackOSD;
+  ShowWindow(Handle, SW_HIDE);
   // 4. Detach drop file WindowProcs
   DragAcceptFiles(Handle, False);
   if Assigned(pnlVideo) then
@@ -2989,9 +3002,6 @@ end;
 
 procedure TFrmMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  SavePlaybackResume;
-  HidePlaybackOSD;
-  ShowWindow(Handle, SW_HIDE);
   Action := caFree;
   Application.Terminate;
 end;
@@ -8507,14 +8517,30 @@ end;
 
 procedure TFrmMain.OnDockMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
-  if (Button = mbLeft) and not FIsFullscreen and (WindowState = wsNormal) and
-     (Sender is TControl) then
+  if (Button <> mbLeft) or FIsFullscreen or (WindowState <> wsNormal) then Exit;
+  FDockDragging := GetCursorPos(FDockDragStart);
+  FDockWindowStart := Point(Left, Top);
+end;
+
+procedure TFrmMain.OnDockMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+var Cursor: TPoint;
+begin
+  if not FDockDragging then Exit;
+  if not (ssLeft in Shift) then
   begin
-    var ScreenPoint := TControl(Sender).ClientToScreen(Point(X, Y));
-    ReleaseCapture;
-    PostMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION,
-      MakeLParam(Word(ScreenPoint.X), Word(ScreenPoint.Y)));
+    FDockDragging := False;
+    Exit;
   end;
+  if GetCursorPos(Cursor) then
+    SetWindowPos(Handle, 0, FDockWindowStart.X + Cursor.X - FDockDragStart.X,
+      FDockWindowStart.Y + Cursor.Y - FDockDragStart.Y, 0, 0,
+      SWP_NOSIZE or SWP_NOZORDER or SWP_NOACTIVATE);
+end;
+
+procedure TFrmMain.OnDockMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  if Button <> mbLeft then Exit;
+  FDockDragging := False;
 end;
 
 procedure TFrmMain.WMWindowPosChanging(var Msg:TWMWindowPosChanging);

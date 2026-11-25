@@ -1,14 +1,18 @@
-unit PlayerDialogs;
+﻿unit PlayerDialogs;
 
 interface
 
-uses Vcl.Forms;
+uses Vcl.Forms, Vcl.StdCtrls;
+
+type
+  TOverflowHintLabel = class(TLabel);
 
 procedure PlayerMessage(const Text: string);
 function PlayerInput(const Title, Prompt: string; var Value: string): Boolean;
 function PlayerResume(const Position: string; out Remember: Boolean): Boolean;
 procedure InitializePlayerAppearance;
 procedure ApplyPlayerAppearance(Form: TForm);
+function PlayerChooseSubtitle(const Items: TArray<string>): Integer;
 
 var
   GAppClosing: Boolean = False;
@@ -18,7 +22,7 @@ implementation
 uses
   System.Classes, System.Types, System.UITypes, System.SysUtils, System.IOUtils, System.Math, Winapi.Windows, Winapi.Messages,
   Winapi.CommCtrl, Winapi.UxTheme, Winapi.Dwmapi,
-  Vcl.StdCtrls, Vcl.Themes, Vcl.Styles, Vcl.AppEvnts,
+  Vcl.Themes, Vcl.Styles, Vcl.AppEvnts,
   System.Win.Registry, Vcl.Controls, Vcl.Graphics, Vcl.ExtCtrls, Vcl.ComCtrls, CurvedControls, PageTransitions,
   Winapi.GDIPAPI, Winapi.GDIPOBJ, WatermarkOSD, PlayerFlyout, PlayerChrome, ComboMenus, DarkMemo, SettingsStore, CrashTrace;
 
@@ -330,19 +334,26 @@ begin
     WM_NCDESTROY:
       RemoveWindowSubclass(hWnd, @DarkButtonSubclass, uIdSubclass);
   end;
-  if (uMsg = WM_LBUTTONDOWN) or (uMsg = WM_LBUTTONUP) or (uMsg = WM_KEYDOWN) or (uMsg = WM_KEYUP) then
-  begin
-    DefSubclassProc(hWnd, WM_SETREDRAW, 0, 0);
-    try Result := DefSubclassProc(hWnd, uMsg, wParam, lParam);
-    finally DefSubclassProc(hWnd, WM_SETREDRAW, 1, 0); end;
-  end
-  else Result := DefSubclassProc(hWnd, uMsg, wParam, lParam);
-  if (uMsg = WM_LBUTTONDOWN) or (uMsg = WM_LBUTTONUP) or
-     (uMsg = WM_KEYDOWN) or (uMsg = WM_KEYUP) or
-     (uMsg = WM_SETFOCUS) or (uMsg = WM_KILLFOCUS) then
-  begin
-    InvalidateRect(hWnd, nil, False);
-    UpdateWindow(hWnd);
+  case uMsg of
+    WM_LBUTTONDOWN, WM_LBUTTONUP, WM_KEYDOWN, WM_KEYUP,
+    WM_SETFOCUS, WM_KILLFOCUS, WM_ENABLE, WM_UPDATEUISTATE, BM_SETSTYLE, BM_SETSTATE, BM_CLICK:
+      begin
+        // Button state changes can paint through the native BUTTON procedure.
+        // Keep the state handling, then repaint with the project palette.
+        if not IsWindowVisible(hWnd) or (GetProp(hWnd, 'PlayerTheme.ButtonState') <> 0) then
+          Exit(DefSubclassProc(hWnd, uMsg, wParam, lParam));
+        SetProp(hWnd, 'PlayerTheme.ButtonState', 1);
+        DefSubclassProc(hWnd, WM_SETREDRAW, 0, 0);
+        try
+          Result := DefSubclassProc(hWnd, uMsg, wParam, lParam);
+        finally
+          RemoveProp(hWnd, 'PlayerTheme.ButtonState');
+          DefSubclassProc(hWnd, WM_SETREDRAW, 1, 0);
+        end;
+        InvalidateRect(hWnd, nil, False);
+      end;
+  else
+    Result := DefSubclassProc(hWnd, uMsg, wParam, lParam);
   end;
 end;
 
@@ -1522,6 +1533,16 @@ begin
       IsWindowEnabled(GetAncestor(Wnd, GA_ROOT)) then
       Hit := FindDragTarget(Cursor, False);
     if (Hit <> nil) and (not Hit.ShowHint or (Hit.Hint = '')) then Hit := nil;
+    if Hit is TOverflowHintLabel then
+    begin
+      var LabelControl := TOverflowHintLabel(Hit);
+      var TextBounds := Rect(0, 0, Hit.Width, 0);
+      LabelControl.Canvas.Font.Assign(LabelControl.Font);
+      DrawText(LabelControl.Canvas.Handle, PChar(LabelControl.Caption), -1, TextBounds,
+        DT_CALCRECT or DT_WORDBREAK or DT_NOPREFIX);
+      if (TextBounds.Height <= Hit.Height) and (TextBounds.Width <= Hit.Width) then
+        Hit := nil;
+    end;
     if Hit = nil then Wnd := 0;
   end;
   if (Wnd <> FLastTarget) or (Hit <> FLastControl) then
@@ -1537,10 +1558,16 @@ begin
   Gap := MulDiv(6, PPI, 96);
   HintText := GetShortHint(Hit.Hint);
   R := FPopup.MeasureCard(HintText, PPI);
-  Anchor := Hit.ClientToScreen(Point(0, Hit.Height + Gap));
+  if Hit is TOverflowHintLabel then
+    Anchor := Point(Cursor.X + Gap, Cursor.Y + 2 * Gap)
+  else
+    Anchor := Hit.ClientToScreen(Point(0, Hit.Height + Gap));
   Anchor.X := EnsureRange(Anchor.X, Work.Left, Max(Work.Left, Work.Right - R.Width));
   if Anchor.Y + R.Height > Work.Bottom then
-    Anchor.Y := Hit.ClientToScreen(Point(0, 0)).Y - R.Height - Gap;
+    if Hit is TOverflowHintLabel then
+      Anchor.Y := Cursor.Y - R.Height - Gap
+    else
+      Anchor.Y := Hit.ClientToScreen(Point(0, 0)).Y - R.Height - Gap;
   OffsetRect(R, Anchor.X, Max(Anchor.Y, Work.Top));
   FPopup.ShowCard(R, HintText, PPI, GetAncestor(Wnd, GA_ROOT));
 end;
@@ -1697,6 +1724,47 @@ begin
     Dialog.ActiveControl := Edit;
     Result := Dialog.ShowModal = mrOk;
     if Result then Value := Edit.Text;
+  finally Dialog.Free; end;
+end;
+
+function PlayerChooseSubtitle(const Items: TArray<string>): Integer;
+var Dialog: TForm; Body: TLabel; Choices: TComboBox; Accept, Cancel: TButton; D: Integer;
+begin
+  Dialog := TForm.CreateNew(Application);
+  try
+    Dialog.Caption := 'OpenSubtitles';
+    Dialog.BorderStyle := bsDialog;
+    Dialog.Position := poMainFormCenter;
+    Dialog.Font.Size := 10;
+    D := Dialog.CurrentPPI;
+    Dialog.ClientWidth := MulDiv(620, D, 96);
+    Dialog.ClientHeight := MulDiv(184, D, 96);
+    Body := TLabel.Create(Dialog);
+    Body.Parent := Dialog;
+    Body.Caption := 'Choose a subtitle by language and release';
+    Body.SetBounds(MulDiv(24, D, 96), MulDiv(24, D, 96), MulDiv(572, D, 96), MulDiv(24, D, 96));
+    Choices := TComboBox.Create(Dialog);
+    Choices.Parent := Dialog;
+    Choices.Style := csDropDownList;
+    Choices.SetBounds(MulDiv(24, D, 96), MulDiv(60, D, 96), MulDiv(572, D, 96), MulDiv(30, D, 96));
+    Choices.Items.AddStrings(Items);
+    Choices.ItemIndex := 0;
+    Accept := TButton.Create(Dialog);
+    Accept.Parent := Dialog;
+    Accept.Caption := 'Download';
+    Accept.Default := True;
+    Accept.ModalResult := mrOk;
+    Accept.SetBounds(MulDiv(392, D, 96), MulDiv(128, D, 96), MulDiv(96, D, 96), MulDiv(32, D, 96));
+    Cancel := TButton.Create(Dialog);
+    Cancel.Parent := Dialog;
+    Cancel.Caption := 'Cancel';
+    Cancel.Cancel := True;
+    Cancel.ModalResult := mrCancel;
+    Cancel.SetBounds(MulDiv(500, D, 96), MulDiv(128, D, 96), MulDiv(96, D, 96), MulDiv(32, D, 96));
+    ApplyPlayerAppearance(Dialog);
+    Dialog.ActiveControl := Choices;
+    Result := -1;
+    if Dialog.ShowModal = mrOk then Result := Choices.ItemIndex;
   finally Dialog.Free; end;
 end;
 
