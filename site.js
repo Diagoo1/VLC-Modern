@@ -64,6 +64,7 @@ if (shots.length) {
   const caption = document.createElement("figcaption");
   caption.className = "slider-caption";
   const title = document.createElement("div");
+  title.className = "image-tag";
   const tools = document.createElement("div");
   tools.className = "slider-tools";
   const dialog = document.createElement("dialog");
@@ -71,7 +72,7 @@ if (shots.length) {
   dialog.setAttribute("aria-label", "Screenshot slideshow / عرض الصور");
   const viewerImage = document.createElement("img");
   const viewerTitle = document.createElement("div");
-  viewerTitle.className = "viewer-title";
+  viewerTitle.className = "viewer-title image-tag";
   const viewerTools = document.createElement("div");
   viewerTools.className = "slider-tools";
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
