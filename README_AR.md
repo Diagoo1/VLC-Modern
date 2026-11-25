@@ -7,8 +7,8 @@
 
 > **Public Beta · نسخة تجريبية عامة.** البرنامج لسه تحت التطوير، وممكن تقابل أخطاء أو ميزات غير مكتملة. النسخة متاحة للتجربة وإرسال الملاحظات.
 
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-2026-11-24-Windows-x86.zip"><img alt="تحميل نسخة ويندوز" src="https://img.shields.io/badge/Download-Windows%20ZIP-1473E6?style=for-the-badge"></a> <a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img alt="الإبلاغ عن خطأ" src="https://img.shields.io/badge/Report%20a%20bug-GitHub-586069?style=for-the-badge"></a></p>
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-2026-11-24-Windows-x86.zip">تحميل نسخة ويندوز</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">الإبلاغ عن خطأ</a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0">v0.1.0 Beta</a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-2026-11-25-Windows-x86.zip"><img alt="تحميل نسخة ويندوز" src="https://img.shields.io/badge/Download-Windows%20ZIP-1473E6?style=for-the-badge"></a> <a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img alt="الإبلاغ عن خطأ" src="https://img.shields.io/badge/Report%20a%20bug-GitHub-586069?style=for-the-badge"></a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-2026-11-25-Windows-x86.zip">تحميل نسخة ويندوز</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">الإبلاغ عن خطأ</a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0">v0.1.0 Beta</a></p>
 
 ## صور البرنامج
 
