@@ -6,7 +6,7 @@ uses SettingsStore,
   Winapi.Windows, Winapi.Messages, Winapi.UxTheme, System.SysUtils, System.Classes, System.Types, System.Math,
   System.UITypes, System.Generics.Collections, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Menus, Vcl.Themes, Vcl.FileCtrl,
-  Winapi.ShellAPI, Winapi.ActiveX, Winapi.GDIPAPI, Winapi.GDIPOBJ, LibVLC, CurvedControls, TaskbarManager, SeekPreview, PlayerSettings, PlayerFlyout, AudioMeter, MediaImport;
+  Winapi.ShellAPI, Winapi.ActiveX, Winapi.GDIPAPI, Winapi.GDIPOBJ, LibVLC, Lut3D, D3D11ShaderRenderer, CurvedControls, TaskbarManager, SeekPreview, PlayerSettings, PlayerFlyout, AudioMeter, MediaImport, OpenSubtitlesDownloader, PlaybackResumeStore, WebRemoteServer, YtDlpResolver;
 
 const
   WM_USER_VIDEO_RIGHTCLICK = WM_USER + 101;
@@ -17,6 +17,7 @@ const
 
 type
   TLoopMode = (lmOff, lmLoopAll, lmLoopOne);
+  TShaderFilter = (sfInvert, sfSharpen, sfEdgeDetect, sfFilmGrain, sfDenoise, sfSepia, sfPosterize, sfAnaglyph);
 
   TFrmMain = class(TForm)
     MainMenu1: TMainMenu;
@@ -27,6 +28,7 @@ type
     mnuOpenDisc: TMenuItem;
     mnuOpenURL: TMenuItem;
     mnuOpenCapture: TMenuItem;
+    mnuScreenCapture: TMenuItem;
     mnuOpenClipboard: TMenuItem;
     mnuRecentMedia: TMenuItem;
     mnuSep1: TMenuItem;
@@ -41,6 +43,12 @@ type
     mnuChapters: TMenuItem;
     mnuProgram: TMenuItem;
     mnuBookmarks: TMenuItem;
+    mnuSleepTimer: TMenuItem;
+    mnuSleepOff: TMenuItem;
+    mnuSleep15: TMenuItem;
+    mnuSleep30: TMenuItem;
+    mnuSleep60: TMenuItem;
+    mnuSleep90: TMenuItem;
     mnuRenderer: TMenuItem;
     mnuSpeed: TMenuItem;
     mnuSpeed025: TMenuItem;
@@ -56,6 +64,8 @@ type
     mnuJumpFwd: TMenuItem;
     mnuJumpBack: TMenuItem;
     mnuJumpTime: TMenuItem;
+    mnuSkipOpening: TMenuItem;
+    mnuSkipEnding: TMenuItem;
     mnuSepPlay2: TMenuItem;
     mnuPlayPause: TMenuItem;
     mnuStop: TMenuItem;
@@ -65,6 +75,7 @@ type
     mnuAudio: TMenuItem;
     mnuAudioTrack: TMenuItem;
     mnuAudioDevice: TMenuItem;
+    mnuCycleAudioDevice: TMenuItem;
     mnuAudioChannel: TMenuItem;
     mnuEQPresets: TMenuItem;
     mnuChannelStereo: TMenuItem;
@@ -77,6 +88,13 @@ type
     mnuMute: TMenuItem;
     mnuAudioDelayPlus: TMenuItem;
     mnuAudioDelayMinus: TMenuItem;
+    mnuSepAudioFilters: TMenuItem;
+    mnuVoiceClarifier: TMenuItem;
+    mnuNightMode: TMenuItem;
+    mnuHeadphoneSurround: TMenuItem;
+    mnuKaraokeMode: TMenuItem;
+    mnuAudioPassthrough: TMenuItem;
+    mnuAudioRecord: TMenuItem;
     mnuSep3: TMenuItem;
     mnuAudioEqualizer: TMenuItem;
     mnuVideo: TMenuItem;
@@ -102,6 +120,28 @@ type
     mnuDeinterlaceOff: TMenuItem;
     mnuSep5: TMenuItem;
     mnuSnapshot: TMenuItem;
+    mnuCleanSnapshot: TMenuItem;
+    mnuThumbnailSheet: TMenuItem;
+    mnuAnimatedGif: TMenuItem;
+    mnuRecordVideoMP4: TMenuItem;
+    mnuVideoPresets: TMenuItem;
+    mnuProfileDefault: TMenuItem;
+    mnuProfileCinema: TMenuItem;
+    mnuProfileAnime: TMenuItem;
+    mnuProfileEyeComfort: TMenuItem;
+    mnuProfileNoir: TMenuItem;
+    mnuProfileSports: TMenuItem;
+    mnuShaders: TMenuItem;
+    mnuShaderInvert: TMenuItem;
+    mnuShaderSharpen: TMenuItem;
+    mnuShaderDenoise: TMenuItem;
+    mnuShaderFilmGrain: TMenuItem;
+    mnuShaderEdgeDetect: TMenuItem;
+    mnuShaderSepia: TMenuItem;
+    mnuShaderPosterize: TMenuItem;
+    mnuShaderAnaglyph: TMenuItem;
+    mnuSepShader: TMenuItem;
+    mnuShaderReset: TMenuItem;
     mnuPanScan: TMenuItem;
     mnuPanReset: TMenuItem;
     mnuPanZoomIn: TMenuItem;
@@ -112,12 +152,39 @@ type
     mnuPanDown: TMenuItem;
     mnuPanScale169: TMenuItem;
     mnuPanScale43: TMenuItem;
+    mnuLoad3DLUT: TMenuItem;
+    mnuGPUShaders: TMenuItem;
+    mnuGPUAnime4K: TMenuItem;
+    mnuGPUCAS: TMenuItem;
+    mnuGPUDeband: TMenuItem;
+    mnuGPUACES: TMenuItem;
+    mnuGPUCRT: TMenuItem;
+    mnuGPULevels: TMenuItem;
+    mnuGPUBT601: TMenuItem;
+    mnuSepGPULoad: TMenuItem;
+    mnuGPULoadHLSL: TMenuItem;
+    mnuGPUDisable: TMenuItem;
+    mnu3DMode: TMenuItem;
+    mnu3DNormal: TMenuItem;
+    mnu3DSBS: TMenuItem;
+    mnu3DTAB: TMenuItem;
+    mnuScaling: TMenuItem;
+    mnuScaleSpline36: TMenuItem;
+    mnuScaleLanczos: TMenuItem;
+    mnuScaleBicubic: TMenuItem;
+    mnuScaleBilinear: TMenuItem;
     mnuSubtitle: TMenuItem;
     mnuAddSub: TMenuItem;
     mnuAddSecondarySub: TMenuItem;
     mnuSubTrack: TMenuItem;
     mnuSubDelayPlus: TMenuItem;
     mnuSubDelayMinus: TMenuItem;
+    mnuSubSizePlus: TMenuItem;
+    mnuSubSizeMinus: TMenuItem;
+    mnuSubMoveUp: TMenuItem;
+    mnuSubMoveDown: TMenuItem;
+    mnuDownloadOnlineSub: TMenuItem;
+    mnuTranslateSub: TMenuItem;
     mnuTools: TMenuItem;
     mnuEffects: TMenuItem;
     mnuTrackSync: TMenuItem;
@@ -128,6 +195,7 @@ type
     mnuMessages: TMenuItem;
     mnuPlugins: TMenuItem;
     mnuThemes: TMenuItem;
+    mnuWebRemote: TMenuItem;
     mnuSepTools: TMenuItem;
     mnuCustomizeInterface: TMenuItem;
     mnuPreferences: TMenuItem;
@@ -146,6 +214,7 @@ type
     mnuAddInterface: TMenuItem;
     mnuVLSub: TMenuItem;
     mnuHelp: TMenuItem;
+    mnuHotkeys: TMenuItem;
     mnuAbout: TMenuItem;
 
     PopupMenuVideo: TPopupMenu;
@@ -193,6 +262,12 @@ type
     popMute: TMenuItem;
     popAudioDelayPlus: TMenuItem;
     popAudioDelayMinus: TMenuItem;
+    popSepAudioFilters: TMenuItem;
+    popVoiceClarifier: TMenuItem;
+    popNightMode: TMenuItem;
+    popHeadphoneSurround: TMenuItem;
+    popKaraokeMode: TMenuItem;
+    popAudioPassthrough: TMenuItem;
     popEQPresets: TMenuItem;
     popEffects: TMenuItem;
     popSubtitle: TMenuItem;
@@ -304,6 +379,7 @@ type
     procedure mnuJumpTimeClick(Sender: TObject);
     procedure mnuABRepeatClick(Sender: TObject);
     procedure mnuNextFrameClick(Sender: TObject);
+    procedure mnuPrevFrameClick(Sender: TObject);
     procedure mnuSpeedItemClick(Sender: TObject);
 
     procedure mnuAudioClick(Sender: TObject);
@@ -323,6 +399,38 @@ type
     procedure mnuCropClick(Sender: TObject);
     procedure mnuDeinterlaceClick(Sender: TObject);
     procedure mnuSnapshotClick(Sender: TObject);
+    procedure mnuCleanSnapshotClick(Sender: TObject);
+    procedure mnuThumbnailSheetClick(Sender: TObject);
+    procedure mnuSkipOpeningClick(Sender: TObject);
+    procedure mnuSkipEndingClick(Sender: TObject);
+    procedure OpenScreenCapture;
+    procedure GenerateAnimatedGif;
+    procedure RecordAudioStream;
+    procedure mnuScreenCaptureClick(Sender: TObject);
+    procedure mnuAudioRecordClick(Sender: TObject);
+    procedure mnuAnimatedGifClick(Sender: TObject);
+    procedure mnuRecordVideoMP4Click(Sender: TObject);
+    procedure mnuWebRemoteClick(Sender: TObject);
+    procedure ToggleVoiceClarifier;
+    procedure ToggleNightMode;
+    procedure ToggleHeadphoneSurround;
+    procedure ToggleKaraokeMode;
+    procedure ToggleAudioPassthrough;
+    procedure ApplyVideoProfile(AProfile: Integer);
+    procedure CycleVideoProfile;
+    procedure ApplyBufferPreset(APreset: Integer);
+    procedure CycleBufferPreset;
+    procedure ApplyLayoutPreset(APreset: Integer);
+    procedure ToggleShader(AShader: TShaderFilter);
+    procedure ResetAllShaders;
+    procedure mnuProfileItemClick(Sender: TObject);
+    procedure mnuShaderItemClick(Sender: TObject);
+    procedure mnuResetShadersClick(Sender: TObject);
+    procedure mnuVoiceClarifierClick(Sender: TObject);
+    procedure mnuNightModeClick(Sender: TObject);
+    procedure mnuHeadphoneSurroundClick(Sender: TObject);
+    procedure mnuKaraokeModeClick(Sender: TObject);
+    procedure mnuAudioPassthroughClick(Sender: TObject);
     procedure mnuPanScanItemClick(Sender: TObject);
     procedure mnuWindowSizeItemClick(Sender: TObject);
     procedure mnuBorderlessClick(Sender: TObject);
@@ -335,12 +443,35 @@ type
     procedure mnuAddSubClick(Sender: TObject);
     procedure mnuSubDelayPlusClick(Sender: TObject);
     procedure mnuSubDelayMinusClick(Sender: TObject);
+    procedure mnuDownloadOnlineSubClick(Sender: TObject);
+    procedure mnuTranslateSubClick(Sender: TObject);
 
     procedure mnuMediaInfoClick(Sender: TObject);
     procedure mnuEffectsClick(Sender: TObject);
     procedure mnuViewPlaylistClick(Sender: TObject);
     procedure mnuMinimalClick(Sender: TObject);
     procedure mnuAboutClick(Sender: TObject);
+    procedure mnuHotkeysClick(Sender: TObject);
+    procedure mnuLoad3DLUTClick(Sender: TObject);
+    procedure mnuGPUShaderItemClick(Sender: TObject);
+    procedure mnuGPULoadHLSLClick(Sender: TObject);
+    procedure mnuGPUDisableClick(Sender: TObject);
+    procedure mnu3DModeItemClick(Sender: TObject);
+    procedure mnuSleepTimerItemClick(Sender: TObject);
+    procedure mnuCycleAudioDeviceClick(Sender: TObject);
+    procedure mnuSubSizePlusClick(Sender: TObject);
+    procedure mnuSubSizeMinusClick(Sender: TObject);
+    procedure mnuSubMoveUpClick(Sender: TObject);
+    procedure mnuSubMoveDownClick(Sender: TObject);
+    procedure mnuScalingItemClick(Sender: TObject);
+    procedure mnuRendererClick(Sender: TObject);
+    procedure OnRendererSelect(Sender: TObject);
+    procedure OnScanRenderersClick(Sender: TObject);
+    procedure UpdateRendererMenu(AMenu: TMenuItem);
+    procedure StopAudioRecording;
+    procedure ReleaseRenderers;
+    procedure LoadCustomHotkeys;
+    function TryHandleCustomHotkey(Key: Word; Shift: TShiftState): Boolean;
 
     procedure pnlVideoDblClick(Sender: TObject);
     procedure pnlVideoClick(Sender: TObject);
@@ -377,6 +508,8 @@ type
     FGeneratedSubtitles: TStringList;
     FLoadingCombinedSubtitles: Boolean;
     FPlaylistPaths: TStringList;
+    FPlatformCacheFiles: TStringList;
+    FPlatformRequest: Cardinal;
     FPlaylistOptions: TObjectDictionary<string, TStringList>;
     FCurrentPlaylistIndex: Integer;
     FUpdatingTrackBar: Boolean;
@@ -396,6 +529,7 @@ type
     FPendingSeek: Int64;
     FSeekRequestedAt, FSeekSentAt: UInt64;
     FPlaybackStarted, FPlaybackFailed: Boolean;
+    FOpeningSkipped, FEndingSkipped: Boolean;
     FWasPlaylistVisible: Boolean;
     FWasBottomVisible: Boolean;
     FPlaylistTimer: TTimer;
@@ -451,6 +585,30 @@ type
     FImports: TQueue<IMediaImport>;
     FManualSubtitles: TStringList;
     FSplashBitmap: TGPBitmap;
+
+    // Real Audio Stream Recorder & DLNA/Chromecast Renderer Discovery
+    FAudioRecorderPlayer: Plibvlc_media_player_t;
+    FAudioRecordPath: string;
+    FAudioRecording: Boolean;
+    FRendererDiscoverer: Plibvlc_renderer_discoverer_t;
+    FRendererItems: TList<Plibvlc_renderer_item_t>;
+    FRendererNames: TStringList;
+    FActiveRendererIndex: Integer;
+    FCustomHotkeys: TDictionary<string, TShortCut>;
+    FVideoRecorderPlayer: Plibvlc_media_player_t;
+    FVideoRecorderInstance: Plibvlc_instance_t;
+    FVideoExportTimer: TTimer;
+    FVideoExporting: Boolean;
+    FClipExportProcess: THandle;
+    FLocalRecordingFile: string;
+    FLocalRecordingStart: Int64;
+    FVideoRecordPath: string;
+    FVideoRecording: Boolean;
+    FWebRemote: TWebRemoteServer;
+    FGPUShader: TD3D11ShaderRenderer;
+    FGPUShaderActive: Boolean;
+    FSleepExpireTick: UInt64;
+    F3DStereoMode: Integer;
 
     // Taskbar Thumbnail Toolbar
     FTaskbarMgr: TTaskbarManager;
@@ -509,6 +667,8 @@ type
     FOldRootWndProc: TWndMethod;
     FSuppressTransientOSD: Boolean;
     FPreferencesWarmup:TTimer;
+    FPreferencesOpenStarted: Int64;
+    FPreferencesOpenProbe: TTimer;
     FPreferencesDirty:Boolean;
     FPreferencesStamp:string;
     FSeekGestureActive: Boolean;
@@ -617,7 +777,38 @@ type
     procedure CycleAudioChannel;
     procedure CycleSubtitleTrack;
     procedure CycleAspectRatio;
+    procedure CycleVideoRotation;
+    procedure ToggleVideoFlipHorizontal;
     procedure ToggleDeinterlace;
+    procedure ToggleSkipOpening;
+    procedure ToggleSkipEnding;
+    procedure GenerateThumbnailSheet;
+    procedure TakeCleanSnapshot;
+    procedure DownloadSubtitlesOnline;
+    procedure TranslateCurrentSubtitle;
+    procedure SavePlaybackResume;
+    procedure ScanForRenderers;
+    procedure Load3DLUTFile(const ALutPath: string);
+    procedure SetScalingAlgorithm(AMode: Integer);
+    procedure ShowHotkeysReference;
+    procedure RecordVideoStream;
+    function StartPreciseClip(const Source, Destination: string; ClipStart, ClipEnd: Int64): Boolean;
+    procedure VideoExportTick(Sender: TObject);
+    procedure StopVideoRecording;
+    procedure ToggleWebRemoteServer(APort: Word = 8080);
+    property WebRemote: TWebRemoteServer read FWebRemote;
+    function EnsureGPUShaderPipeline: Boolean;
+    procedure DisableGPUShaderPipeline;
+    procedure ToggleGPUShader(AFlag: TGPUShaderFlag);
+    procedure LoadCustomHLSLShader(const APath: string);
+    property GPUShader: TD3D11ShaderRenderer read FGPUShader;
+    procedure Set3DStereoMode(AMode: Integer);
+    procedure SetSleepTimerMinutes(AMinutes: Integer);
+    procedure CycleAudioOutputDevice;
+    procedure AdjustSubtitleSize(Delta: Integer);
+    procedure AdjustSubtitleMargin(Delta: Integer);
+    property SleepExpireTick: UInt64 read FSleepExpireTick;
+    property Stereo3DMode: Integer read F3DStereoMode;
     procedure CycleCropGeometry;
     procedure UpdateStatsHUD;
     procedure PlayNextFileInFolder;
@@ -626,6 +817,7 @@ type
     procedure DefaultHandler(var Message); override;
     procedure WMWindowPosChanging(var Msg:TWMWindowPosChanging); message WM_WINDOWPOSCHANGING;
     procedure WMGetMinMaxInfo(var Msg:TWMGetMinMaxInfo); message WM_GETMINMAXINFO;
+    procedure MeasurePreferencesOpen(Sender: TObject);
     procedure WarmPreferences(Sender:TObject);
     procedure ShowOSD(const AText: string);
     function SeekPreviewStatus:string;
@@ -664,7 +856,7 @@ var
 implementation
 
 uses
-  EffectsForm, MediaInfoForm, JumpTimeForm, PreferencesForm, BookmarksForm, OpenMediaForm, ConvertForm, IPTVForm, MessagesForm, CustomizeForm, System.IniFiles, System.StrUtils, PlayerDialogs, VideoInput, PlayerMenu, Vcl.Clipbrd, Vcl.Imaging.pngimage, Winapi.Dwmapi, WatermarkOSD, InstanceBroker, DualSubtitles, System.IOUtils;
+  EffectsForm, MediaInfoForm, JumpTimeForm, PreferencesForm, BookmarksForm, OpenMediaForm, ConvertForm, IPTVForm, MessagesForm, CustomizeForm, AboutForm, System.IniFiles, System.StrUtils, PlayerDialogs, VideoInput, PlayerMenu, Vcl.Clipbrd, Vcl.Imaging.pngimage, Winapi.Dwmapi, WatermarkOSD, InstanceBroker, DualSubtitles, System.IOUtils, ThumbnailSheet, GifMaker, RuntimeComponents, PlayerPaths, System.Hash, Winapi.CommCtrl;
 
 {$R *.dfm}
 
@@ -1552,6 +1744,7 @@ procedure TFrmMain.SeekTo(TimeMs: Int64);
 var
   Duration: Int64;
 begin
+  FLocalRecordingFile := '';
   if (FMediaPlayer = nil) or (FCurrentMedia = nil) then Exit;
   if FIsFullscreen then TriggerFullscreenControls;
   Duration := libvlc_media_player_get_length(FMediaPlayer);
@@ -2450,8 +2643,13 @@ begin
   RepositionModernControls;
   UpdateRecentMediaMenu;
 
+  try
+    ApplyPendingComponents;
+  except
+    on E: Exception do PlayerMessage('Could not activate playback plugins: ' + E.Message);
+  end;
   // Setup LibVLC
-  PluginsDir := ExtractFilePath(ParamStr(0)) + 'plugins';
+  PluginsDir := ComponentPath('plugins');
   SetEnvironmentVariable('VLC_PLUGIN_PATH', PChar(PluginsDir));
 
   if not LoadLibVLC('') then
@@ -2460,14 +2658,8 @@ begin
     Exit;
   end;
 
-  if not EnsurePlaybackEngine then
-  begin
+  if PlaybackPluginsInstalled and not EnsurePlaybackEngine then
     PlayerMessage('Failed to initialize LibVLC: ' + string(libvlc_errmsg()));
-    Exit;
-  end;
-
-  libvlc_video_set_mouse_input(FMediaPlayer, 0);
-  libvlc_video_set_key_input(FMediaPlayer, 0);
   FPendingVolume := FSettings.StartupVolume;
   modernVolumeSlider.Volume := FSettings.StartupVolume;
   tbVolume.Position := FSettings.StartupVolume;
@@ -2499,11 +2691,37 @@ begin
   end;
 
   for var I := 1 to ParamCount do
-    if FileExists(ParamStr(I)) or ParamStr(I).Contains('://') then
+  begin
+    var P := ParamStr(I);
+    if SameText(P, '/fullscreen') or SameText(P, '-fs') or SameText(P, '--fullscreen') then
+      FSettings.StartFullscreen := True
+    else if SameText(P, '/compact') or SameText(P, '/min') then
+      ApplyLayoutPreset(1)
+    else if SameText(P, '/pure') or SameText(P, '/minimal') then
+      ApplyLayoutPreset(2)
+    else if SameText(P, '/cap') or SameText(P, '/screen') then
+      OpenScreenCapture
+    else if StartsText('/volume=', P) then
     begin
-      FPlaylistPaths.Add(ParamStr(I));
-      lstPlaylist.Items.Add(ExtractFileName(ParamStr(I)));
+      tbVolume.Position := EnsureRange(StrToIntDef(Copy(P, 9, MaxInt), 100), 0, 200);
+      if FMediaPlayer <> nil then libvlc_audio_set_volume(FMediaPlayer, tbVolume.Position);
+    end
+    else if StartsText('/seek=', P) then
+      FPendingResume := StrToInt64Def(Copy(P, 7, MaxInt), 0) * 1000
+    else if StartsText('/sub=', P) then
+    begin
+      var SubPath := Trim(Copy(P, 6, MaxInt));
+      if StartsStr('"', SubPath) and EndsStr('"', SubPath) then
+        SubPath := Copy(SubPath, 2, Length(SubPath) - 2);
+      if FileExists(SubPath) and (FMediaPlayer <> nil) then
+        libvlc_video_set_subtitle_file(FMediaPlayer, PAnsiChar(UTF8Encode(SubPath)));
+    end
+    else if FileExists(P) or P.Contains('://') then
+    begin
+      FPlaylistPaths.Add(P);
+      lstPlaylist.Items.Add(ExtractFileName(P));
     end;
+  end;
 
   tmrUpdate.Enabled := True;
 end;
@@ -2514,6 +2732,23 @@ begin
   if not FShownOnce then
   begin
     FShownOnce := True;
+    if not PlaybackPluginsInstalled and not TDirectory.Exists(
+      PlayerDataPath('plugins.pending')) then
+    begin
+      var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+      try
+        var Key := 'Prompted-' + THashSHA2.GetHashString(LowerCase(ExtractFilePath(ParamStr(0))));
+        if not Store.ReadBool('RuntimeComponents', Key, False) then
+        begin
+          Store.WriteBool('RuntimeComponents', Key, True);
+          TThread.ForceQueue(nil,
+            procedure
+            begin
+              if not GAppClosing then ShowRuntimeComponents(Self);
+            end);
+        end;
+      finally Store.Free; end;
+    end;
 
     if Assigned(FTaskbarMgr) and not FTaskbarMgr.ButtonsAdded then
       FTaskbarMgr.InitButtons(Handle);
@@ -2531,6 +2766,13 @@ begin
       PlayMediaAtIndex(0);
     if FSettings.StartFullscreen then mnuFullscreenClick(nil);
 
+    if not Assigned(FPreferencesWarmup) then
+    begin
+      FPreferencesWarmup := TTimer.Create(Self);
+      FPreferencesWarmup.Interval := 100;
+      FPreferencesWarmup.OnTimer := WarmPreferences;
+      FPreferencesWarmup.Enabled := True;
+    end;
   end;
 end;
 
@@ -2640,6 +2882,7 @@ begin
   if FMediaPlayer <> nil then
   begin
     try
+      libvlc_media_player_set_hwnd(FMediaPlayer, nil);
       libvlc_media_player_stop(FMediaPlayer);
       libvlc_media_player_release(FMediaPlayer);
     except
@@ -2708,7 +2951,11 @@ begin
   CloseAllOSDWindows;
 
   // 6. Safely release secondary dialogs while main form handle is still alive
-  FreeAndNil(FrmEffects);
+  if Assigned(FrmEffects) then
+  begin
+    FrmEffects.Parent := nil;
+    FreeAndNil(FrmEffects);
+  end;
   FreeAndNil(FrmConvert);
   FreeAndNil(FrmMediaInfo);
   FreeAndNil(FrmBookmarks);
@@ -2721,20 +2968,33 @@ end;
 
 procedure TFrmMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  Action := caHide;
+  SavePlaybackResume;
+  Action := caFree;
+  Application.Terminate;
 end;
 
 procedure TFrmMain.WndProc(var Message: TMessage);
 begin
-  if FClosing then
+  if FClosing or GAppClosing then
   begin
     case Message.Msg of
-      WM_PAINT: begin ValidateRect(Handle, nil); Message.Result:=0; Exit; end;
+      WM_PAINT: begin ValidateRect(Handle, nil); Message.Result := 0; Exit; end;
       WM_NCPAINT, WM_NCACTIVATE, WM_ERASEBKGND, WM_SETTEXT,
-      CM_VISIBLECHANGED, CM_INVALIDATE:
+      WM_ACTIVATE, WM_ACTIVATEAPP, WM_WINDOWPOSCHANGED, WM_WINDOWPOSCHANGING,
+      WM_DWMCOMPOSITIONCHANGED, WM_DWMNCRENDERINGCHANGED, WM_DWMCOLORIZATIONCOLORCHANGED,
+      CM_VISIBLECHANGED, CM_INVALIDATE, CM_COLORCHANGED:
       begin
         Message.Result := 0;
         Exit;
+      end;
+      WM_CLOSE, WM_DESTROY: ;
+      else
+      begin
+        if (Message.Msg >= $0300) and (Message.Msg <= $0350) then
+        begin
+          Message.Result := 0;
+          Exit;
+        end;
       end;
     end;
   end;
@@ -2770,6 +3030,12 @@ begin
   end;
 
   if Assigned(FVisualTimer) then FVisualTimer.Enabled := False;
+  StopAudioRecording;
+  StopVideoRecording;
+  FreeAndNil(FWebRemote);
+  FGPUShaderActive := False;
+  ReleaseRenderers;
+  FreeAndNil(FCustomHotkeys);
   FreeAndNil(FAudioMeter);
   FreeAndNil(FSeekDecoder);
   FreeAndNil(FTaskbarMgr);
@@ -2794,6 +3060,8 @@ begin
     end;
     FMediaPlayer := nil;
   end;
+
+  FreeAndNil(FGPUShader);
 
   if FCurrentMedia <> nil then
   begin
@@ -2827,12 +3095,18 @@ begin
   end;
   FreeAndNil(FPlaylistPaths);
   FreeAndNil(FPlaylistOptions);
+  if Assigned(FPlatformCacheFiles) then
+  begin
+    for var CachedFile in FPlatformCacheFiles do System.SysUtils.DeleteFile(CachedFile);
+    FreeAndNil(FPlatformCacheFiles);
+  end;
   UnloadLibVLC;
   if Assigned(FSplashBitmap) then
   begin
     FSplashBitmap.Free;
     FSplashBitmap := nil;
   end;
+  PostQuitMessage(0);
 end;
 
 procedure TFrmMain.LoadSplashScreen;
@@ -3560,6 +3834,7 @@ begin
   if FVlcInstance <> nil then libvlc_release(FVlcInstance);
   FVlcInstance := NewInstance;
   FMediaPlayer := NewPlayer;
+  if FGPUShaderActive and Assigned(FGPUShader) then FGPUShader.AttachToPlayer(FMediaPlayer);
   FEngineOptionsKey := Key;
   libvlc_video_set_mouse_input(FMediaPlayer, 0);
   libvlc_video_set_key_input(FMediaPlayer, 0);
@@ -3628,11 +3903,60 @@ var
   ResumeMode: Integer;
   StoredOptions: TStringList;
 begin
+  if not SameText(AFilePath, FCurrentFile) then FLocalRecordingFile := '';
+  if not PlaybackPluginsInstalled then
+  begin
+    ShowOSD('Install playback plugins in Settings > Playback Components.');
+    Exit;
+  end;
   if (FMediaPlayer = nil) or (FVlcInstance = nil) then Exit;
 
   if (Pos('://', AFilePath) = 0) and not FileExists(AFilePath) then
   begin
     ShowOSD('File not found: ' + ExtractFileName(AFilePath));
+    Exit;
+  end;
+  Inc(FPlatformRequest);
+  if TYtDlpResolver.IsSupportedSiteUrl(AFilePath) then
+  begin
+    var Request := FPlatformRequest;
+    ShowOSD('Preparing video via yt-dlp...');
+    var OrigUrl := AFilePath;
+    TYtDlpResolver.ResolveAsync(OrigUrl,
+      procedure(const DirectUrl, VideoTitle, UserAgent, ErrorMsg: string; Success: Boolean)
+      begin
+        var IsCached := Success and FileExists(DirectUrl);
+        if GAppClosing or (Request <> FPlatformRequest) then
+        begin
+          if IsCached then System.SysUtils.DeleteFile(DirectUrl);
+          Exit;
+        end;
+        if Success and (DirectUrl <> '') then
+        begin
+          if IsCached then
+          begin
+            if FPlatformCacheFiles = nil then FPlatformCacheFiles := TStringList.Create;
+            FPlatformCacheFiles.Add(DirectUrl);
+            AddRecentMedia(OrigUrl);
+          end;
+          var StreamOptions := TStringList.Create;
+          try
+            if UserAgent <> '' then StreamOptions.Add(':http-user-agent=' + UserAgent);
+            PlayFile(DirectUrl, StreamOptions);
+          finally
+            StreamOptions.Free;
+          end;
+          if VideoTitle <> '' then
+          begin
+            if Assigned(modernTitleBar) then
+              modernTitleBar.TitleText := 'VLC Modern - ' + VideoTitle;
+            Caption := 'VLC Modern - ' + VideoTitle;
+            ShowOSD('Playing: ' + VideoTitle);
+          end;
+        end
+        else
+          ShowOSD('yt-dlp: ' + ErrorMsg);
+      end);
     Exit;
   end;
   OnSeekBarLeave(nil);
@@ -3656,6 +3980,13 @@ begin
     FCurrentMedia := nil;
   end;
 
+  if Assigned(FPlatformCacheFiles) and not SameText(FCurrentFile, AFilePath) then
+  begin
+    var CacheIndex := FPlatformCacheFiles.IndexOf(FCurrentFile);
+    if (CacheIndex >= 0) and System.SysUtils.DeleteFile(FCurrentFile) then
+      FPlatformCacheFiles.Delete(CacheIndex);
+  end;
+
   FPendingResume := 0;
   FPendingSeek := -1;
   if not EnsurePlaybackEngine then
@@ -3664,12 +3995,15 @@ begin
     Exit;
   end;
   FPlaybackStarted := False;
+  FOpeningSkipped := False;
+  FEndingSkipped := False;
   FAudioPreferencesApplied := False;
   FPlaybackFailed := False;
   FVideoPreferencesApplied := False;
   if not SameText(FCurrentFile, AFilePath) then FPrimarySubtitlePath := '';
   FCurrentFile := AFilePath;
-  AddRecentMedia(AFilePath);
+  if (FPlatformCacheFiles = nil) or (FPlatformCacheFiles.IndexOf(AFilePath) < 0) then
+    AddRecentMedia(AFilePath);
   GlobalLog('Playback started: ' + AFilePath);
   FATime := -1;
   FBTime := -1;
@@ -3685,12 +4019,17 @@ begin
   begin
     try
       // Re-verify HWND is cleanly attached before playback
-      if pnlVideo.HandleAllocated then
+      if pnlVideo.HandleAllocated and not FGPUShaderActive then
         libvlc_media_player_set_hwnd(FMediaPlayer, Pointer(pnlVideo.Handle));
 
       if not Assigned(FrmEffects) and (FSettings.Equalizer or FSettings.VideoAdjust) then
         FrmEffects := TFrmEffects.Create(Self);
-      FSettings.ApplyMedia(FCurrentMedia, AFilePath.Contains('://'));
+      var StreamAgent := '';
+      if FPlaylistOptions.TryGetValue(AFilePath, StoredOptions) then
+        for var Option in StoredOptions do
+          if Option.StartsWith(':http-user-agent=') then
+            StreamAgent := Copy(Option, Length(':http-user-agent=') + 1, MaxInt);
+      FSettings.ApplyMedia(FCurrentMedia, AFilePath.Contains('://'), StreamAgent);
       case FSettings.AudioOutput of
         0, 1: libvlc_audio_output_set(FMediaPlayer, 'mmdevice');
         2: libvlc_audio_output_set(FMediaPlayer, 'directsound');
@@ -3700,6 +4039,7 @@ begin
       if FPlaylistOptions.TryGetValue(AFilePath, StoredOptions) then
         for var Option in StoredOptions do
         begin
+          if Option.StartsWith(':http-user-agent=') then Continue;
           var Utf8Option := UTF8Encode(Option);
           libvlc_media_add_option(FCurrentMedia, PAnsiChar(Utf8Option));
         end;
@@ -3746,23 +4086,30 @@ begin
       // Resume playback check
       if not AFilePath.Contains('://') then
       begin
-        Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
-        try
-          ResumeMode := FSettings.ResumeMode;
-          SavedTime := Ini.ReadInteger('Positions', ExtractFileName(AFilePath), 0);
-          if (SavedTime > 15000) and (ResumeMode <> 2) then
-          begin
-            if ResumeMode = 0 then
+        var ResumeState: TFilePlaybackState;
+        if ResumeStore.LoadState(AFilePath, ResumeState) and (ResumeState.Position > 15000) and (FSettings.ResumeMode <> 2) then
+        begin
+          if FSettings.ResumeMode = 0 then
+            FPendingResume := ResumeState.Position
+          else
+            FPendingResume := -ResumeState.Position;
+        end
+        else
+        begin
+          Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+          try
+            ResumeMode := FSettings.ResumeMode;
+            SavedTime := Ini.ReadInteger('Positions', ExtractFileName(AFilePath), 0);
+            if (SavedTime > 15000) and (ResumeMode <> 2) then
             begin
-              FPendingResume := SavedTime;
-            end
-            else
-            begin
-              FPendingResume := -SavedTime;
+              if ResumeMode = 0 then
+                FPendingResume := SavedTime
+              else
+                FPendingResume := -SavedTime;
             end;
+          finally
+            Ini.Free;
           end;
-        finally
-          Ini.Free;
         end;
       end;
     except
@@ -3854,7 +4201,7 @@ procedure TFrmMain.mnuRecordClick(Sender: TObject);
 var
   CapDir, CapFile: string;
 begin
-  CapDir := ExtractFilePath(ParamStr(0)) + 'Captures\';
+  CapDir := PlayerDataPath('Captures\');
   System.SysUtils.ForceDirectories(CapDir);
   CapFile := Format('%sCapture_%s.png', [CapDir, FormatDateTime('yyyy-mm-dd_hh-nn-ss', Now)]);
   if (FMediaPlayer <> nil) and Assigned(libvlc_video_take_snapshot) then
@@ -3912,27 +4259,8 @@ begin
 end;
 
 procedure TFrmMain.mnuPluginsClick(Sender: TObject);
-var
-  PluginsDir: string;
-  FRec: TSearchRec;
-  Count: Integer;
 begin
-  PluginsDir := ExtractFilePath(ParamStr(0)) + 'plugins';
-  Count := 0;
-  if System.SysUtils.FindFirst(PluginsDir + '\*.*', faDirectory, FRec) = 0 then
-  begin
-    repeat
-      if (FRec.Name <> '.') and (FRec.Name <> '..') and ((FRec.Attr and faDirectory) <> 0) then
-        Inc(Count);
-    until System.SysUtils.FindNext(FRec) <> 0;
-    System.SysUtils.FindClose(FRec);
-  end;
-  PlayerMessage(Format('LibVLC Plugins & Modules:' + sLineBreak +
-    '- Core Engine: LibVLC 3.x / Native Direct3D 11' + sLineBreak +
-    '- Plugin Categories: %d active modules' + sLineBreak +
-    '- Hardware Decoders: D3D11VA, DXVA2, NVDEC, QSV' + sLineBreak +
-    '- Streaming Protocols: HLS, RTSP, RTMP, HTTP, HTTPS, UDP' + sLineBreak +
-    '- Audio Outputs: WASAPI, DirectSound, WaveOut', [Count]));
+  ShowRuntimeComponents(Self);
 end;
 
 procedure TFrmMain.mnuThemesClick(Sender: TObject);
@@ -4043,12 +4371,14 @@ end;
 procedure TFrmMain.SavePlaybackPosition;
 var
   Ini: TAppSettings;
-  CurTime: Int64;
+  CurTime, TotalLen: Int64;
+  State: TFilePlaybackState;
 begin
   if not FSettings.SaveHistory then Exit;
   if (FMediaPlayer <> nil) and (FCurrentFile <> '') and not FCurrentFile.Contains('://') then
   begin
     CurTime := libvlc_media_player_get_time(FMediaPlayer);
+    TotalLen := libvlc_media_player_get_length(FMediaPlayer);
     if CurTime > 15000 then
     begin
       Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
@@ -4057,8 +4387,30 @@ begin
       finally
         Ini.Free;
       end;
+
+      State.Position := CurTime;
+      State.AudioTrack := -1;
+      if Assigned(libvlc_audio_get_track) then
+        State.AudioTrack := libvlc_audio_get_track(FMediaPlayer);
+      State.SubtitleTrack := -1;
+      if Assigned(libvlc_video_get_spu) then
+        State.SubtitleTrack := libvlc_video_get_spu(FMediaPlayer);
+      State.Volume := -1;
+      if Assigned(libvlc_audio_get_volume) then
+        State.Volume := libvlc_audio_get_volume(FMediaPlayer);
+      State.LastPlayed := Now;
+      ResumeStore.SaveState(FCurrentFile, State);
+    end
+    else if (TotalLen > 0) and (CurTime >= TotalLen - 10000) then
+    begin
+      ResumeStore.DeleteState(FCurrentFile);
     end;
   end;
+end;
+
+procedure TFrmMain.SavePlaybackResume;
+begin
+  SavePlaybackPosition;
 end;
 
 procedure TFrmMain.mnuOpenURLClick(Sender: TObject);
@@ -4205,20 +4557,47 @@ begin
   if FrmPreferences=nil then FrmPreferences:=TFrmPreferences.Create(Self)
   else if FPreferencesDirty and not FrmPreferences.Showing then FrmPreferences.LoadPreferences;
   FPreferencesStamp:=PreferencesStamp; FPreferencesDirty:=False;
+  if (FPreferencesWarmup <> nil) and (Sender = FPreferencesWarmup) and FrmPreferences.PrepareNextPage then
+    FPreferencesWarmup.Enabled := True;
+end;
+
+procedure TFrmMain.MeasurePreferencesOpen(Sender: TObject);
+var
+  Finished, Frequency: Int64;
+begin
+  if (FrmPreferences = nil) or not FrmPreferences.Showing then Exit;
+  FPreferencesOpenProbe.Enabled := False;
+  RedrawWindow(FrmPreferences.Handle, nil, 0, RDW_UPDATENOW or RDW_ALLCHILDREN);
+  DwmFlush;
+  QueryPerformanceCounter(Finished);
+  QueryPerformanceFrequency(Frequency);
+  TFile.AppendAllText(GetEnvironmentVariable('VLC_PREFERENCES_TIMING_LOG'),
+    Format('Preferences command to first composed frame: %.2f ms', [
+      1000.0 * (Finished - FPreferencesOpenStarted) / Frequency]) + sLineBreak);
 end;
 
 procedure TFrmMain.mnuPreferencesClick(Sender: TObject);
 var
   Dlg: TFrmPreferences;
+
 begin
+  QueryPerformanceCounter(FPreferencesOpenStarted);
   if FrmPreferences = nil then WarmPreferences(nil);
   Dlg := FrmPreferences;
-  if FPreferencesDirty then begin Dlg.LoadPreferences; FPreferencesStamp:=PreferencesStamp; FPreferencesDirty:=False; end;
+  if FPreferencesDirty then begin
+    Dlg.LoadPreferences; FPreferencesStamp:=PreferencesStamp; FPreferencesDirty:=False; end;
   try
     EnableDwmRoundedCorners(Dlg.Handle);
+    if GetEnvironmentVariable('VLC_PREFERENCES_TIMING_LOG') <> '' then
+    begin
+      FPreferencesOpenProbe := TTimer.Create(Self);
+      FPreferencesOpenProbe.Interval := 1;
+      FPreferencesOpenProbe.OnTimer := MeasurePreferencesOpen;
+    end;
     if Dlg.ShowModal = mrOk then
       ShowOSD('Preferences saved successfully.');
   finally
+    FreeAndNil(FPreferencesOpenProbe);
     if Enabled and not FClosing then Winapi.Windows.SetFocus(Handle);
   end;
 end;
@@ -4484,6 +4863,684 @@ begin
   ShowOSD('Next Frame');
 end;
 
+procedure TFrmMain.mnuPrevFrameClick(Sender: TObject);
+var
+  CurTime: Int64;
+  Fps: Single;
+  FrameMs: Int64;
+begin
+  if FMediaPlayer = nil then Exit;
+  if libvlc_media_player_is_playing(FMediaPlayer) = 1 then
+    libvlc_media_player_pause(FMediaPlayer);
+  Fps := 0;
+  if Assigned(libvlc_media_player_get_fps) then
+    Fps := libvlc_media_player_get_fps(FMediaPlayer);
+  if Fps <= 1.0 then Fps := 24.0;
+  FrameMs := Round(1000.0 / Fps);
+  CurTime := libvlc_media_player_get_time(FMediaPlayer);
+  if CurTime >= FrameMs then
+    libvlc_media_player_set_time(FMediaPlayer, CurTime - FrameMs)
+  else
+    libvlc_media_player_set_time(FMediaPlayer, 0);
+  ShowOSD('Previous Frame');
+end;
+
+procedure TFrmMain.CycleVideoRotation;
+var
+  CurPos: Int64;
+  NextTransform: Integer;
+begin
+  if (FMediaPlayer = nil) or (FCurrentFile = '') then Exit;
+  // Transforms: 0: none, 1: 90, 2: 180, 3: 270
+  case FSettings.Transform of
+    0: NextTransform := 1;
+    1: NextTransform := 2;
+    2: NextTransform := 3;
+    else NextTransform := 0;
+  end;
+  FSettings.Transform := NextTransform;
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try Store.WriteInteger('Video', 'Transform', NextTransform); finally Store.Free; end;
+
+  CurPos := libvlc_media_player_get_time(FMediaPlayer);
+  PlayFile(FCurrentFile);
+  if CurPos > 0 then SeekTo(CurPos);
+
+  case NextTransform of
+    0: ShowOSD('Rotation: 0° (Original)');
+    1: ShowOSD('Rotation: 90° Clockwise');
+    2: ShowOSD('Rotation: 180°');
+    3: ShowOSD('Rotation: 270°');
+  end;
+end;
+
+procedure TFrmMain.ToggleVideoFlipHorizontal;
+var
+  CurPos: Int64;
+  NextTransform: Integer;
+begin
+  if (FMediaPlayer = nil) or (FCurrentFile = '') then Exit;
+  // 4: hflip
+  if FSettings.Transform = 4 then
+    NextTransform := 0
+  else
+    NextTransform := 4;
+  FSettings.Transform := NextTransform;
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try Store.WriteInteger('Video', 'Transform', NextTransform); finally Store.Free; end;
+
+  CurPos := libvlc_media_player_get_time(FMediaPlayer);
+  PlayFile(FCurrentFile);
+  if CurPos > 0 then SeekTo(CurPos);
+
+  if NextTransform = 4 then
+    ShowOSD('Mirror: Horizontal Flip ON')
+  else
+    ShowOSD('Mirror: Normal');
+end;
+
+procedure TFrmMain.ToggleSkipOpening;
+begin
+  FSettings.SkipOpening := not FSettings.SkipOpening;
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try
+    Store.WriteBool('Playback', 'SkipOpening', FSettings.SkipOpening);
+  finally
+    Store.Free;
+  end;
+
+  if Assigned(mnuSkipOpening) then
+    mnuSkipOpening.Checked := FSettings.SkipOpening;
+
+  if FSettings.SkipOpening then
+    ShowOSD(Format('Skip Opening: ON (%ds)', [FSettings.SkipOpeningSeconds]))
+  else
+    ShowOSD('Skip Opening: OFF');
+end;
+
+procedure TFrmMain.ToggleSkipEnding;
+begin
+  FSettings.SkipEnding := not FSettings.SkipEnding;
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try
+    Store.WriteBool('Playback', 'SkipEnding', FSettings.SkipEnding);
+  finally
+    Store.Free;
+  end;
+
+  if Assigned(mnuSkipEnding) then
+    mnuSkipEnding.Checked := FSettings.SkipEnding;
+
+  if FSettings.SkipEnding then
+    ShowOSD(Format('Skip Ending: ON (%ds)', [FSettings.SkipEndingSeconds]))
+  else
+    ShowOSD('Skip Ending: OFF');
+end;
+
+procedure TFrmMain.GenerateThumbnailSheet;
+begin
+  if (FMediaPlayer = nil) or (FCurrentFile = '') or not FileExists(FCurrentFile) then
+  begin
+    ShowOSD('No media file loaded for thumbnail sheet');
+    Exit;
+  end;
+
+  var TotalLen := libvlc_media_player_get_length(FMediaPlayer);
+  if TotalLen <= 1000 then
+  begin
+    ShowOSD('Video duration too short for thumbnail sheet');
+    Exit;
+  end;
+
+  ShowOSD('Generating thumbnail sheet (12 frames)...');
+  TThumbnailSheetGenerator.GenerateAsync(
+    FVlcInstance,
+    FCurrentFile,
+    PlayerDataPath('snapshots'),
+    4, 3,
+    TotalLen,
+    nil,
+    procedure(const OutFile: string; Success: Boolean; const Err: string)
+    begin
+      if Success then
+        ShowOSD('Thumbnail sheet saved: ' + ExtractFileName(OutFile))
+      else
+        ShowOSD('Failed to generate thumbnail sheet: ' + Err);
+    end
+  );
+end;
+
+procedure TFrmMain.mnuSkipOpeningClick(Sender: TObject);
+begin
+  ToggleSkipOpening;
+end;
+
+procedure TFrmMain.mnuSkipEndingClick(Sender: TObject);
+begin
+  ToggleSkipEnding;
+end;
+
+procedure TFrmMain.mnuThumbnailSheetClick(Sender: TObject);
+begin
+  GenerateThumbnailSheet;
+end;
+
+procedure TFrmMain.OpenScreenCapture;
+var
+  Options: TStringList;
+begin
+  Options := TStringList.Create;
+  try
+    Options.Add(':screen-fps=30');
+    FPlaylistPaths.Add('screen://');
+    lstPlaylist.Items.Add('Desktop Screen');
+    PlayMediaAtIndex(FPlaylistPaths.Count - 1, Options);
+    ShowOSD('Screen Capture: Desktop (30 FPS)');
+  finally
+    Options.Free;
+  end;
+end;
+
+procedure TFrmMain.GenerateAnimatedGif;
+var
+  CurPos: Int64;
+begin
+  if (FMediaPlayer = nil) or (FCurrentFile = '') or not FileExists(FCurrentFile) then
+  begin
+    ShowOSD('No media file loaded for GIF creation');
+    Exit;
+  end;
+
+  CurPos := libvlc_media_player_get_time(FMediaPlayer);
+  if CurPos < 0 then CurPos := 0;
+
+  ShowOSD('Creating Animated GIF (3s at 10 FPS)...');
+  TGifMaker.GenerateGifAsync(
+    FVlcInstance,
+    FCurrentFile,
+    PlayerDataPath('snapshots'),
+    CurPos,
+    3000,
+    10,
+    480,
+    nil,
+    procedure(const OutFile: string; Success: Boolean; const Err: string)
+    begin
+      if Success then
+        ShowOSD('Animated GIF saved: ' + ExtractFileName(OutFile))
+      else
+        ShowOSD('Failed to create GIF: ' + Err);
+    end
+  );
+end;
+
+procedure TFrmMain.StopAudioRecording;
+begin
+  if FAudioRecorderPlayer <> nil then
+  begin
+    try
+      if Assigned(libvlc_media_player_stop) then
+        libvlc_media_player_stop(FAudioRecorderPlayer);
+      if Assigned(libvlc_media_player_release) then
+        libvlc_media_player_release(FAudioRecorderPlayer);
+    except
+    end;
+    FAudioRecorderPlayer := nil;
+  end;
+  if FAudioRecording then
+  begin
+    FAudioRecording := False;
+    if (FAudioRecordPath <> '') and TFile.Exists(FAudioRecordPath) then
+      ShowOSD(Format('Audio Recording Saved: %s (%d KB)',
+        [ExtractFileName(FAudioRecordPath), TFile.GetSize(FAudioRecordPath) div 1024]))
+    else
+      ShowOSD('Audio Recording Stopped');
+  end;
+end;
+
+procedure TFrmMain.RecordAudioStream;
+var
+  DestDir, DestFile, BaseName, SoutOpt, StartOpt: string;
+  RecMedia: Plibvlc_media_t;
+  Utf8Path, Utf8Opt: UTF8String;
+  CurSec: Double;
+begin
+  if FAudioRecording then
+  begin
+    StopAudioRecording;
+    Exit;
+  end;
+
+  if (FMediaPlayer = nil) or (FVlcInstance = nil) or (FCurrentFile = '') then
+  begin
+    ShowOSD('No active media to record audio');
+    Exit;
+  end;
+
+  DestDir := PlayerDataPath('snapshots');
+  if not TDirectory.Exists(DestDir) then TDirectory.CreateDirectory(DestDir);
+
+  if Pos('://', FCurrentFile) = 0 then
+    BaseName := TPath.GetFileNameWithoutExtension(FCurrentFile)
+  else
+    BaseName := 'LiveStream';
+
+  DestFile := TPath.Combine(DestDir, Format('Audio_%s_%s.wav', [
+    BaseName,
+    FormatDateTime('yyyymmdd_hhnnss', Now)
+  ]));
+
+  Utf8Path := UTF8Encode(FCurrentFile);
+  if Pos('://', FCurrentFile) > 0 then
+    RecMedia := libvlc_media_new_location(FVlcInstance, PAnsiChar(Utf8Path))
+  else
+    RecMedia := libvlc_media_new_path(FVlcInstance, PAnsiChar(Utf8Path));
+
+  if RecMedia = nil then
+  begin
+    ShowOSD('Audio Record: Could not open source stream');
+    Exit;
+  end;
+
+  try
+    SoutOpt := Format(':sout=#transcode{acodec=s16l,channels=2,samplerate=44100}:std{access=file,mux=wav,dst="%s"}', [DestFile]);
+    Utf8Opt := UTF8Encode(SoutOpt);
+    libvlc_media_add_option(RecMedia, PAnsiChar(Utf8Opt));
+    libvlc_media_add_option(RecMedia, ':no-video');
+
+    if (Pos('://', FCurrentFile) = 0) and Assigned(libvlc_media_player_get_time) then
+    begin
+      CurSec := Max(0.0, libvlc_media_player_get_time(FMediaPlayer) / 1000.0);
+      if CurSec > 0.5 then
+      begin
+        StartOpt := Format(':start-time=%.2f', [CurSec], TFormatSettings.Invariant);
+        Utf8Opt := UTF8Encode(StartOpt);
+        libvlc_media_add_option(RecMedia, PAnsiChar(Utf8Opt));
+      end;
+    end;
+
+    FAudioRecorderPlayer := libvlc_media_player_new_from_media(RecMedia);
+  finally
+    libvlc_media_release(RecMedia);
+  end;
+
+  if (FAudioRecorderPlayer <> nil) and (libvlc_media_player_play(FAudioRecorderPlayer) = 0) then
+  begin
+    FAudioRecordPath := DestFile;
+    FAudioRecording := True;
+    ShowOSD('Recording Audio -> ' + ExtractFileName(DestFile) + ' (Press Ctrl+Shift+R to stop)');
+  end
+  else
+  begin
+    StopAudioRecording;
+    ShowOSD('Audio Record: Failed to start WAV capture');
+  end;
+end;
+
+procedure TFrmMain.mnuScreenCaptureClick(Sender: TObject);
+begin
+  OpenScreenCapture;
+end;
+
+procedure TFrmMain.mnuAudioRecordClick(Sender: TObject);
+begin
+  RecordAudioStream;
+end;
+
+procedure TFrmMain.mnuAnimatedGifClick(Sender: TObject);
+begin
+  GenerateAnimatedGif;
+end;
+
+procedure TFrmMain.mnuRecordVideoMP4Click(Sender: TObject);
+begin
+  RecordVideoStream;
+end;
+
+function TFrmMain.StartPreciseClip(const Source, Destination: string;
+  ClipStart, ClipEnd: Int64): Boolean;
+var
+  Encoder, Command: string;
+  Startup: TStartupInfoW;
+  Process: TProcessInformation;
+begin
+  Result := False;
+  Encoder := ComponentPath('tools\ffmpeg.exe');
+  if not TFile.Exists(Encoder) then Exit;
+  Command := Format('"%s" -nostdin -v error -n -ss %.3f -i "%s" -t %.3f ' +
+    '-map 0:v:0 -map 0:a:0? -c:v libx264 -preset veryfast -c:a aac -movflags +faststart "%s"',
+    [Encoder, ClipStart / 1000, Source, (ClipEnd - ClipStart) / 1000,
+     Destination + '.part.mp4'], TFormatSettings.Invariant);
+  UniqueString(Command);
+  ZeroMemory(@Startup, SizeOf(Startup));
+  Startup.cb := SizeOf(Startup);
+  if not CreateProcessW(PWideChar(Encoder), PWideChar(Command), nil, nil, False,
+    CREATE_NO_WINDOW, nil, nil, Startup, Process) then Exit;
+  CloseHandle(Process.hThread);
+  FClipExportProcess := Process.hProcess;
+  Result := True;
+end;
+
+procedure TFrmMain.VideoExportTick(Sender: TObject);
+begin
+  if FClipExportProcess <> 0 then
+  begin
+    if WaitForSingleObject(FClipExportProcess, 0) = WAIT_TIMEOUT then Exit;
+    var Status: DWORD;
+    var Output := FVideoRecordPath + '.part.mp4';
+    var Saved := GetExitCodeProcess(FClipExportProcess, Status) and (Status = 0) and
+      MoveFileEx(PChar(Output), PChar(FVideoRecordPath), 0);
+    CloseHandle(FClipExportProcess);
+    FClipExportProcess := 0;
+    StopVideoRecording;
+    if not Saved then
+    begin
+      System.SysUtils.DeleteFile(Output);
+      ShowOSD('Could not save precise MP4 clip');
+    end;
+    Exit;
+  end;
+  if FVideoRecorderPlayer = nil then Exit;
+  case libvlc_media_player_get_state(FVideoRecorderPlayer) of
+    libvlc_Ended: StopVideoRecording;
+    libvlc_Error:
+      begin
+        var FailedPath := FVideoRecordPath;
+        FVideoRecordPath := '';
+        StopVideoRecording;
+        if FailedPath <> '' then System.SysUtils.DeleteFile(FailedPath);
+        ShowOSD('Could not save MP4 clip');
+      end;
+  end;
+end;
+
+procedure TFrmMain.StopVideoRecording;
+begin
+  if FClipExportProcess <> 0 then
+  begin
+    TerminateProcess(FClipExportProcess, 1);
+    WaitForSingleObject(FClipExportProcess, 2000);
+    CloseHandle(FClipExportProcess);
+    FClipExportProcess := 0;
+    System.SysUtils.DeleteFile(FVideoRecordPath + '.part.mp4');
+  end;
+  FLocalRecordingFile := '';
+  if Assigned(FVideoExportTimer) then FVideoExportTimer.Enabled := False;
+  FVideoExporting := False;
+  if FVideoRecorderPlayer <> nil then
+  begin
+    try
+      if Assigned(libvlc_media_player_stop) then
+        libvlc_media_player_stop(FVideoRecorderPlayer);
+      if Assigned(libvlc_media_player_release) then
+        libvlc_media_player_release(FVideoRecorderPlayer);
+    except
+    end;
+    FVideoRecorderPlayer := nil;
+  end;
+  if FVideoRecorderInstance <> nil then
+  begin
+    libvlc_release(FVideoRecorderInstance);
+    FVideoRecorderInstance := nil;
+  end;
+  if FVideoRecording then
+  begin
+    FVideoRecording := False;
+    if (FVideoRecordPath <> '') and TFile.Exists(FVideoRecordPath) then
+      ShowOSD(Format('MP4 Recording Saved: %s (%d KB)',
+        [ExtractFileName(FVideoRecordPath), TFile.GetSize(FVideoRecordPath) div 1024]))
+    else
+      ShowOSD('MP4 Recording Stopped');
+  end;
+end;
+
+procedure TFrmMain.RecordVideoStream;
+const
+  RecorderOptions: array[0..3] of PAnsiChar =
+    ('--quiet', '--ignore-config', '--avcodec-hw=none', '--sout-mux-caching=3000');
+var
+  DestDir, DestFile, BaseName, SoutOpt, StartOpt: string;
+  RecMedia: Plibvlc_media_t;
+  Utf8Path, Utf8Opt: UTF8String;
+  Tracks, Track: PPlibvlc_media_track_t;
+  TrackCount: Cardinal;
+  HasH264, Compatible, HasAudio, ExportClip: Boolean;
+  ClipStart, ClipEnd: Int64;
+begin
+  if FVideoExporting then
+  begin
+    ShowOSD('Finishing the previous MP4 clip');
+    Exit;
+  end;
+  if FVideoRecording then
+  begin
+    StopVideoRecording;
+    Exit;
+  end;
+
+  if (FMediaPlayer = nil) or (FVlcInstance = nil) or (FCurrentFile = '') then
+  begin
+    ShowOSD('No active media to record MP4 video');
+    Exit;
+  end;
+
+  ExportClip := not FCurrentFile.Contains('://');
+  ClipStart := 0;
+  ClipEnd := 0;
+  if ExportClip then
+  begin
+    ClipEnd := libvlc_media_player_get_time(FMediaPlayer);
+    if ClipEnd < 0 then
+    begin
+      FLocalRecordingFile := '';
+      ShowOSD('Start playback before recording');
+      Exit;
+    end;
+    if not SameText(FLocalRecordingFile, FCurrentFile) then
+    begin
+      FLocalRecordingFile := FCurrentFile;
+      FLocalRecordingStart := ClipEnd;
+      ShowOSD('Recording clip. Press Alt+C to finish');
+      Exit;
+    end;
+    ClipStart := FLocalRecordingStart;
+    FLocalRecordingFile := '';
+    if ClipEnd - ClipStart < 250 then
+    begin
+      ShowOSD('Record at least a quarter second of playback');
+      Exit;
+    end;
+  end;
+
+  DestDir := PlayerDataPath('recordings');
+  if not TDirectory.Exists(DestDir) then TDirectory.CreateDirectory(DestDir);
+
+  if Pos('://', FCurrentFile) = 0 then
+    BaseName := TPath.GetFileNameWithoutExtension(FCurrentFile)
+  else
+    BaseName := 'LiveVideo';
+
+  DestFile := TPath.Combine(DestDir, Format('Video_%s_%s.mp4', [
+    BaseName,
+    FormatDateTime('yyyymmdd_hhnnss', Now)
+  ]));
+
+  if ExportClip and StartPreciseClip(FCurrentFile, DestFile, ClipStart, ClipEnd) then
+  begin
+    FVideoRecordPath := DestFile;
+    FVideoRecording := True;
+    FVideoExporting := True;
+    if FVideoExportTimer = nil then
+    begin
+      FVideoExportTimer := TTimer.Create(Self);
+      FVideoExportTimer.Interval := 150;
+      FVideoExportTimer.OnTimer := VideoExportTick;
+    end;
+    FVideoExportTimer.Enabled := True;
+    ShowOSD('Saving MP4 clip...');
+    Exit;
+  end;
+
+  // The recorder must decode both streams independently of the display
+  // engine, whose hardware surfaces can delay the first encoded frame.
+  FVideoRecorderInstance := libvlc_new(Length(RecorderOptions), @RecorderOptions[0]);
+  if FVideoRecorderInstance = nil then
+  begin
+    ShowOSD('MP4 Record: Could not initialize the recorder');
+    Exit;
+  end;
+
+  Utf8Path := UTF8Encode(FCurrentFile);
+  if Pos('://', FCurrentFile) > 0 then
+    RecMedia := libvlc_media_new_location(FVideoRecorderInstance, PAnsiChar(Utf8Path))
+  else
+    RecMedia := libvlc_media_new_path(FVideoRecorderInstance, PAnsiChar(Utf8Path));
+
+  if RecMedia = nil then
+  begin
+    StopVideoRecording;
+    ShowOSD('MP4 Record: Could not open source media');
+    Exit;
+  end;
+
+  try
+    HasH264 := False;
+    HasAudio := False;
+    Compatible := False;
+    Tracks := nil;
+    if (FCurrentMedia <> nil) and Assigned(libvlc_media_tracks_get) and
+      Assigned(libvlc_media_tracks_release) then
+    begin
+      TrackCount := libvlc_media_tracks_get(FCurrentMedia, @Tracks);
+      if (Tracks <> nil) and (TrackCount > 0) then
+      try
+        Compatible := True;
+        Track := Tracks;
+        for var I := 1 to TrackCount do
+        begin
+          if Track^ <> nil then
+            case Track^^.i_type of
+              libvlc_track_video:
+                if Track^^.i_codec = $34363268 { h264 } then HasH264 := True
+                else Compatible := False;
+              libvlc_track_audio:
+                if Track^^.i_codec = $6134706D { mp4a } then HasAudio := True
+                else Compatible := False;
+            end;
+          Inc(Track);
+        end;
+      finally
+        libvlc_media_tracks_release(Tracks, TrackCount);
+      end;
+    end;
+    if Compatible and HasH264 and HasAudio then
+      SoutOpt := Format(':sout=#std{access=file,mux=mp4,dst="%s"}', [DestFile])
+    else
+      // Avformat normalizes timestamps from the transcoded streams.
+      SoutOpt := Format(':sout=#transcode{vcodec=h264,venc=x264{preset=ultrafast,tune=zerolatency},vb=2500,acodec=mp4a,ab=128}:std{access=file,mux=avformat{mux=mp4},dst="%s"}', [DestFile]);
+    Utf8Opt := UTF8Encode(SoutOpt);
+    libvlc_media_add_option(RecMedia, PAnsiChar(Utf8Opt));
+
+    if ExportClip then
+    begin
+      StartOpt := Format(':start-time=%.3f', [ClipStart / 1000], TFormatSettings.Invariant);
+      Utf8Opt := UTF8Encode(StartOpt);
+      libvlc_media_add_option(RecMedia, PAnsiChar(Utf8Opt));
+      Utf8Opt := UTF8Encode(Format(':stop-time=%.3f', [ClipEnd / 1000], TFormatSettings.Invariant));
+      libvlc_media_add_option(RecMedia, PAnsiChar(Utf8Opt));
+    end;
+
+    FVideoRecorderPlayer := libvlc_media_player_new_from_media(RecMedia);
+  finally
+    libvlc_media_release(RecMedia);
+  end;
+
+  if (FVideoRecorderPlayer <> nil) and (libvlc_media_player_play(FVideoRecorderPlayer) = 0) then
+  begin
+    FVideoRecordPath := DestFile;
+    FVideoRecording := True;
+    FVideoExporting := ExportClip;
+    if ExportClip then
+    begin
+      if FVideoExportTimer = nil then
+      begin
+        FVideoExportTimer := TTimer.Create(Self);
+        FVideoExportTimer.Interval := 150;
+        FVideoExportTimer.OnTimer := VideoExportTick;
+      end;
+      FVideoExportTimer.Enabled := True;
+      ShowOSD('Saving MP4 clip...');
+    end
+    else
+      ShowOSD('Recording MP4 -> ' + ExtractFileName(DestFile) + ' (Press Alt+C to stop)');
+  end
+  else
+  begin
+    StopVideoRecording;
+    ShowOSD('MP4 Record: Failed to start video capture');
+  end;
+end;
+
+procedure TFrmMain.mnuWebRemoteClick(Sender: TObject);
+begin
+  ToggleWebRemoteServer(8080);
+end;
+
+procedure TFrmMain.ToggleWebRemoteServer(APort: Word);
+var
+  CurTitle, CurState: string;
+  PosMs, DurMs: Int64;
+  Vol: Integer;
+  Muted: Boolean;
+begin
+  if FWebRemote = nil then
+    FWebRemote := TWebRemoteServer.Create(APort);
+
+  if FWebRemote.Running then
+  begin
+    FWebRemote.Stop;
+    if Assigned(mnuWebRemote) then mnuWebRemote.Checked := False;
+    ShowOSD('Web Remote Server: Stopped');
+  end
+  else
+  begin
+    FWebRemote.Port := APort;
+    if FCurrentFile <> '' then CurTitle := ExtractFileName(FCurrentFile) else CurTitle := 'VLC Modern (Idle)';
+    CurState := 'Stopped'; PosMs := 0; DurMs := 0; Vol := 100; Muted := False;
+    if FMediaPlayer <> nil then
+    begin
+      if libvlc_media_player_is_playing(FMediaPlayer) = 1 then CurState := 'Playing'
+      else if libvlc_media_player_get_state(FMediaPlayer) = libvlc_Paused then CurState := 'Paused';
+      PosMs := libvlc_media_player_get_time(FMediaPlayer);
+      DurMs := libvlc_media_player_get_length(FMediaPlayer);
+      Vol := libvlc_audio_get_volume(FMediaPlayer);
+      Muted := libvlc_audio_get_mute(FMediaPlayer) = 1;
+    end;
+    FWebRemote.UpdateStatus(CurTitle, CurState, PosMs, DurMs, Vol, Muted);
+
+    if FWebRemote.Start(
+      procedure(const Cmd: string)
+      begin
+        if Cmd = 'playpause' then mnuPlayPauseClick(nil)
+        else if Cmd = 'stop' then mnuStopClick(nil)
+        else if Cmd = 'prev' then mnuPreviousClick(nil)
+        else if Cmd = 'next' then mnuNextClick(nil)
+        else if Cmd = 'volup' then AdjustVolume(5)
+        else if Cmd = 'voldown' then AdjustVolume(-5)
+        else if Cmd = 'mute' then mnuMuteClick(nil)
+        else if Cmd = 'fullscreen' then mnuFullscreenClick(nil)
+        else if Cmd = 'back10' then JumpSeconds(-10)
+        else if Cmd = 'fwd10' then JumpSeconds(10);
+      end) then
+    begin
+      if Assigned(mnuWebRemote) then mnuWebRemote.Checked := True;
+      ShowOSD(Format('Web Remote Active: http://127.0.0.1:%d', [APort]));
+    end
+    else
+      ShowOSD(Format('Web Remote: Failed to bind port %d', [APort]));
+  end;
+end;
+
 procedure TFrmMain.mnuSpeedItemClick(Sender: TObject);
 var
   Rate: Single;
@@ -4511,6 +5568,372 @@ end;
 procedure TFrmMain.mnuAudioClick(Sender: TObject);
 begin
   UpdateAudioTracksMenu(mnuAudioTrack);
+  if Assigned(mnuVoiceClarifier) then mnuVoiceClarifier.Checked := FSettings.VoiceClarifier;
+  if Assigned(mnuNightMode) then mnuNightMode.Checked := FSettings.NightMode;
+  if Assigned(mnuHeadphoneSurround) then mnuHeadphoneSurround.Checked := FSettings.HeadphoneSurround;
+  if Assigned(mnuKaraokeMode) then mnuKaraokeMode.Checked := FSettings.KaraokeMode;
+  if Assigned(mnuAudioPassthrough) then mnuAudioPassthrough.Checked := FSettings.AudioPassthrough;
+
+  if Assigned(popVoiceClarifier) then popVoiceClarifier.Checked := FSettings.VoiceClarifier;
+  if Assigned(popNightMode) then popNightMode.Checked := FSettings.NightMode;
+  if Assigned(popHeadphoneSurround) then popHeadphoneSurround.Checked := FSettings.HeadphoneSurround;
+  if Assigned(popKaraokeMode) then popKaraokeMode.Checked := FSettings.KaraokeMode;
+  if Assigned(popAudioPassthrough) then popAudioPassthrough.Checked := FSettings.AudioPassthrough;
+end;
+
+procedure TFrmMain.ToggleVoiceClarifier;
+begin
+  FSettings.VoiceClarifier := not FSettings.VoiceClarifier;
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try Store.WriteBool('Audio', 'VoiceClarifier', FSettings.VoiceClarifier); finally Store.Free; end;
+
+  if Assigned(mnuVoiceClarifier) then mnuVoiceClarifier.Checked := FSettings.VoiceClarifier;
+  if Assigned(popVoiceClarifier) then popVoiceClarifier.Checked := FSettings.VoiceClarifier;
+  ApplyAudioEffects;
+
+  if FSettings.VoiceClarifier then
+    ShowOSD('Voice Clarifier: ON (+6dB Dialogue Boost)')
+  else
+    ShowOSD('Voice Clarifier: OFF');
+end;
+
+procedure TFrmMain.ToggleNightMode;
+begin
+  FSettings.NightMode := not FSettings.NightMode;
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try Store.WriteBool('Audio', 'NightMode', FSettings.NightMode); finally Store.Free; end;
+
+  if Assigned(mnuNightMode) then mnuNightMode.Checked := FSettings.NightMode;
+  if Assigned(popNightMode) then popNightMode.Checked := FSettings.NightMode;
+  ApplyAudioEffects;
+
+  if FSettings.NightMode then
+    ShowOSD('Night Mode: ON (Dynamic Range Compressed)')
+  else
+    ShowOSD('Night Mode: OFF');
+end;
+
+procedure TFrmMain.ToggleHeadphoneSurround;
+begin
+  FSettings.HeadphoneSurround := not FSettings.HeadphoneSurround;
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try Store.WriteBool('Audio', 'HeadphoneSurround', FSettings.HeadphoneSurround); finally Store.Free; end;
+
+  if Assigned(mnuHeadphoneSurround) then mnuHeadphoneSurround.Checked := FSettings.HeadphoneSurround;
+  if Assigned(popHeadphoneSurround) then popHeadphoneSurround.Checked := FSettings.HeadphoneSurround;
+  ApplyAudioEffects;
+
+  if FSettings.HeadphoneSurround then
+    ShowOSD('3D Headphone Surround: ON (Binaural HRTF)')
+  else
+    ShowOSD('3D Headphone Surround: OFF');
+end;
+
+procedure TFrmMain.ToggleKaraokeMode;
+begin
+  FSettings.KaraokeMode := not FSettings.KaraokeMode;
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try Store.WriteBool('Audio', 'KaraokeMode', FSettings.KaraokeMode); finally Store.Free; end;
+
+  if Assigned(mnuKaraokeMode) then mnuKaraokeMode.Checked := FSettings.KaraokeMode;
+  if Assigned(popKaraokeMode) then popKaraokeMode.Checked := FSettings.KaraokeMode;
+  ApplyAudioEffects;
+
+  if FSettings.KaraokeMode then
+    ShowOSD('Karaoke Mode (Voice Removal): ON')
+  else
+    ShowOSD('Karaoke Mode: OFF');
+end;
+
+procedure TFrmMain.ToggleAudioPassthrough;
+begin
+  FSettings.AudioPassthrough := not FSettings.AudioPassthrough;
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try Store.WriteBool('Audio', 'AudioPassthrough', FSettings.AudioPassthrough); finally Store.Free; end;
+
+  if Assigned(mnuAudioPassthrough) then mnuAudioPassthrough.Checked := FSettings.AudioPassthrough;
+  if Assigned(popAudioPassthrough) then popAudioPassthrough.Checked := FSettings.AudioPassthrough;
+  ApplyAudioEffects;
+
+  if FSettings.AudioPassthrough then
+    ShowOSD('Audio Passthrough (Bitstreaming): ON')
+  else
+    ShowOSD('Audio Passthrough: OFF');
+end;
+
+procedure TFrmMain.mnuVoiceClarifierClick(Sender: TObject);
+begin
+  ToggleVoiceClarifier;
+end;
+
+procedure TFrmMain.mnuNightModeClick(Sender: TObject);
+begin
+  ToggleNightMode;
+end;
+
+procedure TFrmMain.mnuHeadphoneSurroundClick(Sender: TObject);
+begin
+  ToggleHeadphoneSurround;
+end;
+
+procedure TFrmMain.mnuKaraokeModeClick(Sender: TObject);
+begin
+  ToggleKaraokeMode;
+end;
+
+procedure TFrmMain.mnuAudioPassthroughClick(Sender: TObject);
+begin
+  ToggleAudioPassthrough;
+end;
+
+procedure TFrmMain.ApplyVideoProfile(AProfile: Integer);
+var
+  C, B, G, S, H: Single;
+  ProfileName: string;
+begin
+  case AProfile of
+    1: // Cinema
+    begin
+      C := 1.15; B := 0.95; G := 1.10; S := 1.10; H := 0.0;
+      ProfileName := 'Cinema';
+    end;
+    2: // Anime / Vivid
+    begin
+      C := 1.20; B := 1.05; G := 1.05; S := 1.35; H := 0.0;
+      ProfileName := 'Anime / Vivid';
+    end;
+    3: // Eye Comfort / Night
+    begin
+      C := 0.95; B := 0.90; G := 0.95; S := 0.85; H := -5.0;
+      ProfileName := 'Eye Comfort';
+    end;
+    4: // Noir / B&W
+    begin
+      C := 1.30; B := 1.00; G := 1.15; S := 0.0; H := 0.0;
+      ProfileName := 'Noir (B&W)';
+    end;
+    5: // Sports / Vibrant
+    begin
+      C := 1.25; B := 1.10; G := 1.10; S := 1.30; H := 0.0;
+      ProfileName := 'Sports / Vibrant';
+    end;
+    else
+    begin
+      AProfile := 0;
+      C := 1.0; B := 1.0; G := 1.0; S := 1.0; H := 0.0;
+      ProfileName := 'Default';
+    end;
+  end;
+
+  FSettings.VideoProfile := AProfile;
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try Store.WriteInteger('Video', 'VideoProfile', AProfile); finally Store.Free; end;
+
+  if (FMediaPlayer <> nil) and Assigned(libvlc_video_set_adjust_int) and Assigned(libvlc_video_set_adjust_float) then
+  begin
+    if libvlc_video_get_adjust_int(FMediaPlayer, libvlc_adjust_Enable) = 0 then
+      libvlc_video_set_adjust_int(FMediaPlayer, libvlc_adjust_Enable, 1);
+    libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Contrast, C);
+    libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Brightness, B);
+    libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Gamma, G);
+    libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Saturation, S);
+    libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Hue, H);
+  end;
+
+  ShowOSD('Video Profile: ' + ProfileName);
+end;
+
+procedure TFrmMain.CycleVideoProfile;
+begin
+  ApplyVideoProfile((FSettings.VideoProfile + 1) mod 6);
+end;
+
+procedure TFrmMain.ApplyBufferPreset(APreset: Integer);
+const
+  PresetNames: array[0..3] of string = (
+    'Low Latency (300 ms - Sports/Live)',
+    'Balanced (1,200 ms - Standard)',
+    'Buffer Shield (3,500 ms - Unstable Net)',
+    'Ultra 4K Preload (10,000 ms - 4K UHD)'
+  );
+begin
+  APreset := EnsureRange(APreset, 0, 3);
+  FSettings.BufferPreset := APreset;
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try Store.WriteInteger('Network', 'BufferPreset', APreset); finally Store.Free; end;
+
+  ShowOSD('Buffer Mode: ' + PresetNames[APreset]);
+end;
+
+procedure TFrmMain.CycleBufferPreset;
+begin
+  ApplyBufferPreset((FSettings.BufferPreset + 1) mod 4);
+end;
+
+procedure TFrmMain.ApplyLayoutPreset(APreset: Integer);
+begin
+  case APreset of
+    0: // Normal
+    begin
+      pnlMenuBar.Visible := True;
+      pnlBottom.Visible := True;
+      if FIsBorderless then mnuBorderlessClick(nil);
+      ShowOSD('Layout: Normal View');
+    end;
+    1: // Compact
+    begin
+      pnlMenuBar.Visible := False;
+      pnlBottom.Visible := True;
+      if FIsBorderless then mnuBorderlessClick(nil);
+      ShowOSD('Layout: Compact View');
+    end;
+    2: // Minimalist Pure Video
+    begin
+      pnlMenuBar.Visible := False;
+      pnlBottom.Visible := False;
+      if not FIsBorderless then mnuBorderlessClick(nil);
+      ShowOSD('Layout: Minimalist (Pure Video)');
+    end;
+  end;
+end;
+
+procedure TFrmMain.ToggleShader(AShader: TShaderFilter);
+var
+  CurPos: Int64;
+  ShaderName: string;
+  IsEnabled: Boolean;
+begin
+  case AShader of
+    sfInvert:
+    begin
+      FSettings.ShaderInvert := not FSettings.ShaderInvert;
+      IsEnabled := FSettings.ShaderInvert;
+      ShaderName := 'Invert Colors';
+      var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+      try Store.WriteBool('VideoShaders', 'Invert', IsEnabled); finally Store.Free; end;
+    end;
+    sfSharpen:
+    begin
+      FSettings.ShaderSharpen := not FSettings.ShaderSharpen;
+      IsEnabled := FSettings.ShaderSharpen;
+      ShaderName := 'Sharpen Details';
+      var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+      try Store.WriteBool('VideoShaders', 'Sharpen', IsEnabled); finally Store.Free; end;
+    end;
+    sfEdgeDetect:
+    begin
+      FSettings.ShaderEdgeDetect := not FSettings.ShaderEdgeDetect;
+      IsEnabled := FSettings.ShaderEdgeDetect;
+      ShaderName := 'Edge Detect (Cartoon)';
+      var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+      try Store.WriteBool('VideoShaders', 'EdgeDetect', IsEnabled); finally Store.Free; end;
+    end;
+    sfFilmGrain:
+    begin
+      FSettings.ShaderFilmGrain := not FSettings.ShaderFilmGrain;
+      IsEnabled := FSettings.ShaderFilmGrain;
+      ShaderName := 'Film Grain';
+      var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+      try Store.WriteBool('VideoShaders', 'FilmGrain', IsEnabled); finally Store.Free; end;
+    end;
+    sfDenoise:
+    begin
+      FSettings.ShaderDenoise := not FSettings.ShaderDenoise;
+      IsEnabled := FSettings.ShaderDenoise;
+      ShaderName := '3D Denoise (Clean Noise)';
+      var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+      try Store.WriteBool('VideoShaders', 'Denoise', IsEnabled); finally Store.Free; end;
+    end;
+    sfSepia:
+    begin
+      FSettings.ShaderSepia := not FSettings.ShaderSepia;
+      IsEnabled := FSettings.ShaderSepia;
+      ShaderName := 'Sepia (Vintage)';
+      var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+      try Store.WriteBool('VideoShaders', 'Sepia', IsEnabled); finally Store.Free; end;
+    end;
+    sfPosterize:
+    begin
+      FSettings.ShaderPosterize := not FSettings.ShaderPosterize;
+      IsEnabled := FSettings.ShaderPosterize;
+      ShaderName := 'Posterize (Pop Art)';
+      var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+      try Store.WriteBool('VideoShaders', 'Posterize', IsEnabled); finally Store.Free; end;
+    end;
+    sfAnaglyph:
+    begin
+      FSettings.ShaderAnaglyph := not FSettings.ShaderAnaglyph;
+      IsEnabled := FSettings.ShaderAnaglyph;
+      ShaderName := '3D Anaglyph (Red/Cyan)';
+      var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+      try Store.WriteBool('VideoShaders', 'Anaglyph', IsEnabled); finally Store.Free; end;
+    end;
+  else
+    Exit;
+  end;
+
+  if (FMediaPlayer <> nil) and (FCurrentFile <> '') then
+  begin
+    CurPos := libvlc_media_player_get_time(FMediaPlayer);
+    PlayFile(FCurrentFile);
+    if CurPos > 0 then SeekTo(CurPos);
+  end;
+
+  if IsEnabled then
+    ShowOSD('Shader: ' + ShaderName + ' ON')
+  else
+    ShowOSD('Shader: ' + ShaderName + ' OFF');
+end;
+
+procedure TFrmMain.ResetAllShaders;
+var CurPos: Int64;
+begin
+  FSettings.ShaderInvert := False;
+  FSettings.ShaderSharpen := False;
+  FSettings.ShaderEdgeDetect := False;
+  FSettings.ShaderFilmGrain := False;
+  FSettings.ShaderDenoise := False;
+  FSettings.ShaderSepia := False;
+  FSettings.ShaderPosterize := False;
+  FSettings.ShaderAnaglyph := False;
+
+  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try
+    Store.WriteBool('VideoShaders', 'Invert', False);
+    Store.WriteBool('VideoShaders', 'Sharpen', False);
+    Store.WriteBool('VideoShaders', 'EdgeDetect', False);
+    Store.WriteBool('VideoShaders', 'FilmGrain', False);
+    Store.WriteBool('VideoShaders', 'Denoise', False);
+    Store.WriteBool('VideoShaders', 'Sepia', False);
+    Store.WriteBool('VideoShaders', 'Posterize', False);
+    Store.WriteBool('VideoShaders', 'Anaglyph', False);
+  finally Store.Free; end;
+
+  if (FMediaPlayer <> nil) and (FCurrentFile <> '') then
+  begin
+    CurPos := libvlc_media_player_get_time(FMediaPlayer);
+    PlayFile(FCurrentFile);
+    if CurPos > 0 then SeekTo(CurPos);
+  end;
+
+  ShowOSD('Shaders: All Effects Disabled');
+end;
+
+procedure TFrmMain.mnuProfileItemClick(Sender: TObject);
+begin
+  if Sender is TMenuItem then
+    ApplyVideoProfile(TMenuItem(Sender).Tag);
+end;
+
+procedure TFrmMain.mnuShaderItemClick(Sender: TObject);
+begin
+  if Sender is TMenuItem then
+    ToggleShader(TShaderFilter(TMenuItem(Sender).Tag));
+end;
+
+procedure TFrmMain.mnuResetShadersClick(Sender: TObject);
+begin
+  ResetAllShaders;
 end;
 
 procedure TFrmMain.mnuAudioChannelClick(Sender: TObject);
@@ -4952,6 +6375,1212 @@ begin
     ShowOSD('Failed to take snapshot');
 end;
 
+procedure TFrmMain.mnuCleanSnapshotClick(Sender: TObject);
+begin
+  TakeCleanSnapshot;
+end;
+
+procedure TFrmMain.TakeCleanSnapshot;
+var
+  SnapDir, SnapPath, BaseName, TimeStr: string;
+  Utf8Snap: UTF8String;
+  CurTime: Int64;
+  SavedSpu: Integer;
+begin
+  if FMediaPlayer = nil then Exit;
+  SnapDir := IncludeTrailingPathDelimiter(TPath.Combine(TPath.GetPicturesPath, 'VLC Modern\Snapshots'));
+  if GetEnvironmentVariable('VLC_SETTINGS_TEST_ID') <> '' then
+    SnapDir := IncludeTrailingPathDelimiter(TPath.GetFullPath('build\tests\output\snapshots'));
+  System.SysUtils.ForceDirectories(SnapDir);
+
+  if (FCurrentFile <> '') and (Pos('://', FCurrentFile) = 0) then
+    BaseName := TPath.GetFileNameWithoutExtension(FCurrentFile)
+  else
+    BaseName := 'snapshot';
+
+  CurTime := 0;
+  if Assigned(libvlc_media_player_get_time) then
+    CurTime := libvlc_media_player_get_time(FMediaPlayer);
+
+  TimeStr := FormatTime(CurTime).Replace(':', '-');
+  SnapPath := SnapDir + Format('%s_Clean_%s_%s.png', [BaseName, TimeStr, FormatDateTime('hhnnss', Now)]);
+  Utf8Snap := UTF8Encode(SnapPath);
+
+  SavedSpu := -1;
+  if Assigned(libvlc_video_get_spu) then
+    SavedSpu := libvlc_video_get_spu(FMediaPlayer);
+
+  if (SavedSpu > 0) and Assigned(libvlc_video_set_spu) then
+    libvlc_video_set_spu(FMediaPlayer, -1);
+
+  try
+    if (Assigned(libvlc_video_take_snapshot)) and (libvlc_video_take_snapshot(FMediaPlayer, 0, PAnsiChar(Utf8Snap), 0, 0) = 0) then
+      ShowOSD('Clean Snapshot Saved: ' + ExtractFileName(SnapPath))
+    else
+      ShowOSD('Failed to take clean snapshot');
+  finally
+    if (SavedSpu > 0) and Assigned(libvlc_video_set_spu) then
+      libvlc_video_set_spu(FMediaPlayer, SavedSpu);
+  end;
+end;
+
+procedure TFrmMain.mnuDownloadOnlineSubClick(Sender: TObject);
+begin
+  DownloadSubtitlesOnline;
+end;
+
+procedure TFrmMain.DownloadSubtitlesOnline;
+begin
+  if (FCurrentFile = '') or (Pos('://', FCurrentFile) > 0) or not TFile.Exists(FCurrentFile) then
+  begin
+    ShowOSD('Online Subtitles: Please open a local video file first');
+    Exit;
+  end;
+
+  ShowOSD('Searching OpenSubtitles...');
+  var RequestedFile := FCurrentFile;
+  TOpenSubtitlesDownloader.SearchAsync(RequestedFile,
+    procedure(const Matches: TArray<TSubtitleCandidate>; const ErrorMsg: string)
+    begin
+      if (FrmMain = nil) or FrmMain.FClosing or
+        not SameText(FrmMain.FCurrentFile, RequestedFile) then Exit;
+      if ErrorMsg <> '' then
+      begin
+        FrmMain.ShowOSD('OpenSubtitles: ' + ErrorMsg);
+        Exit;
+      end;
+      var Labels: TArray<string>;
+      SetLength(Labels, Length(Matches));
+      for var I := 0 to High(Matches) do
+        Labels[I] := UpperCase(Matches[I].Language) + '  |  ' + Matches[I].ReleaseName;
+      var Selected := PlayerChooseSubtitle(Labels);
+      if Selected < 0 then Exit;
+      TOpenSubtitlesDownloader.DownloadCandidateAsync(Matches[Selected].FileID,
+        procedure(const SubPath: string; Success: Boolean; const ErrorMsg: string)
+        begin
+          if (FrmMain = nil) or FrmMain.FClosing or
+            not SameText(FrmMain.FCurrentFile, RequestedFile) then
+          begin
+            if SubPath <> '' then System.SysUtils.DeleteFile(SubPath);
+            Exit;
+          end;
+          if Success and (SubPath <> '') then
+          begin
+            if FrmMain.LoadSubtitleFile(SubPath) then
+            begin
+              FrmMain.FGeneratedSubtitles.Add(SubPath);
+              FrmMain.ShowOSD('Subtitles downloaded');
+            end
+            else
+            begin
+              System.SysUtils.DeleteFile(SubPath);
+              FrmMain.ShowOSD('OpenSubtitles: could not load downloaded subtitle');
+            end;
+          end
+          else
+            FrmMain.ShowOSD('OpenSubtitles: ' + ErrorMsg);
+        end
+      );
+    end);
+end;
+
+procedure TFrmMain.mnuTranslateSubClick(Sender: TObject);
+begin
+  TranslateCurrentSubtitle;
+end;
+
+procedure TFrmMain.TranslateCurrentSubtitle;
+var
+  TargetSRT: string;
+begin
+  TargetSRT := '';
+  if (FCurrentFile <> '') and (Pos('://', FCurrentFile) = 0) then
+  begin
+    var Base := TPath.Combine(TPath.GetDirectoryName(FCurrentFile), TPath.GetFileNameWithoutExtension(FCurrentFile));
+    if TFile.Exists(Base + '.srt') then
+      TargetSRT := Base + '.srt'
+    else if TFile.Exists(Base + '.en.srt') then
+      TargetSRT := Base + '.en.srt';
+  end;
+
+  if (TargetSRT = '') or not TFile.Exists(TargetSRT) then
+  begin
+    if OpenDialogSub.Execute then
+      TargetSRT := OpenDialogSub.FileName;
+  end;
+
+  if (TargetSRT = '') or not TFile.Exists(TargetSRT) then
+  begin
+    ShowOSD('Translate Subtitles: No SRT subtitle found to translate');
+    Exit;
+  end;
+
+  ShowOSD('Translating subtitles to Arabic...');
+  TOpenSubtitlesDownloader.TranslateSRTAsync(
+    TargetSRT,
+    'ar',
+    procedure(const SubPath: string; Success: Boolean; const ErrorMsg: string)
+    begin
+      if Success and (SubPath <> '') then
+      begin
+        LoadSubtitleFile(SubPath);
+        ShowOSD('Translated subtitles loaded: ' + ExtractFileName(SubPath));
+      end
+      else
+        ShowOSD('Translation failed: ' + ErrorMsg);
+    end
+  );
+end;
+
+procedure TFrmMain.mnuLoad3DLUTClick(Sender: TObject);
+var
+  OpenDlg: TOpenDialog;
+begin
+  OpenDlg := TOpenDialog.Create(Self);
+  try
+    OpenDlg.Title := 'Select 3D LUT Color Profile';
+    OpenDlg.Filter := '3D LUT Files (*.cube;*.3dl;*.lut)|*.cube;*.3dl;*.lut|All Files (*.*)|*.*';
+    if OpenDlg.Execute then
+      Load3DLUTFile(OpenDlg.FileName);
+  finally
+    OpenDlg.Free;
+  end;
+end;
+
+function TFrmMain.EnsureGPUShaderPipeline: Boolean;
+var
+  Err: string;
+begin
+  Result := False;
+  if not Assigned(pnlVideo) or not pnlVideo.HandleAllocated then Exit;
+  if FGPUShader = nil then
+    FGPUShader := TD3D11ShaderRenderer.Create;
+  if not FGPUShader.Initialized then
+  begin
+    if not FGPUShader.Initialize(pnlVideo.Handle, Max(64, pnlVideo.Width), Max(64, pnlVideo.Height), Err) then
+    begin
+      ShowOSD('D3D11 Shader Init Error: ' + Err);
+      Exit;
+    end;
+  end;
+  if not FGPUShaderActive then
+  begin
+    FGPUShaderActive := True;
+    if FMediaPlayer <> nil then
+    begin
+      var State := libvlc_media_player_get_state(FMediaPlayer);
+      var Position := libvlc_media_player_get_time(FMediaPlayer);
+      libvlc_media_player_stop(FMediaPlayer);
+      libvlc_media_player_set_hwnd(FMediaPlayer, nil);
+      FGPUShader.AttachToPlayer(FMediaPlayer);
+      if State in [libvlc_Playing, libvlc_Paused] then
+      begin
+        libvlc_media_player_play(FMediaPlayer);
+        if (Position > 0) and not FCurrentFile.Contains('://') then SeekTo(Position);
+        if State = libvlc_Paused then libvlc_media_player_set_pause(FMediaPlayer, 1);
+      end;
+    end;
+  end;
+  Result := True;
+end;
+
+procedure TFrmMain.DisableGPUShaderPipeline;
+var
+  Position: Int64;
+  State: libvlc_state_t;
+  Source: string;
+begin
+  if not FGPUShaderActive then Exit;
+  FGPUShaderActive := False;
+  State := libvlc_Stopped;
+  Position := 0;
+  Source := FCurrentFile;
+  if FMediaPlayer <> nil then
+  begin
+    State := libvlc_media_player_get_state(FMediaPlayer);
+    Position := libvlc_media_player_get_time(FMediaPlayer);
+    // The stop joins VLC's video output before the callback state is released.
+    libvlc_media_player_stop(FMediaPlayer);
+    if Assigned(libvlc_video_set_callbacks) then
+      libvlc_video_set_callbacks(FMediaPlayer, nil, nil, nil, nil);
+    if Assigned(libvlc_video_set_format_callbacks) then
+      libvlc_video_set_format_callbacks(FMediaPlayer, nil, nil);
+    if Assigned(pnlVideo) and pnlVideo.HandleAllocated then
+      libvlc_media_player_set_hwnd(FMediaPlayer, Pointer(pnlVideo.Handle));
+  end;
+  if FGPUShader <> nil then
+  begin
+    FGPUShader.Flags := [];
+    FGPUShader.ReleaseDevice;
+  end;
+  if (Source <> '') and (State in [libvlc_Playing, libvlc_Paused]) then
+  begin
+    libvlc_media_player_play(FMediaPlayer);
+    if (Position > 0) and not Source.Contains('://') then SeekTo(Position);
+    if State = libvlc_Paused then libvlc_media_player_set_pause(FMediaPlayer, 1);
+  end;
+  if Assigned(mnuGPUAnime4K) then mnuGPUAnime4K.Checked := False;
+  if Assigned(mnuGPUCAS) then mnuGPUCAS.Checked := False;
+  if Assigned(mnuGPUDeband) then mnuGPUDeband.Checked := False;
+  if Assigned(mnuGPUACES) then mnuGPUACES.Checked := False;
+  if Assigned(mnuGPUCRT) then mnuGPUCRT.Checked := False;
+  ShowOSD('GPU HLSL Pipeline Disabled (Native Zero-Copy)');
+end;
+
+procedure TFrmMain.ToggleGPUShader(AFlag: TGPUShaderFlag);
+const
+  FlagNames: array[TGPUShaderFlag] of string = (
+    'Anime4K Edge & Line Enhance',
+    'CAS Adaptive Sharpen',
+    'Ordered Deband & Dither',
+    'ACES Filmic HDR->SDR',
+    'CRT Retro Scanlines',
+    'TV->PC Levels (16-235 -> 0-255)',
+    'BT.601 -> BT.709 Color Matrix',
+    '3D LUT'
+  );
+begin
+  if not EnsureGPUShaderPipeline then Exit;
+  if AFlag in FGPUShader.Flags then
+  begin
+    FGPUShader.Flags := FGPUShader.Flags - [AFlag];
+    ShowOSD('GPU Shader OFF: ' + FlagNames[AFlag]);
+  end
+  else
+  begin
+    FGPUShader.Flags := FGPUShader.Flags + [AFlag];
+    ShowOSD('GPU Shader ON: ' + FlagNames[AFlag]);
+  end;
+  if Assigned(mnuGPUAnime4K) then mnuGPUAnime4K.Checked := gsAnime4K in FGPUShader.Flags;
+  if Assigned(mnuGPUCAS) then mnuGPUCAS.Checked := gsCAS in FGPUShader.Flags;
+  if Assigned(mnuGPUDeband) then mnuGPUDeband.Checked := gsDeband in FGPUShader.Flags;
+  if Assigned(mnuGPUACES) then mnuGPUACES.Checked := gsACES in FGPUShader.Flags;
+  if Assigned(mnuGPUCRT) then mnuGPUCRT.Checked := gsCRT in FGPUShader.Flags;
+  if Assigned(mnuGPULevels) then mnuGPULevels.Checked := gsLevels16_235 in FGPUShader.Flags;
+  if Assigned(mnuGPUBT601) then mnuGPUBT601.Checked := gsBT601to709 in FGPUShader.Flags;
+end;
+
+procedure TFrmMain.LoadCustomHLSLShader(const APath: string);
+var
+  Err: string;
+begin
+  if not EnsureGPUShaderPipeline then Exit;
+  if FGPUShader.LoadCustomHLSL(APath, Err) then
+    ShowOSD('Custom HLSL Shader Compiled: ' + ExtractFileName(APath))
+  else
+    ShowOSD('HLSL Compile Error: ' + Err);
+end;
+
+procedure TFrmMain.mnuGPUShaderItemClick(Sender: TObject);
+begin
+  if not (Sender is TMenuItem) then Exit;
+  case TMenuItem(Sender).Tag of
+    0: ToggleGPUShader(gsAnime4K);
+    1: ToggleGPUShader(gsCAS);
+    2: ToggleGPUShader(gsDeband);
+    3: ToggleGPUShader(gsACES);
+    4: ToggleGPUShader(gsCRT);
+    5: ToggleGPUShader(gsLevels16_235);
+    6: ToggleGPUShader(gsBT601to709);
+  end;
+end;
+
+procedure TFrmMain.mnuGPULoadHLSLClick(Sender: TObject);
+var
+  OpenDlg: TOpenDialog;
+begin
+  OpenDlg := TOpenDialog.Create(Self);
+  try
+    OpenDlg.Title := 'Load Custom HLSL / PotPlayer PxShader (.hlsl, .txt)';
+    OpenDlg.Filter := 'HLSL / PotPlayer Shaders (*.hlsl;*.fx;*.txt)|*.hlsl;*.fx;*.txt|All Files (*.*)|*.*';
+    if OpenDlg.Execute then
+      LoadCustomHLSLShader(OpenDlg.FileName);
+  finally
+    OpenDlg.Free;
+  end;
+end;
+
+procedure TFrmMain.mnuGPUDisableClick(Sender: TObject);
+begin
+  DisableGPUShaderPipeline;
+end;
+
+procedure TFrmMain.mnu3DModeItemClick(Sender: TObject);
+begin
+  if Sender is TMenuItem then
+    Set3DStereoMode(TMenuItem(Sender).Tag);
+end;
+
+procedure TFrmMain.Set3DStereoMode(AMode: Integer);
+var
+  W, H: Cardinal;
+  CropStr: AnsiString;
+begin
+  F3DStereoMode := EnsureRange(AMode, 0, 2);
+  if Assigned(mnu3DNormal) then mnu3DNormal.Checked := (F3DStereoMode = 0);
+  if Assigned(mnu3DSBS) then mnu3DSBS.Checked := (F3DStereoMode = 1);
+  if Assigned(mnu3DTAB) then mnu3DTAB.Checked := (F3DStereoMode = 2);
+
+  if (FMediaPlayer <> nil) and Assigned(libvlc_video_set_crop_geometry) then
+  begin
+    W := 0; H := 0;
+    if Assigned(libvlc_video_get_size) then
+      libvlc_video_get_size(FMediaPlayer, 0, @W, @H);
+    case F3DStereoMode of
+      0:
+      begin
+        libvlc_video_set_crop_geometry(FMediaPlayer, nil);
+        ShowOSD('3D Stereo: Normal 2D');
+      end;
+      1:
+      begin
+        if (W > 0) and (H > 0) then
+          CropStr := AnsiString(Format('%dx%d+0+0', [W div 2, H]))
+        else
+          CropStr := '16:18';
+        libvlc_video_set_crop_geometry(FMediaPlayer, PAnsiChar(CropStr));
+        ShowOSD('3D Stereo: Side-by-Side (SBS) -> 2D');
+      end;
+      2:
+      begin
+        if (W > 0) and (H > 0) then
+          CropStr := AnsiString(Format('%dx%d+0+0', [W, H div 2]))
+        else
+          CropStr := '32:9';
+        libvlc_video_set_crop_geometry(FMediaPlayer, PAnsiChar(CropStr));
+        ShowOSD('3D Stereo: Top-and-Bottom (TAB) -> 2D');
+      end;
+    end;
+  end;
+end;
+
+procedure TFrmMain.mnuSleepTimerItemClick(Sender: TObject);
+begin
+  if Sender is TMenuItem then
+    SetSleepTimerMinutes(TMenuItem(Sender).Tag);
+end;
+
+procedure TFrmMain.SetSleepTimerMinutes(AMinutes: Integer);
+begin
+  if AMinutes <= 0 then
+  begin
+    FSleepExpireTick := 0;
+    ShowOSD('Sleep Timer: Off');
+  end
+  else
+  begin
+    FSleepExpireTick := GetTickCount64 + UInt64(AMinutes) * 60000;
+    ShowOSD(Format('Sleep Timer: Player will close in %d minutes', [AMinutes]));
+  end;
+  if Assigned(mnuSleepOff) then mnuSleepOff.Checked := (AMinutes <= 0);
+  if Assigned(mnuSleep15) then mnuSleep15.Checked := (AMinutes = 15);
+  if Assigned(mnuSleep30) then mnuSleep30.Checked := (AMinutes = 30);
+  if Assigned(mnuSleep60) then mnuSleep60.Checked := (AMinutes = 60);
+  if Assigned(mnuSleep90) then mnuSleep90.Checked := (AMinutes = 90);
+end;
+
+procedure TFrmMain.mnuCycleAudioDeviceClick(Sender: TObject);
+begin
+  CycleAudioOutputDevice;
+end;
+
+procedure TFrmMain.CycleAudioOutputDevice;
+var
+  Head, Cur, NextDev: Plibvlc_audio_output_device_t;
+  CurrentID, TargetID, TargetDesc: string;
+begin
+  if (FMediaPlayer = nil) or not Assigned(libvlc_audio_output_device_enum) then
+  begin
+    ShowOSD('Audio Device: No active player');
+    Exit;
+  end;
+  Head := libvlc_audio_output_device_enum(FMediaPlayer);
+  if Head = nil then
+  begin
+    ShowOSD('Audio Device: No output devices enumerated');
+    Exit;
+  end;
+  try
+    CurrentID := FSettings.AudioDeviceID;
+    Cur := Head;
+    NextDev := Head;
+    while Cur <> nil do
+    begin
+      if (CurrentID <> '') and SameText(UTF8ToString(Cur^.psz_device), CurrentID) then
+      begin
+        if Cur^.p_next <> nil then NextDev := Cur^.p_next
+        else NextDev := Head;
+        Break;
+      end;
+      Cur := Cur^.p_next;
+    end;
+    TargetID := UTF8ToString(NextDev^.psz_device);
+    TargetDesc := UTF8ToString(NextDev^.psz_description);
+    if Assigned(libvlc_audio_output_device_set) then
+      libvlc_audio_output_device_set(FMediaPlayer, nil, NextDev^.psz_device);
+    FSettings.AudioDeviceID := TargetID;
+    var Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+    try
+      Ini.WriteString('Audio', 'DeviceID', TargetID);
+    finally
+      Ini.Free;
+    end;
+    ShowOSD('Audio Output: ' + TargetDesc);
+  finally
+    if Assigned(libvlc_audio_output_device_list_release) then
+      libvlc_audio_output_device_list_release(Head);
+  end;
+end;
+
+procedure TFrmMain.mnuSubSizePlusClick(Sender: TObject);
+begin
+  AdjustSubtitleSize(1);
+end;
+
+procedure TFrmMain.mnuSubSizeMinusClick(Sender: TObject);
+begin
+  AdjustSubtitleSize(-1);
+end;
+
+procedure TFrmMain.mnuSubMoveUpClick(Sender: TObject);
+begin
+  AdjustSubtitleMargin(10);
+end;
+
+procedure TFrmMain.mnuSubMoveDownClick(Sender: TObject);
+begin
+  AdjustSubtitleMargin(-10);
+end;
+
+procedure TFrmMain.AdjustSubtitleSize(Delta: Integer);
+const
+  SizeLabels: array[0..3] of string = ('Small (16)', 'Normal (22)', 'Large (28)', 'Extra Large (36)');
+var
+  Ini: TAppSettings;
+  Idx: Integer;
+begin
+  Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try
+    Idx := EnsureRange(Ini.ReadInteger('Subtitles', 'Size', 1) + Delta, 0, 3);
+    Ini.WriteInteger('Subtitles', 'Size', Idx);
+  finally
+    Ini.Free;
+  end;
+  ReloadPlayerPreferences;
+  if (FMediaPlayer <> nil) and (FCurrentMedia <> nil) and
+     (libvlc_media_player_get_state(FMediaPlayer) in [libvlc_Playing, libvlc_Paused]) then
+    ApplyAudioEffects;
+  ShowOSD('Subtitle Size: ' + SizeLabels[Idx]);
+end;
+
+procedure TFrmMain.AdjustSubtitleMargin(Delta: Integer);
+var
+  Ini: TAppSettings;
+  NewMargin: Integer;
+begin
+  NewMargin := EnsureRange(FSettings.SubtitleMargin + Delta, 0, 200);
+  Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try
+    Ini.WriteInteger('Subtitles', 'Margin', NewMargin);
+  finally
+    Ini.Free;
+  end;
+  FSettings.SubtitleMargin := NewMargin;
+  if (FMediaPlayer <> nil) and (FCurrentMedia <> nil) and
+     (libvlc_media_player_get_state(FMediaPlayer) in [libvlc_Playing, libvlc_Paused]) then
+    ApplyAudioEffects;
+  ShowOSD(Format('Subtitle Vertical Margin: %d px', [NewMargin]));
+end;
+
+procedure TFrmMain.Load3DLUTFile(const ALutPath: string);
+var
+  Profile: TLut3DProfile;
+  Err: string;
+  Ini: TAppSettings;
+begin
+  if not TLut3DProfile.LoadFromCube(ALutPath, Profile, Err) then
+  begin
+    ShowOSD('3D LUT Error: ' + Err);
+    Exit;
+  end;
+
+  Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try
+    Ini.WriteString('Video', 'Lut3DPath', ALutPath);
+  finally
+    Ini.Free;
+  end;
+  FSettings.Lut3DPath := ALutPath;
+
+  if EnsureGPUShaderPipeline and FGPUShader.UploadLut3D(Profile, Err) then
+  begin
+    ShowOSD(Format('GPU 3D LUT Active: %s (%dx%dx%d Texture3D)', [Profile.Title, Profile.Size, Profile.Size, Profile.Size]));
+    Exit;
+  end;
+
+  if FMediaPlayer <> nil then
+  begin
+    EnsureVideoAdjustEnabled;
+    libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Contrast, Profile.Contrast);
+    libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Brightness, Profile.Brightness);
+    libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Gamma, Profile.Gamma);
+    libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Saturation, Profile.Saturation);
+    libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Hue, Profile.Hue);
+  end;
+
+  ShowOSD(Format('3D LUT Applied: %s (%dx%dx%d)', [Profile.Title, Profile.Size, Profile.Size, Profile.Size]));
+end;
+
+procedure TFrmMain.mnuScalingItemClick(Sender: TObject);
+var
+  TagVal: Integer;
+begin
+  if not (Sender is TMenuItem) then Exit;
+  TagVal := TMenuItem(Sender).Tag;
+  SetScalingAlgorithm(TagVal);
+end;
+
+procedure TFrmMain.SetScalingAlgorithm(AMode: Integer);
+const
+  ModeNames: array[0..3] of string = (
+    'Spline36 (Sharp High-Quality)',
+    'Lanczos (Anti-Aliased)',
+    'Bicubic (Balanced)',
+    'Bilinear (Fast)'
+  );
+var
+  Ini: TAppSettings;
+  SafeMode: Integer;
+begin
+  SafeMode := EnsureRange(AMode, 0, 3);
+  Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try
+    Ini.WriteInteger('Video', 'ScalingMode', SafeMode);
+  finally
+    Ini.Free;
+  end;
+  FSettings.ScalingMode := SafeMode;
+
+  if Assigned(mnuScaleSpline36) then mnuScaleSpline36.Checked := (SafeMode = 0);
+  if Assigned(mnuScaleLanczos) then mnuScaleLanczos.Checked := (SafeMode = 1);
+  if Assigned(mnuScaleBicubic) then mnuScaleBicubic.Checked := (SafeMode = 2);
+  if Assigned(mnuScaleBilinear) then mnuScaleBilinear.Checked := (SafeMode = 3);
+
+  if (FMediaPlayer <> nil) and (FCurrentMedia <> nil) and
+     (libvlc_media_player_get_state(FMediaPlayer) in [libvlc_Playing, libvlc_Paused]) then
+    ApplyAudioEffects;
+
+  ShowOSD('Video Scaler: ' + ModeNames[SafeMode]);
+end;
+
+procedure RendererDiscovererCallback(p_event: Plibvlc_event_t; p_user_data: Pointer); cdecl;
+var
+  Form: TFrmMain;
+  Item: Plibvlc_renderer_item_t;
+  NamePtr: PAnsiChar;
+  DevName: string;
+begin
+  if (p_event = nil) or (p_user_data = nil) then Exit;
+  Form := TFrmMain(p_user_data);
+  if p_event^.i_type = libvlc_RendererDiscovererItemAdded then
+  begin
+    Item := Plibvlc_renderer_item_t(p_event^.u_ptr);
+    if (Item <> nil) and Assigned(libvlc_renderer_item_name) then
+    begin
+      NamePtr := libvlc_renderer_item_name(Item);
+      if NamePtr <> nil then
+        DevName := UTF8ToString(NamePtr)
+      else
+        DevName := 'Smart Display';
+      if Assigned(libvlc_renderer_item_hold) then
+        libvlc_renderer_item_hold(Item);
+      TThread.Queue(nil,
+        TThreadProcedure(procedure
+        begin
+          if (Form <> nil) and (not Form.FClosing) then
+          begin
+            if Form.FRendererItems = nil then Form.FRendererItems := TList<Plibvlc_renderer_item_t>.Create;
+            if Form.FRendererNames = nil then Form.FRendererNames := TStringList.Create;
+            if Form.FRendererItems.IndexOf(Item) < 0 then
+            begin
+              Form.FRendererItems.Add(Item);
+              Form.FRendererNames.Add(DevName);
+              Form.ShowOSD('Cast Device Found: ' + DevName);
+            end
+            else if Assigned(libvlc_renderer_item_release) then
+              libvlc_renderer_item_release(Item);
+          end;
+        end));
+    end;
+  end;
+end;
+
+procedure TFrmMain.ReleaseRenderers;
+var
+  I: Integer;
+  EM: Plibvlc_event_manager_t;
+begin
+  if FRendererDiscoverer <> nil then
+  begin
+    try
+      if Assigned(libvlc_renderer_discoverer_event_manager) and Assigned(libvlc_event_detach) then
+      begin
+        EM := libvlc_renderer_discoverer_event_manager(FRendererDiscoverer);
+        if EM <> nil then
+          libvlc_event_detach(EM, libvlc_RendererDiscovererItemAdded, @RendererDiscovererCallback, Self);
+      end;
+      if Assigned(libvlc_renderer_discoverer_stop) then
+        libvlc_renderer_discoverer_stop(FRendererDiscoverer);
+      if Assigned(libvlc_renderer_discoverer_release) then
+        libvlc_renderer_discoverer_release(FRendererDiscoverer);
+    except
+    end;
+    FRendererDiscoverer := nil;
+  end;
+  if FRendererItems <> nil then
+  begin
+    if Assigned(libvlc_renderer_item_release) then
+      for I := 0 to FRendererItems.Count - 1 do
+        if FRendererItems[I] <> nil then
+          libvlc_renderer_item_release(FRendererItems[I]);
+    FreeAndNil(FRendererItems);
+  end;
+  FreeAndNil(FRendererNames);
+end;
+
+procedure TFrmMain.mnuRendererClick(Sender: TObject);
+begin
+  UpdateRendererMenu(mnuRenderer);
+end;
+
+procedure TFrmMain.UpdateRendererMenu(AMenu: TMenuItem);
+var
+  Item: TMenuItem;
+  I: Integer;
+begin
+  if AMenu = nil then Exit;
+  AMenu.Clear;
+
+  Item := TMenuItem.Create(AMenu);
+  Item.Caption := 'Local Display & Audio';
+  Item.Tag := -1;
+  Item.Checked := (FActiveRendererIndex < 0);
+  Item.OnClick := OnRendererSelect;
+  AMenu.Add(Item);
+
+  if (FRendererNames <> nil) and (FRendererNames.Count > 0) then
+  begin
+    Item := TMenuItem.Create(AMenu);
+    Item.Caption := '-';
+    AMenu.Add(Item);
+
+    for I := 0 to FRendererNames.Count - 1 do
+    begin
+      Item := TMenuItem.Create(AMenu);
+      Item.Caption := 'Cast: ' + FRendererNames[I];
+      Item.Tag := I;
+      Item.Checked := (FActiveRendererIndex = I);
+      Item.OnClick := OnRendererSelect;
+      AMenu.Add(Item);
+    end;
+  end;
+
+  Item := TMenuItem.Create(AMenu);
+  Item.Caption := '-';
+  AMenu.Add(Item);
+
+  Item := TMenuItem.Create(AMenu);
+  Item.Caption := 'Scan for Smart Screens (DLNA / Chromecast)...';
+  Item.OnClick := OnScanRenderersClick;
+  AMenu.Add(Item);
+end;
+
+procedure TFrmMain.OnRendererSelect(Sender: TObject);
+var
+  Idx: Integer;
+  RItem: Plibvlc_renderer_item_t;
+begin
+  if (FMediaPlayer = nil) or not (Sender is TMenuItem) then Exit;
+  Idx := TMenuItem(Sender).Tag;
+  if (Idx >= 0) and (FRendererItems <> nil) and (Idx < FRendererItems.Count) then
+  begin
+    RItem := FRendererItems[Idx];
+    if Assigned(libvlc_media_player_set_renderer) and (libvlc_media_player_set_renderer(FMediaPlayer, RItem) = 0) then
+    begin
+      FActiveRendererIndex := Idx;
+      ShowOSD('Casting to: ' + FRendererNames[Idx]);
+    end
+    else
+      ShowOSD('Cast: Failed to connect to ' + FRendererNames[Idx]);
+  end
+  else
+  begin
+    if Assigned(libvlc_media_player_set_renderer) then
+      libvlc_media_player_set_renderer(FMediaPlayer, nil);
+    FActiveRendererIndex := -1;
+    ShowOSD('Renderer: Local Display & Audio active');
+  end;
+end;
+
+procedure TFrmMain.OnScanRenderersClick(Sender: TObject);
+begin
+  ScanForRenderers;
+end;
+
+procedure TFrmMain.ScanForRenderers;
+var
+  Utf8Name: UTF8String;
+  EM: Plibvlc_event_manager_t;
+begin
+  if FVlcInstance = nil then
+  begin
+    ShowOSD('Cast: LibVLC instance not ready');
+    Exit;
+  end;
+
+  if not Assigned(libvlc_renderer_discoverer_new) then
+  begin
+    ShowOSD('Cast: Renderer discovery API not available in current LibVLC');
+    Exit;
+  end;
+
+  ReleaseRenderers;
+  FRendererItems := TList<Plibvlc_renderer_item_t>.Create;
+  FRendererNames := TStringList.Create;
+  FActiveRendererIndex := -1;
+
+  Utf8Name := UTF8Encode('microdns_renderer');
+  FRendererDiscoverer := libvlc_renderer_discoverer_new(FVlcInstance, PAnsiChar(Utf8Name));
+  if FRendererDiscoverer = nil then
+  begin
+    Utf8Name := UTF8Encode('chromecast');
+    FRendererDiscoverer := libvlc_renderer_discoverer_new(FVlcInstance, PAnsiChar(Utf8Name));
+  end;
+
+  if FRendererDiscoverer <> nil then
+  begin
+    if Assigned(libvlc_renderer_discoverer_event_manager) and Assigned(libvlc_event_attach) then
+    begin
+      EM := libvlc_renderer_discoverer_event_manager(FRendererDiscoverer);
+      if EM <> nil then
+        libvlc_event_attach(EM, libvlc_RendererDiscovererItemAdded, @RendererDiscovererCallback, Self);
+    end;
+    if Assigned(libvlc_renderer_discoverer_start) and (libvlc_renderer_discoverer_start(FRendererDiscoverer) = 0) then
+      ShowOSD('Cast: Scanning network for DLNA & Chromecast devices...')
+    else
+      ShowOSD('Cast: Could not start renderer scan');
+  end
+  else
+    ShowOSD('Cast: No renderer discoverer module available');
+end;
+
+procedure TFrmMain.mnuHotkeysClick(Sender: TObject);
+begin
+  ShowHotkeysReference;
+end;
+
+procedure TFrmMain.LoadCustomHotkeys;
+const
+  Actions: array[0..10] of string = (
+    'PlayPause', 'Fullscreen', 'Snapshot', 'CleanSnapshot', 'BossKey',
+    'Borderless', 'NextFrame', 'PrevFrame', 'CycleAudio', 'CycleSub', 'DownloadSub'
+  );
+  Defaults: array[0..10] of Integer = (
+    VK_SPACE, Ord('F'), scShift or Ord('S'), scCtrl or scAlt or scShift or Ord('S'),
+    VK_F11, VK_F10, VK_OEM_PERIOD, VK_OEM_COMMA, Ord('B'), Ord('V'),
+    scCtrl or scShift or Ord('U')
+  );
+var
+  Ini: TAppSettings;
+  I: Integer;
+begin
+  if FCustomHotkeys = nil then
+    FCustomHotkeys := TDictionary<string, TShortCut>.Create;
+  FCustomHotkeys.Clear;
+  Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try
+    for I := 0 to High(Actions) do
+      FCustomHotkeys.Add(Actions[I], TShortCut(Ini.ReadInteger('Hotkeys', Actions[I], Defaults[I])));
+  finally
+    Ini.Free;
+  end;
+end;
+
+function TFrmMain.TryHandleCustomHotkey(Key: Word; Shift: TShiftState): Boolean;
+var
+  PressedSC, BoundSC: TShortCut;
+  Pair: TPair<string, TShortCut>;
+begin
+  Result := False;
+  if Key = 0 then Exit;
+  if FCustomHotkeys = nil then LoadCustomHotkeys;
+  PressedSC := Vcl.Menus.ShortCut(Key, Shift);
+  if PressedSC = 0 then Exit;
+
+  for Pair in FCustomHotkeys do
+  begin
+    BoundSC := Pair.Value;
+    if (BoundSC <> 0) and (BoundSC = PressedSC) then
+    begin
+      if Pair.Key = 'PlayPause' then mnuPlayPauseClick(nil)
+      else if Pair.Key = 'Fullscreen' then mnuFullscreenClick(nil)
+      else if Pair.Key = 'Snapshot' then mnuSnapshotClick(nil)
+      else if Pair.Key = 'CleanSnapshot' then TakeCleanSnapshot
+      else if Pair.Key = 'BossKey' then begin if FSettings.BossKeyHide then ToggleBossKey; end
+      else if Pair.Key = 'Borderless' then mnuBorderlessClick(nil)
+      else if Pair.Key = 'NextFrame' then mnuNextFrameClick(nil)
+      else if Pair.Key = 'PrevFrame' then mnuPrevFrameClick(nil)
+      else if Pair.Key = 'CycleAudio' then CycleAudioTrack
+      else if Pair.Key = 'CycleSub' then CycleSubtitleTrack
+      else if Pair.Key = 'DownloadSub' then DownloadSubtitlesOnline
+      else Continue;
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+type
+  TShortcutList = class(TListBox)
+  protected
+    procedure WndProc(var Message: TMessage); override;
+  end;
+
+  TShortcutCapture = class(THotKey)
+  private
+    procedure PaintCapture(DC: HDC);
+  protected
+    procedure CreateParams(var Params: TCreateParams); override;
+    procedure WndProc(var Message: TMessage); override;
+  end;
+
+  THotkeyManagerForm = class(TForm)
+  public
+    Lst: TListBox;
+    HkBox: THotKey;
+    ActionKeys: TArray<string>;
+    ActionLabels: TArray<string>;
+    HotkeysMap: TDictionary<string, TShortCut>;
+    OwnerMain: TFrmMain;
+    procedure RefreshList;
+    procedure DrawShortcut(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
+    procedure OnListClick(Sender: TObject);
+    procedure OnAssignClick(Sender: TObject);
+    procedure OnResetClick(Sender: TObject);
+  end;
+
+procedure TShortcutList.WndProc(var Message: TMessage);
+begin
+  if (Message.Msg = CN_DRAWITEM) and (Message.LParam <> 0) then
+    PDrawItemStruct(Message.LParam)^.itemState :=
+      PDrawItemStruct(Message.LParam)^.itemState and not ODS_FOCUS;
+  inherited;
+end;
+
+procedure TShortcutCapture.CreateParams(var Params: TCreateParams);
+begin
+  inherited;
+  Params.Style := Params.Style and not WS_BORDER;
+  Params.ExStyle := Params.ExStyle and not (WS_EX_CLIENTEDGE or WS_EX_STATICEDGE);
+end;
+
+procedure TShortcutCapture.PaintCapture(DC: HDC);
+var Surface: TCanvas; Bounds, TextBounds: TRect; KeyText: string;
+begin
+  Surface := TCanvas.Create;
+  try
+    Surface.Handle := DC;
+    Bounds := ClientRect;
+    Surface.Brush.Color := DP_COLOR_SURFACE;
+    Surface.FillRect(Bounds);
+    var Diameter: Single := MulDiv(14, CurrentPPI, 96);
+    var Edge := DP_COLOR_BORDER;
+    if Focused then Edge := DP_COLOR_ACCENT;
+    var Graphic := TGPGraphics.Create(DC);
+    var Outline := TGPGraphicsPath.Create;
+    var Fill := TGPSolidBrush.Create(MakeGDIColor(DP_COLOR_BG));
+    var Stroke := TGPPen.Create(MakeGDIColor(Edge), 1.0);
+    try
+      Graphic.SetSmoothingMode(SmoothingModeAntiAlias);
+      Outline.AddArc(1.0, 1.0, Diameter, Diameter, 180, 90);
+      Outline.AddArc(Bounds.Right - Diameter - 1.0, 1.0, Diameter, Diameter, 270, 90);
+      Outline.AddArc(Bounds.Right - Diameter - 1.0, Bounds.Bottom - Diameter - 1.0,
+        Diameter, Diameter, 0, 90);
+      Outline.AddArc(1.0, Bounds.Bottom - Diameter - 1.0, Diameter, Diameter, 90, 90);
+      Outline.CloseFigure;
+      Graphic.FillPath(Fill, Outline);
+      Graphic.DrawPath(Stroke, Outline);
+    finally
+      Stroke.Free;
+      Fill.Free;
+      Outline.Free;
+      Graphic.Free;
+    end;
+    Surface.Font.Assign(Font);
+    Surface.Font.Color := DP_COLOR_TEXT;
+    Surface.Brush.Style := bsClear;
+    KeyText := ShortCutToText(HotKey);
+    if KeyText = '' then
+    begin
+      KeyText := 'Press a shortcut';
+      Surface.Font.Color := DP_COLOR_MUTED;
+    end;
+    TextBounds := Bounds;
+    InflateRect(TextBounds, -MulDiv(11, CurrentPPI, 96), 0);
+    Surface.TextRect(TextBounds, KeyText, [tfLeft, tfSingleLine, tfVerticalCenter, tfEndEllipsis, tfNoPrefix]);
+  finally
+    Surface.Handle := 0;
+    Surface.Free;
+  end;
+end;
+
+procedure TShortcutCapture.WndProc(var Message: TMessage);
+var Paint: TPaintStruct; DC: HDC; Redraw: Boolean;
+begin
+  case Message.Msg of
+    WM_NCCALCSIZE, WM_NCPAINT:
+      begin Message.Result := 0; Exit; end;
+    WM_ERASEBKGND:
+      begin Message.Result := 1; Exit; end;
+    WM_PRINTCLIENT:
+      begin PaintCapture(HDC(Message.WParam)); Message.Result := 0; Exit; end;
+    WM_PAINT:
+      begin
+        DC := HDC(Message.WParam);
+        if DC = 0 then DC := BeginPaint(Handle, Paint);
+        try PaintCapture(DC); finally
+          if Message.WParam = 0 then EndPaint(Handle, Paint);
+        end;
+        Message.Result := 0;
+        Exit;
+      end;
+    WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP, WM_SETFOCUS, WM_KILLFOCUS,
+    HKM_SETHOTKEY, WM_LBUTTONDOWN:
+      begin
+        Redraw := IsWindowVisible(Handle);
+        if Redraw then DefWindowProc(Handle, WM_SETREDRAW, 0, 0);
+        try inherited; finally
+          if Redraw then DefWindowProc(Handle, WM_SETREDRAW, 1, 0);
+        end;
+        if Focused then HideCaret(Handle);
+        Invalidate;
+        Exit;
+      end;
+  end;
+  inherited;
+end;
+
+procedure THotkeyManagerForm.RefreshList;
+var
+  I, Sel: Integer;
+begin
+  Sel := Lst.ItemIndex;
+  Lst.Items.BeginUpdate;
+  try
+    Lst.Items.Clear;
+    for I := 0 to High(ActionKeys) do
+      Lst.Items.Add(ActionLabels[I]);
+  finally
+    Lst.Items.EndUpdate;
+  end;
+  if (Sel >= 0) and (Sel < Lst.Items.Count) then
+    Lst.ItemIndex := Sel
+  else if Lst.Items.Count > 0 then
+    Lst.ItemIndex := 0;
+end;
+
+procedure THotkeyManagerForm.DrawShortcut(Control: TWinControl; Index: Integer;
+  Rect: TRect; State: TOwnerDrawState);
+var Key: TShortCut; KeyText: string; Chip: TRect; Padding: Integer;
+begin
+  if Index < 0 then Exit;
+  Key := 0;
+  HotkeysMap.TryGetValue(ActionKeys[Index], Key);
+  KeyText := ShortCutToText(Key);
+  if KeyText = '' then KeyText := 'Unassigned';
+  Padding := MulDiv(12, CurrentPPI, 96);
+  with Lst.Canvas do
+  begin
+    Brush.Color := DP_COLOR_SURFACE;
+    FillRect(Rect);
+    if odSelected in State then
+    begin
+      Brush.Color := DP_COLOR_HOVER;
+      Pen.Color := DP_COLOR_HOVER;
+      RoundRect(Rect.Left + 2, Rect.Top + 2, Rect.Right - 2, Rect.Bottom - 2, 10, 10);
+      Brush.Color := DP_COLOR_ACCENT;
+      Pen.Color := DP_COLOR_ACCENT;
+      RoundRect(Rect.Left + 3, Rect.Top + 7, Rect.Left + 6, Rect.Bottom - 7, 3, 3);
+    end;
+    Font.Color := DP_COLOR_TEXT;
+    Font.Style := [];
+    Brush.Style := bsClear;
+    TextOut(Rect.Left + Padding, Rect.Top + (Rect.Height - TextHeight('Ag')) div 2, ActionLabels[Index]);
+    Brush.Style := bsSolid;
+    Font.Style := [fsBold];
+    Chip := System.Types.Rect(Rect.Right - Padding - TextWidth(KeyText) - 20,
+      Rect.Top + 5, Rect.Right - Padding, Rect.Bottom - 5);
+    Brush.Color := DP_COLOR_BG;
+    Pen.Color := DP_COLOR_BORDER;
+    RoundRect(Chip.Left, Chip.Top, Chip.Right, Chip.Bottom, 8, 8);
+    Brush.Style := bsClear;
+    Font.Color := DP_COLOR_ACCENT;
+    TextOut(Chip.Left + 10, Chip.Top + (Chip.Height - TextHeight('Ag')) div 2, KeyText);
+    Brush.Style := bsSolid;
+  end;
+end;
+
+procedure THotkeyManagerForm.OnListClick(Sender: TObject);
+var
+  SC: TShortCut;
+begin
+  if (Lst.ItemIndex >= 0) and (Lst.ItemIndex <= High(ActionKeys)) then
+  begin
+    SC := 0;
+    HotkeysMap.TryGetValue(ActionKeys[Lst.ItemIndex], SC);
+    HkBox.HotKey := SC;
+  end;
+end;
+
+procedure THotkeyManagerForm.OnAssignClick(Sender: TObject);
+var
+  Ini: TAppSettings;
+  Idx: Integer;
+begin
+  Idx := Lst.ItemIndex;
+  if (Idx < 0) or (Idx > High(ActionKeys)) then Exit;
+  HotkeysMap.AddOrSetValue(ActionKeys[Idx], HkBox.HotKey);
+  Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try
+    Ini.WriteInteger('Hotkeys', ActionKeys[Idx], Integer(HkBox.HotKey));
+  finally
+    Ini.Free;
+  end;
+  RefreshList;
+  OwnerMain.ShowOSD('Hotkey Updated: ' + ActionLabels[Idx] + ' = ' + ShortCutToText(HkBox.HotKey));
+end;
+
+procedure THotkeyManagerForm.OnResetClick(Sender: TObject);
+var
+  Ini: TAppSettings;
+  I: Integer;
+begin
+  Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
+  try
+    for I := 0 to High(ActionKeys) do
+      Ini.DeleteKey('Hotkeys', ActionKeys[I]);
+  finally
+    Ini.Free;
+  end;
+  OwnerMain.LoadCustomHotkeys;
+  RefreshList;
+  OwnerMain.ShowOSD('Hotkeys reset to defaults');
+end;
+
+procedure TFrmMain.ShowHotkeysReference;
+var
+  Dlg: THotkeyManagerForm;
+  BtnAssign, BtnReset, BtnClose: TButton;
+  LblInfo: TLabel;
+  CurSC: TShortCut;
+begin
+  if FCustomHotkeys = nil then LoadCustomHotkeys;
+
+  Dlg := THotkeyManagerForm.CreateNew(Self);
+  try
+    Dlg.OwnerMain := Self;
+    Dlg.HotkeysMap := FCustomHotkeys;
+    Dlg.ActionKeys := [
+      'PlayPause', 'Fullscreen', 'Snapshot', 'CleanSnapshot', 'BossKey',
+      'Borderless', 'NextFrame', 'PrevFrame', 'CycleAudio', 'CycleSub', 'DownloadSub'
+    ];
+    Dlg.ActionLabels := [
+      'Play / Pause', 'Toggle Fullscreen', 'Take Snapshot', 'Take Clean Snapshot (No Subs)',
+      'Boss Key (Instant Hide)', 'Borderless Window', 'Next Frame', 'Previous Frame',
+      'Cycle Audio Track', 'Cycle Subtitle Track', 'Download Online Subtitles'
+    ];
+    Dlg.Caption := 'Keyboard Shortcuts';
+    Dlg.ClientWidth := 540;
+    Dlg.ClientHeight := 498;
+    Dlg.Position := poMainFormCenter;
+    Dlg.BorderStyle := bsSingle;
+
+    LblInfo := TLabel.Create(Dlg);
+    LblInfo.Parent := Dlg;
+    LblInfo.Left := 16;
+    LblInfo.Top := 14;
+    LblInfo.Caption := 'Select an action and press the keys you want to assign.';
+
+    Dlg.Lst := TShortcutList.Create(Dlg);
+    Dlg.Lst.Parent := Dlg;
+    Dlg.Lst.Left := 16;
+    Dlg.Lst.Top := 38;
+    Dlg.Lst.Width := 508;
+    Dlg.Lst.Height := 352;
+    Dlg.Lst.Font.Name := 'Segoe UI';
+    Dlg.Lst.Font.Size := 10;
+    Dlg.Lst.Style := lbOwnerDrawFixed;
+    Dlg.Lst.ItemHeight := 31;
+    Dlg.Lst.IntegralHeight := False;
+    Dlg.Lst.OnDrawItem := Dlg.DrawShortcut;
+
+    Dlg.HkBox := TShortcutCapture.Create(Dlg);
+    Dlg.HkBox.Parent := Dlg;
+    Dlg.HkBox.Left := 16;
+    Dlg.HkBox.Top := 410;
+    Dlg.HkBox.Width := 210;
+    Dlg.HkBox.Height := 28;
+    Dlg.HkBox.Hint := 'Press the key combination to record';
+    Dlg.HkBox.ShowHint := True;
+
+    BtnAssign := TButton.Create(Dlg);
+    BtnAssign.Parent := Dlg;
+    BtnAssign.Left := 236;
+    BtnAssign.Top := 410;
+    BtnAssign.Width := 110;
+    BtnAssign.Height := 28;
+    BtnAssign.Caption := 'Assign Key';
+
+    BtnReset := TButton.Create(Dlg);
+    BtnReset.Parent := Dlg;
+    BtnReset.Left := 354;
+    BtnReset.Top := 410;
+    BtnReset.Width := 170;
+    BtnReset.Height := 28;
+    BtnReset.Caption := 'Reset Defaults';
+
+    BtnClose := TButton.Create(Dlg);
+    BtnClose.Parent := Dlg;
+    BtnClose.Left := 424;
+    BtnClose.Top := 454;
+    BtnClose.Width := 100;
+    BtnClose.Height := 30;
+    BtnClose.Caption := 'Close';
+    BtnClose.ModalResult := mrOk;
+
+    Dlg.RefreshList;
+    if Dlg.Lst.ItemIndex >= 0 then
+    begin
+      CurSC := 0;
+      FCustomHotkeys.TryGetValue(Dlg.ActionKeys[Dlg.Lst.ItemIndex], CurSC);
+      Dlg.HkBox.HotKey := CurSC;
+    end;
+
+    Dlg.Lst.OnClick := Dlg.OnListClick;
+    BtnAssign.OnClick := Dlg.OnAssignClick;
+    BtnReset.OnClick := Dlg.OnResetClick;
+
+    ApplyPlayerAppearance(Dlg);
+    Dlg.Constraints.MinWidth := Dlg.Width;
+    Dlg.Constraints.MaxWidth := Dlg.Width;
+    Dlg.Constraints.MinHeight := Dlg.Height;
+    Dlg.Constraints.MaxHeight := Dlg.Height;
+    Dlg.ShowModal;
+  finally
+    Dlg.Free;
+  end;
+end;
+
 procedure TFrmMain.mnuAddSubClick(Sender: TObject);
 begin
   if (FMediaPlayer <> nil) and OpenDialogSub.Execute then
@@ -5087,7 +7716,7 @@ begin
       NewW, NewH
     );
   end;
-  ShowOSD(Format('Pan & Scan: %.1fx', [FPanScanZoom]));
+  ShowOSD(Format('Zoom & Position: %.1fx', [FPanScanZoom]));
 end;
 
 procedure TFrmMain.mnuPanScanItemClick(Sender: TObject);
@@ -5303,7 +7932,7 @@ begin
              'Video Frames: %d displayed, %d dropped'#13#10 +
              'Audio Buffers: %d played, %d lost'#13#10 +
              'Volume: %d%%'#13#10 +
-             'Pan & Scan: %.1fx'#13#10 +
+             'Zoom & Position: %.1fx'#13#10 +
              'Audio Delay: %d ms | Sub Delay: %d ms',
              [ExtractFileName(FCurrentFile), W, H, Fps, Rate,
               FormatTime(CurTime), FormatTime(TotalTime),
@@ -5324,7 +7953,7 @@ begin
              'Speed: %.2fx'#13#10 +
              'Time: %s / %s'#13#10 +
              'Volume: %d%% (Booster to 200%%)'#13#10 +
-             'Pan & Scan Zoom: %.1fx'#13#10 +
+             'Video Zoom: %.1fx'#13#10 +
              'Audio Delay: %d ms'#13#10 +
              'Subtitle Delay: %d ms',
              [ExtractFileName(FCurrentFile), W, H, Fps, Rate,
@@ -5398,6 +8027,10 @@ procedure TFrmMain.mnuPlaybackClick(Sender: TObject);
 begin
   UpdateChaptersMenu;
   UpdateTitlesMenu;
+  if Assigned(mnuSkipOpening) then
+    mnuSkipOpening.Checked := FSettings.SkipOpening;
+  if Assigned(mnuSkipEnding) then
+    mnuSkipEnding.Checked := FSettings.SkipEnding;
 end;
 
 procedure TFrmMain.UpdateTitlesMenu;
@@ -5703,6 +8336,8 @@ begin
     if WindowState = wsMaximized then btnTitleMax.IconKind := ikRestore
     else btnTitleMax.IconKind := ikMaximize;
   RepositionModernControls;
+  if FGPUShaderActive and (FGPUShader <> nil) and Assigned(pnlVideo) then
+    FGPUShader.Resize(Max(1, pnlVideo.Width), Max(1, pnlVideo.Height));
   if Assigned(pnlVideo) and (not FPlaybackStarted or (FMediaPlayer = nil)) then
     pnlVideo.Invalidate;
 end;
@@ -5861,6 +8496,7 @@ end;
 
 procedure TFrmMain.mnuEffectsClick(Sender: TObject);
 begin
+  if Assigned(FrmPreferences) then FrmPreferences.DetachEffects(nil);
   if not Assigned(FrmEffects) then
   begin
     FrmEffects := TFrmEffects.Create(Self);
@@ -5886,22 +8522,14 @@ end;
 
 procedure TFrmMain.mnuAboutClick(Sender: TObject);
 var
-  Ver: string;
+  AboutDlg: TFrmAbout;
 begin
-  if IsLibVLCLoaded then
-    Ver := string(libvlc_get_version())
-  else
-    Ver := 'Unknown';
-
-  PlayerMessage(
-    'VLC Modern'#13#10#13#10 +
-    'VideoLAN LibVLC ' + Ver + #13#10 +
-    'Delphi 13 / Native VCL / Windows'#13#10#13#10 +
-    'Video, audio and subtitles'#13#10 +
-    'Equalizer, picture adjustments and synchronization'#13#10 +
-    'Playlists, network streams and Live TV'#13#10#13#10 +
-    'Preferences: Ctrl+P     Fullscreen: Enter'
-  );
+  AboutDlg := TFrmAbout.Create(Self);
+  try
+    AboutDlg.ShowModal;
+  finally
+    AboutDlg.Free;
+  end;
 end;
 
 procedure TFrmMain.tbProgressChange(Sender: TObject);
@@ -5991,6 +8619,13 @@ begin
   if FClosing or (FMediaPlayer = nil) then Exit;
 
   try
+    if (FSleepExpireTick > 0) and (GetTickCount64 >= FSleepExpireTick) then
+    begin
+      FSleepExpireTick := 0;
+      ShowOSD('Sleep Timer Expired - Closing Player');
+      Close;
+      Exit;
+    end;
     ProcessMediaImports;
     State := libvlc_media_player_get_state(FMediaPlayer);
 
@@ -6111,6 +8746,35 @@ begin
       CurTime := libvlc_media_player_get_time(FMediaPlayer);
       Pos := libvlc_media_player_get_position(FMediaPlayer);
       RefreshVideoInput;
+
+      // PotPlayer Skip Opening & Ending features
+      if FSettings.SkipOpening and (FSettings.SkipOpeningSeconds > 0) and not FOpeningSkipped then
+      begin
+        var SkipMs: Int64 := Int64(FSettings.SkipOpeningSeconds) * 1000;
+        if (TotalLen > SkipMs * 2) and (CurTime < SkipMs) then
+        begin
+          FOpeningSkipped := True;
+          SeekTo(SkipMs);
+          ShowOSD(Format('Skipped Opening (+%ds)', [FSettings.SkipOpeningSeconds]));
+        end
+        else if (TotalLen > 0) then
+          FOpeningSkipped := True;
+      end;
+
+      if FSettings.SkipEnding and (FSettings.SkipEndingSeconds > 0) and not FEndingSkipped then
+      begin
+        if (TotalLen > 120000) and (CurTime > 60000) then
+        begin
+          var RemainMs := TotalLen - CurTime;
+          if (RemainMs <= Int64(FSettings.SkipEndingSeconds) * 1000) and (RemainMs > 1000) then
+          begin
+            FEndingSkipped := True;
+            ShowOSD('Skipped Ending Credits');
+            mnuNextClick(nil);
+            Exit;
+          end;
+        end;
+      end;
       if FPendingSeek >= 0 then
       begin
         if (FSeekSentAt > 0) and (Abs(CurTime - FPendingSeek) < 1200) then
@@ -6417,6 +9081,11 @@ procedure TFrmMain.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftStat
   end;
 begin
   if not Enabled or not IsWindowEnabled(Handle) then Exit;
+  if TryHandleCustomHotkey(Key, Shift) then
+  begin
+    Key := 0;
+    Exit;
+  end;
   if ((Key = VK_LEFT) or (Key = VK_RIGHT)) and
      ((Shift = []) or (Shift = [ssCtrl]) or (Shift = [ssShift]) or (Shift = [ssAlt])) then
   begin
@@ -6498,7 +9167,7 @@ begin
     end;
     VK_OEM_COMMA:
     begin
-      JumpSeconds(-1);
+      mnuPrevFrameClick(nil);
       Key := 0;
     end;
     Ord('Z'):
@@ -6557,6 +9226,11 @@ begin
       begin
         SetABPointA;
         Key := 0;
+      end
+      else if ssShift in Shift then
+      begin
+        ToggleSkipOpening;
+        Key := 0;
       end;
     end;
     221:
@@ -6564,6 +9238,11 @@ begin
       if Shift = [] then
       begin
         SetABPointB;
+        Key := 0;
+      end
+      else if ssShift in Shift then
+      begin
+        ToggleSkipEnding;
         Key := 0;
       end;
     end;
@@ -6577,7 +9256,17 @@ begin
     end;
     Ord('R'):
     begin
-      if Shift=[ssCtrl] then begin mnuConvertClick(nil); Key:=0; end
+      if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        RecordAudioStream;
+        Key := 0;
+      end
+      else if ssAlt in Shift then
+      begin
+        CycleVideoRotation;
+        Key := 0;
+      end
+      else if Shift=[ssCtrl] then begin mnuConvertClick(nil); Key:=0; end
       else if Shift=[ssShift] then
       begin
         btnShuffleClick(nil);
@@ -6597,7 +9286,22 @@ begin
     end;
     Ord('S'):
     begin
-      if (ssShift in Shift) or (ssCtrl in Shift) then
+      if (ssCtrl in Shift) and (ssAlt in Shift) and (ssShift in Shift) then
+      begin
+        TakeCleanSnapshot;
+        Key := 0;
+      end
+      else if (ssCtrl in Shift) and (ssAlt in Shift) then
+      begin
+        GenerateThumbnailSheet;
+        Key := 0;
+      end
+      else if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        ToggleShader(sfSharpen);
+        Key := 0;
+      end
+      else if (ssShift in Shift) or (ssCtrl in Shift) then
       begin
         mnuSnapshotClick(nil);
         Key := 0;
@@ -6605,6 +9309,14 @@ begin
       else if Shift = [] then
       begin
         mnuStopClick(nil);
+        Key := 0;
+      end;
+    end;
+    Ord('U'):
+    begin
+      if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        DownloadSubtitlesOnline;
         Key := 0;
       end;
     end;
@@ -6621,10 +9333,23 @@ begin
         Key := 0;
       end;
     end;
+    VK_F10:
+    begin
+      mnuBorderlessClick(nil);
+      Key := 0;
+    end;
     VK_F11:
     begin
       if FSettings.BossKeyHide then ToggleBossKey;
       Key := 0;
+    end;
+    VK_F12:
+    begin
+      if ssCtrl in Shift then
+      begin
+        OpenScreenCapture;
+        Key := 0;
+      end;
     end;
     Ord('F'):
     begin
@@ -6641,8 +9366,26 @@ begin
     end;
     Ord('I'):
     begin
-      mnuStatsHUDClick(nil);
-      Key := 0;
+      if (ssCtrl in Shift) and (ssAlt in Shift) then
+      begin
+        ToggleShader(sfInvert);
+        Key := 0;
+      end
+      else if Shift = [ssCtrl] then
+      begin
+        mnuMediaInfoClick(nil);
+        Key := 0;
+      end
+      else if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        mnuIPTVClick(nil);
+        Key := 0;
+      end
+      else if Shift = [] then
+      begin
+        mnuStatsHUDClick(nil);
+        Key := 0;
+      end;
     end;
     VK_NUMPAD5:
     begin
@@ -6681,7 +9424,12 @@ begin
     end;
     Ord('1'):
     begin
-      if ssAlt in Shift then
+      if Shift = [ssCtrl] then
+      begin
+        ApplyLayoutPreset(0);
+        Key := 0;
+      end
+      else if ssAlt in Shift then
       begin
         var Mi50 := TMenuItem.Create(Self);
         try
@@ -6704,7 +9452,12 @@ begin
     end;
     Ord('2'):
     begin
-      if ssAlt in Shift then
+      if Shift = [ssCtrl] then
+      begin
+        ApplyLayoutPreset(1);
+        Key := 0;
+      end
+      else if ssAlt in Shift then
       begin
         var Mi100 := TMenuItem.Create(Self);
         try
@@ -6727,7 +9480,12 @@ begin
     end;
     Ord('3'):
     begin
-      if ssAlt in Shift then
+      if Shift = [ssCtrl] then
+      begin
+        ApplyLayoutPreset(2);
+        Key := 0;
+      end
+      else if ssAlt in Shift then
       begin
         var Mi200 := TMenuItem.Create(Self);
         try
@@ -6817,17 +9575,25 @@ begin
     end;
     VK_BACK:
     begin
-      AdjustSpeed(0);
-      if FMediaPlayer <> nil then
+      if ssCtrl in Shift then
       begin
-        EnsureVideoAdjustEnabled;
-        libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Contrast, 1.0);
-        libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Brightness, 1.0);
-        libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Gamma, 1.0);
-        libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Saturation, 1.0);
-        ShowOSD('Picture Controls & Speed Reset');
+        ResetAllShaders;
+        Key := 0;
+      end
+      else
+      begin
+        AdjustSpeed(0);
+        if FMediaPlayer <> nil then
+        begin
+          EnsureVideoAdjustEnabled;
+          libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Contrast, 1.0);
+          libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Brightness, 1.0);
+          libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Gamma, 1.0);
+          libvlc_video_set_adjust_float(FMediaPlayer, libvlc_adjust_Saturation, 1.0);
+          ShowOSD('Picture Controls & Speed Reset');
+        end;
+        Key := 0;
       end;
-      Key := 0;
     end;
     VK_LEFT:
     begin
@@ -6857,7 +9623,12 @@ begin
     end;
     Ord('E'):
     begin
-      if ssCtrl in Shift then
+      if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        ToggleShader(sfEdgeDetect);
+        Key := 0;
+      end
+      else if ssCtrl in Shift then
         mnuEffectsClick(nil)
       else
         mnuNextFrameClick(nil);
@@ -6901,7 +9672,17 @@ begin
     end;
     Ord('B'):
     begin
-      if Shift = [ssShift] then
+      if (ssCtrl in Shift) and (ssAlt in Shift) then
+      begin
+        CycleBufferPreset;
+        Key := 0;
+      end
+      else if Shift = [ssCtrl] then
+      begin
+        mnuBookmarksClick(nil);
+        Key := 0;
+      end
+      else if Shift = [ssShift] then
       begin
         CycleAudioChannel;
         Key := 0;
@@ -6914,7 +9695,12 @@ begin
     end;
     Ord('D'):
     begin
-      if ssCtrl in Shift then
+      if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        ToggleShader(sfDenoise);
+        Key := 0;
+      end
+      else if ssCtrl in Shift then
       begin
         mnuOpenDiscClick(nil);
         Key := 0;
@@ -6948,9 +9734,19 @@ begin
     end;
     Ord('V'):
     begin
-      if ssCtrl in Shift then
+      if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        ToggleVoiceClarifier;
+        Key := 0;
+      end
+      else if Shift = [ssCtrl] then
       begin
         mnuOpenClipboardClick(nil);
+        Key := 0;
+      end
+      else if Shift = [ssAlt] then
+      begin
+        mnuAddSecondarySubClick(nil);
         Key := 0;
       end
       else if Shift = [] then
@@ -6961,9 +9757,23 @@ begin
     end;
     Ord('N'):
     begin
-      if ssCtrl in Shift then
+      if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        ToggleNightMode;
+        Key := 0;
+      end
+      else if Shift = [ssCtrl] then
       begin
         mnuOpenURLClick(nil);
+        Key := 0;
+      end
+      else if (ssCtrl in Shift) and (ssAlt in Shift) then
+      begin
+        FSettings.Normalize := not FSettings.Normalize;
+        if FSettings.Normalize then
+          ShowOSD('Audio Normalization: ON')
+        else
+          ShowOSD('Audio Normalization: OFF');
         Key := 0;
       end
       else if ssShift in Shift then
@@ -6979,7 +9789,17 @@ begin
     end;
     Ord('P'):
     begin
-      if ssShift in Shift then
+      if (ssCtrl in Shift) and (ssAlt in Shift) then
+      begin
+        CycleVideoProfile;
+        Key := 0;
+      end
+      else if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        ToggleAudioPassthrough;
+        Key := 0;
+      end
+      else if ssShift in Shift then
       begin
         PreviousChapter;
         Key := 0;
@@ -6992,7 +9812,12 @@ begin
     end;
     Ord('O'):
     begin
-      if ssCtrl in Shift then
+      if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        mnuOpenFolderClick(nil);
+        Key := 0;
+      end
+      else if Shift = [ssCtrl] then
       begin
         mnuOpenFileClick(nil);
         Key := 0;
@@ -7022,7 +9847,12 @@ begin
     end;
     Ord('K'):
     begin
-      if Shift = [] then
+      if (ssCtrl in Shift) and (ssAlt in Shift) then
+      begin
+        ToggleKaraokeMode;
+        Key := 0;
+      end
+      else if Shift = [] then
       begin
         mnuAudioDelayPlusClick(nil);
         Key := 0;
@@ -7030,7 +9860,17 @@ begin
     end;
     Ord('G'):
     begin
-      if ssShift in Shift then
+      if (ssCtrl in Shift) and (ssAlt in Shift) then
+      begin
+        GenerateAnimatedGif;
+        Key := 0;
+      end
+      else if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        ToggleShader(sfFilmGrain);
+        Key := 0;
+      end
+      else if ssShift in Shift then
       begin
         if (FMediaPlayer <> nil) and Assigned(libvlc_video_set_spu_delay) then
         begin
@@ -7047,7 +9887,17 @@ begin
     end;
     Ord('H'):
     begin
-      if ssCtrl in Shift then
+      if (ssCtrl in Shift) and (ssShift in Shift) then
+      begin
+        ToggleHeadphoneSurround;
+        Key := 0;
+      end
+      else if (ssCtrl in Shift) and (ssAlt in Shift) then
+      begin
+        ToggleVideoFlipHorizontal;
+        Key := 0;
+      end
+      else if ssCtrl in Shift then
       begin
         mnuMinimalClick(nil);
         Key := 0;

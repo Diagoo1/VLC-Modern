@@ -3,13 +3,13 @@
 <p align="center">A native Windows media player built with Delphi, VCL, and LibVLC.</p>
 <p align="center"><a href="README_AR.md">العربية</a> · <a href="#screenshots">Screenshots</a> · <a href="#build-from-source">Build from source</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">Report an issue</a></p>
 
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/Status-Public%20Beta-D97706" alt="Status: Public Beta"></a> <img src="https://img.shields.io/badge/Platform-Windows%20x86-1473E6" alt="Platform: Windows x86"> <img src="https://img.shields.io/badge/Language-Delphi%2013-E62431" alt="Language: Delphi 13"> <img src="https://img.shields.io/badge/UI-VCL-6D4AFF" alt="UI: VCL"> <img src="https://img.shields.io/badge/Playback-LibVLC%203.0.20-E56A16" alt="Playback: LibVLC 3.0.20"> <img src="https://img.shields.io/badge/Theme-Dark-333333" alt="Theme: Dark"></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/Release-v1.0.0-1473E6" alt="Release: v1.0.0"></a> <img src="https://img.shields.io/badge/Platform-Windows%20x86-1473E6" alt="Platform: Windows x86"> <img src="https://img.shields.io/badge/Language-Delphi%2013-E62431" alt="Language: Delphi 13"> <img src="https://img.shields.io/badge/UI-VCL-6D4AFF" alt="UI: VCL"> <img src="https://img.shields.io/badge/Playback-LibVLC%203.0.20-E56A16" alt="Playback: LibVLC 3.0.20"> <img src="https://img.shields.io/badge/Theme-Dark-333333" alt="Theme: Dark"></p>
 
-> **Public Beta.** VLC Modern is in active development. You may encounter bugs or unfinished features. This build is available for testing and feedback.
+> **Stable v1.0.0.** Choose an EXE to install in Program Files or a Portable ZIP to run from an extracted folder.
 
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-Setup-Full-Windows.exe"><strong>Setup Full (EXE)</strong></a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-Full-Windows.zip">Portable Full (ZIP)</a> <a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img alt="Report a bug" src="https://img.shields.io/badge/Report%20a%20bug-GitHub-586069?style=for-the-badge"></a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.0/VLC-Modern-v1.0.0-Setup-Full-Windows.exe"><strong>Setup Full (EXE)</strong></a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.0/VLC-Modern-v1.0.0-Portable-Full-Windows.zip">Portable Full (ZIP)</a> <a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img alt="Report a bug" src="https://img.shields.io/badge/Report%20a%20bug-GitHub-586069?style=for-the-badge"></a></p>
 
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-Setup-Lite-Windows.exe"><strong>Setup Lite (EXE)</strong></a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-Lite-Windows.zip">Portable Lite (ZIP)</a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.0/VLC-Modern-v1.0.0-Setup-Lite-Windows.exe"><strong>Setup Lite (EXE)</strong></a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.0/VLC-Modern-v1.0.0-Portable-Lite-Windows.zip">Portable Lite (ZIP)</a></p>
 
 Lite Setup lets you choose whether to download playback plugins and FFmpeg during installation. If a download fails, Setup still installs the player. Retry from Settings → Components.
 
@@ -17,7 +17,7 @@ Lite Setup lets you choose whether to download playback plugins and FFmpeg durin
 - **Lite** includes the player and its core DLLs. Install the LibVLC plugins to enable playback and select FFmpeg separately for precise clipping.
 - **YouTube** uses the portable Node.js runtime included in both editions on 64-bit Windows.
 - **Settings → Playback Components** reopens the component installer and synchronizes selected packages. Restart the player after installing or updating the LibVLC plugins.
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-Full-Windows.zip">Download for Windows</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">Report a bug</a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0">v0.1.0 Beta</a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.0/VLC-Modern-v1.0.0-Portable-Full-Windows.zip">Download for Windows</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">Report a bug</a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.0">v1.0.0</a></p>
 
 ---
 

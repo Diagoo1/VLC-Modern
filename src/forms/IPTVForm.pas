@@ -3,11 +3,13 @@
 interface
 
 uses SettingsStore,
-  Winapi.Windows, Winapi.Messages, Winapi.GDIPAPI, Winapi.GDIPOBJ, Winapi.ShellAPI, System.SysUtils, System.Classes, System.IniFiles,
+  Winapi.Windows, Winapi.Messages, Winapi.ActiveX, Winapi.GDIPAPI, Winapi.GDIPOBJ, Winapi.ShellAPI, System.SysUtils, System.Classes, System.IniFiles,
   System.StrUtils, System.Generics.Collections, System.Types, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Clipbrd, CurvedControls, PlaylistSource, ProgrammeGuide;
 
 type
+  TChannelHealth = (chUnknown, chOnline, chOffline, chChecking);
+
   TIPTVChannel = class
   public
     Name: string;
@@ -16,6 +18,9 @@ type
     LogoUrl: string;
     TvgId: string;
     IsFavorite: Boolean;
+    Health: TChannelHealth;
+    HealthLatencyMs: Integer;
+    HealthCheckedAt: Cardinal;
   end;
 
   TFrmIPTV = class(TForm)
@@ -44,6 +49,8 @@ type
     btnFav: TButton;
     btnCopyUrl: TButton;
     btnEPG: TButton;
+    btnCheckHealth: TButton;
+    btnRecordStream: TButton;
     btnClose: TButton;
     OpenDialogM3U: TOpenDialog;
     SaveDialogExport: TSaveDialog;
@@ -83,6 +90,10 @@ type
     procedure btnFavClick(Sender: TObject);
     procedure btnCopyUrlClick(Sender: TObject);
     procedure btnEPGClick(Sender: TObject);
+    procedure btnCheckHealthClick(Sender: TObject);
+    procedure btnRecordStreamClick(Sender: TObject);
+    procedure CheckStreamHealth(Channel: TIPTVChannel);
+    procedure CheckAllStreamsHealth;
     procedure btnExportM3UClick(Sender: TObject);
     procedure btnCloseClick(Sender: TObject);
     procedure btnAddM3UClick(Sender: TObject);
@@ -112,6 +123,10 @@ type
     FRequest: IPlaylistRequest;
     FRequestTimer: TTimer;
     FRequestURL: string;
+    FLogoCache: TObjectDictionary<string, TGPImage>;
+    FLogoPending: TDictionary<string, Boolean>;
+    FClosingForm: Boolean;
+    procedure EnsureChannelLogoAsync(const AUrl: string);
     procedure BeginStalker(const Portal, MAC: string; const Command: string = '');
     procedure DownloadTick(Sender: TObject);
 
@@ -141,7 +156,7 @@ var
 
 implementation
 
-uses PlayerDialogs, MainForm, System.Net.HttpClient, System.NetEncoding, System.DateUtils, System.IOUtils, System.RegularExpressions, System.Math;
+uses PlayerPaths, PlayerDialogs, MainForm, System.Net.HttpClient, System.NetEncoding, System.DateUtils, System.IOUtils, System.RegularExpressions, System.Math;
 
 {$R *.dfm}
 
@@ -329,6 +344,7 @@ end;
 
 procedure TFrmIPTV.FormDestroy(Sender: TObject);
 begin
+  FClosingForm := True;
   DragAcceptFiles(Handle, False);
   FRequestTimer.Enabled := False;
   FRequest := nil;
@@ -337,6 +353,8 @@ begin
   FCategories.Free;
   FChannels.Free;
   FGuide.Free;
+  FLogoCache.Free;
+  FLogoPending.Free;
 end;
 
 procedure TFrmIPTV.WMDropFiles(var Msg: TWMDropFiles);
@@ -794,15 +812,43 @@ begin
   UpdateChannelInfoPanel;
 end;
 
+function ClassifyMediaKind(Ch: TIPTVChannel): string;
+var
+  LowerUrl, LowerGroup: string;
+begin
+  if Ch = nil then Exit('Live TV');
+  LowerUrl := LowerCase(Ch.StreamUrl);
+  LowerGroup := LowerCase(Ch.Group);
+  if ContainsText(LowerUrl, '/series/') or ContainsText(LowerGroup, 'series') or
+     TRegEx.IsMatch(Ch.Name, 'S\d{1,2}\s*E\d{1,2}', [roIgnoreCase]) then
+    Result := 'Series'
+  else if ContainsText(LowerUrl, '/movie/') or EndsText('.mp4', LowerUrl) or
+          EndsText('.mkv', LowerUrl) or EndsText('.avi', LowerUrl) or
+          ContainsText(LowerGroup, 'vod') or ContainsText(LowerGroup, 'movie') then
+    Result := 'Movies / VOD'
+  else
+    Result := 'Live TV';
+end;
+
 procedure TFrmIPTV.RebuildCategories;
 var
   Ch: TIPTVChannel;
-  I: Integer;
+  I, FavCount, LiveCount, VodCount, SeriesCount: Integer;
+  Kind: string;
 begin
   FCategories.Clear;
+  FavCount := 0;
+  LiveCount := 0;
+  VodCount := 0;
+  SeriesCount := 0;
   for I := 0 to FChannels.Count - 1 do
   begin
     Ch := FChannels[I];
+    if Ch.IsFavorite then Inc(FavCount);
+    Kind := ClassifyMediaKind(Ch);
+    if Kind = 'Series' then Inc(SeriesCount)
+    else if Kind = 'Movies / VOD' then Inc(VodCount)
+    else Inc(LiveCount);
     if (Ch.Group <> '') and (FCategories.IndexOf(Ch.Group) < 0) then
       FCategories.Add(Ch.Group);
   end;
@@ -810,10 +856,19 @@ begin
   lstCategories.Items.BeginUpdate;
   try
     lstCategories.Items.Clear;
-    lstCategories.Items.Add('★ Favorites');
-    lstCategories.Items.Add('All Channels');
+    lstCategories.Items.Add(Format('★ Favorites (%d)', [FavCount]));
+    lstCategories.Items.Add(Format('All Channels (%d)', [FChannels.Count]));
+    if LiveCount > 0 then lstCategories.Items.Add(Format('Live TV (%d)', [LiveCount]));
+    if VodCount > 0 then lstCategories.Items.Add(Format('Movies / VOD (%d)', [VodCount]));
+    if SeriesCount > 0 then lstCategories.Items.Add(Format('Series (%d)', [SeriesCount]));
     for I := 0 to FCategories.Count - 1 do
-      lstCategories.Items.Add(FCategories[I]);
+    begin
+      var CatName := FCategories[I];
+      var CatCount := 0;
+      for var J := 0 to FChannels.Count - 1 do
+        if SameText(FChannels[J].Group, CatName) then Inc(CatCount);
+      lstCategories.Items.Add(Format('%s (%d)', [CatName, CatCount]));
+    end;
   finally
     lstCategories.Items.EndUpdate;
   end;
@@ -826,12 +881,16 @@ procedure TFrmIPTV.FilterChannels;
 var
   I: Integer;
   Ch: TIPTVChannel;
-  SelectedCat, SearchQuery: string;
+  SelectedCat, CleanCat, SearchQuery: string;
   MatchesCat, MatchesSearch: Boolean;
 begin
   SelectedCat := 'All Channels';
   if lstCategories.ItemIndex >= 0 then
     SelectedCat := lstCategories.Items[lstCategories.ItemIndex];
+
+  CleanCat := SelectedCat;
+  var ParenPos := Pos(' (', CleanCat);
+  if ParenPos > 0 then CleanCat := Copy(CleanCat, 1, ParenPos - 1);
 
   SearchQuery := LowerCase(Trim(edtSearch.Text));
 
@@ -843,12 +902,14 @@ begin
     begin
       Ch := FChannels[I];
 
-      if SelectedCat = '★ Favorites' then
+      if StartsText('★ Favorites', CleanCat) then
         MatchesCat := Ch.IsFavorite
-      else if SelectedCat = 'All Channels' then
+      else if StartsText('All Channels', CleanCat) then
         MatchesCat := True
+      else if SameText(CleanCat, 'Live TV') or SameText(CleanCat, 'Movies / VOD') or SameText(CleanCat, 'Series') then
+        MatchesCat := SameText(ClassifyMediaKind(Ch), CleanCat)
       else
-        MatchesCat := SameText(Ch.Group, SelectedCat);
+        MatchesCat := SameText(Ch.Group, CleanCat);
 
       if MatchesCat then
       begin
@@ -961,6 +1022,11 @@ begin
       btnFavClick(nil);
       Key := 0;
     end;
+    Ord('H'), Ord('C'):
+    begin
+      btnCheckHealthClick(nil);
+      Key := 0;
+    end;
   end;
 end;
 
@@ -977,7 +1043,7 @@ end;
 procedure TFrmIPTV.UpdateChannelInfoPanel;
 var
   Ch: TIPTVChannel;
-  FmtBadge: string;
+  FmtBadge, HealthStr: string;
 begin
   Ch := SelectedChannel;
   if Ch = nil then
@@ -986,11 +1052,41 @@ begin
     lblInfoEPG.Caption := 'EPG: No channel selected';
     lblInfoUrl.Caption := 'Stream URL: None';
     lblInfoBadge.Caption := '';
+    btnFav.Caption := 'Add to Favorites';
     Exit;
   end;
 
   lblInfoName.Caption := Ch.Name;
-  if Ch.Group <> '' then
+
+  // EPG Program Info (IPTVnator)
+  if (FGuide <> nil) and (Ch.TvgId <> '') then
+  begin
+    var CurProg := FGuide.GetCurrentProgram(Ch.TvgId, TTimeZone.Local.ToUniversalTime(Now));
+    if CurProg.HasProgram then
+    begin
+      var ProgStr := Format('NOW: %s (%s - %s) [%d%%]', [
+        CurProg.CurrentTitle,
+        FormatDateTime('hh:nn', CurProg.CurrentStartLocal),
+        FormatDateTime('hh:nn', CurProg.CurrentEndLocal),
+        CurProg.ProgressPercent
+      ]);
+      if CurProg.NextTitle <> '' then
+        ProgStr := ProgStr + Format('  |  NEXT: %s (%s)', [
+          CurProg.NextTitle,
+          FormatDateTime('hh:nn', CurProg.NextStartLocal)
+        ]);
+      lblInfoEPG.Caption := ProgStr;
+    end
+    else
+    begin
+      var Desc := FGuide.Describe(Ch.TvgId, TTimeZone.Local.ToUniversalTime(Now));
+      if Desc <> '' then
+        lblInfoEPG.Caption := 'UPCOMING: ' + StringReplace(Trim(Desc), sLineBreak, '  |  ', [rfReplaceAll])
+      else
+        lblInfoEPG.Caption := Format('Category: %s | EPG ID: %s', [Ch.Group, Ch.TvgId]);
+    end;
+  end
+  else if Ch.Group <> '' then
     lblInfoEPG.Caption := Format('Category: %s | EPG ID: %s', [Ch.Group, Ch.TvgId])
   else
     lblInfoEPG.Caption := 'No programme guide loaded';
@@ -1006,7 +1102,20 @@ begin
   else
     FmtBadge := '[Live Stream]';
 
-  lblInfoBadge.Caption := FmtBadge;
+  case Ch.Health of
+    chOnline:   HealthStr := Format('ONLINE (%dms)', [Ch.HealthLatencyMs]);
+    chOffline:  HealthStr := 'OFFLINE (Broken Stream)';
+    chChecking: HealthStr := 'CHECKING...';
+  else
+    HealthStr := 'Stream Health: Untested';
+  end;
+
+  lblInfoBadge.Caption := Format('%s  |  %s', [HealthStr, FmtBadge]);
+
+  if Ch.IsFavorite then
+    btnFav.Caption := 'Remove Favorite'
+  else
+    btnFav.Caption := 'Add to Favorites';
 end;
 
 procedure TFrmIPTV.lstChannelsDblClick(Sender: TObject);
@@ -1044,6 +1153,38 @@ begin
   end;
 end;
 
+procedure TFrmIPTV.btnRecordStreamClick(Sender: TObject);
+var
+  Ch: TIPTVChannel;
+  Opts: TStringList;
+  RecDir, RecFile: string;
+begin
+  Ch := SelectedChannel;
+  if Ch = nil then Exit;
+
+  if Assigned(FrmMain) then
+  begin
+    RecDir := PlayerDataPath('recordings');
+    System.SysUtils.ForceDirectories(RecDir);
+    RecFile := TPath.Combine(RecDir, Format('IPTV_%s_%s.ts', [
+      TRegEx.Replace(Ch.Name, '[^\w\-]', '_'),
+      FormatDateTime('yyyymmdd_hhnnss', Now)
+    ]));
+
+    Opts := TStringList.Create;
+    try
+      Opts.Add(':network-caching=3000');
+      Opts.Add(':http-user-agent=IPTVSmartersPlayer');
+      Opts.Add(Format(':sout=#duplicate{dst=display,dst=std{access=file,mux=ts,dst=''%s''}}', [RecFile]));
+      FrmMain.PlayFile(Ch.StreamUrl, Opts);
+    finally
+      Opts.Free;
+    end;
+    FrmMain.ShowOSD('Recording IPTV Live: ' + ExtractFileName(RecFile));
+    Close;
+  end;
+end;
+
 procedure TFrmIPTV.btnEPGClick(Sender: TObject);
 var Ch: TIPTVChannel; Text: string; Dialog: TOpenDialog;
 begin
@@ -1074,6 +1215,162 @@ begin
       PlayerMessage(Ch.Name + sLineBreak + sLineBreak + Text);
     except on E: Exception do PlayerMessage('The programme guide could not be read. Select a valid XMLTV file.'); end;
   finally Dialog.Free; end;
+end;
+
+procedure TFrmIPTV.CheckStreamHealth(Channel: TIPTVChannel);
+begin
+  if (Channel = nil) or (Channel.StreamUrl = '') then Exit;
+  Channel.Health := chChecking;
+  lstChannels.Invalidate;
+  UpdateChannelInfoPanel;
+
+  var TargetUrl := Channel.StreamUrl;
+  TThread.CreateAnonymousThread(
+    procedure
+    var
+      HTTP: THTTPClient;
+      Resp: IHTTPResponse;
+      TStart: Cardinal;
+      IsOnline: Boolean;
+      Latency: Integer;
+    begin
+      IsOnline := False;
+      Latency := 0;
+      HTTP := THTTPClient.Create;
+      try
+        HTTP.ConnectionTimeout := 3000;
+        HTTP.ResponseTimeout := 3500;
+        HTTP.UserAgent := 'VLC Modern IPTV Engine/1.0';
+        TStart := GetTickCount;
+        try
+          Resp := HTTP.Head(TargetUrl);
+          if (Resp = nil) or (Resp.StatusCode = 405) then
+            Resp := HTTP.Get(TargetUrl);
+          if (Resp <> nil) and ((Resp.StatusCode = 200) or (Resp.StatusCode = 206) or
+             ((Resp.StatusCode >= 300) and (Resp.StatusCode < 400))) then
+          begin
+            IsOnline := True;
+            Latency := GetTickCount - TStart;
+          end;
+        except
+          IsOnline := False;
+        end;
+      finally
+        HTTP.Free;
+      end;
+
+      TThread.Synchronize(nil,
+        procedure
+        begin
+          if IsOnline then
+          begin
+            Channel.Health := chOnline;
+            Channel.HealthLatencyMs := Latency;
+          end
+          else
+          begin
+            Channel.Health := chOffline;
+            Channel.HealthLatencyMs := 0;
+          end;
+          Channel.HealthCheckedAt := GetTickCount;
+          lstChannels.Invalidate;
+          UpdateChannelInfoPanel;
+        end
+      );
+    end
+  ).Start;
+end;
+
+procedure TFrmIPTV.CheckAllStreamsHealth;
+var
+  I: Integer;
+begin
+  if FFilteredChannels.Count = 0 then Exit;
+  if Assigned(FrmMain) then
+    FrmMain.ShowOSD(Format('Probing %d IPTV channels health...', [FFilteredChannels.Count]));
+
+  for I := 0 to FFilteredChannels.Count - 1 do
+    FFilteredChannels[I].Health := chChecking;
+  lstChannels.Invalidate;
+
+  TThread.CreateAnonymousThread(
+    procedure
+    var
+      I: Integer;
+      Ch: TIPTVChannel;
+      HTTP: THTTPClient;
+      Resp: IHTTPResponse;
+      TStart: Cardinal;
+      IsOnline: Boolean;
+      Latency: Integer;
+    begin
+      HTTP := THTTPClient.Create;
+      try
+        HTTP.ConnectionTimeout := 2500;
+        HTTP.ResponseTimeout := 3000;
+        HTTP.UserAgent := 'VLC Modern IPTV Engine/1.0';
+
+        for I := 0 to FFilteredChannels.Count - 1 do
+        begin
+          Ch := FFilteredChannels[I];
+          if Ch = nil then Continue;
+          IsOnline := False;
+          Latency := 0;
+          TStart := GetTickCount;
+          try
+            Resp := HTTP.Head(Ch.StreamUrl);
+            if (Resp = nil) or (Resp.StatusCode = 405) then
+              Resp := HTTP.Get(Ch.StreamUrl);
+            if (Resp <> nil) and ((Resp.StatusCode = 200) or (Resp.StatusCode = 206) or
+               ((Resp.StatusCode >= 300) and (Resp.StatusCode < 400))) then
+            begin
+              IsOnline := True;
+              Latency := GetTickCount - TStart;
+            end;
+          except
+            IsOnline := False;
+          end;
+
+          TThread.Synchronize(nil,
+            procedure
+            begin
+              if IsOnline then
+              begin
+                Ch.Health := chOnline;
+                Ch.HealthLatencyMs := Latency;
+              end
+              else
+              begin
+                Ch.Health := chOffline;
+                Ch.HealthLatencyMs := 0;
+              end;
+              Ch.HealthCheckedAt := GetTickCount;
+              lstChannels.Invalidate;
+            end
+          );
+        end;
+      finally
+        HTTP.Free;
+      end;
+
+      TThread.Synchronize(nil,
+        procedure
+        begin
+          if Assigned(FrmMain) then
+            FrmMain.ShowOSD('Channel health check completed');
+          UpdateChannelInfoPanel;
+        end
+      );
+    end
+  ).Start;
+end;
+
+procedure TFrmIPTV.btnCheckHealthClick(Sender: TObject);
+begin
+  if (SelectedChannel <> nil) and not (GetKeyState(VK_SHIFT) < 0) then
+    CheckStreamHealth(SelectedChannel)
+  else
+    CheckAllStreamsHealth;
 end;
 
 procedure TFrmIPTV.btnExportM3UClick(Sender: TObject);
@@ -1112,7 +1409,9 @@ begin
 
   Ch.IsFavorite := not Ch.IsFavorite;
   SaveFavorites;
+  RebuildCategories;
   lstChannels.Invalidate;
+  UpdateChannelInfoPanel;
   if Assigned(FrmMain) then
   begin
     if Ch.IsFavorite then
@@ -1270,6 +1569,7 @@ var
   Brush: TGPSolidBrush;
   Pen: TGPPen;
   Path: TGPGraphicsPath;
+  LogoImg: TGPImage;
   R: TRect;
   NumStr, FmtBadge: string;
 begin
@@ -1329,8 +1629,14 @@ begin
       end;
     end;
 
-    // Green Live status dot
-    Brush := TGPSolidBrush.Create(MakeColor(255, 16, 185, 129));
+    // Stream Health status dot (IPTVnator)
+    case Ch.Health of
+      chOnline:   Brush := TGPSolidBrush.Create(MakeColor(255, 16, 185, 129)); // Vibrant Green
+      chOffline:  Brush := TGPSolidBrush.Create(MakeColor(255, 239, 68, 68));  // Red
+      chChecking: Brush := TGPSolidBrush.Create(MakeColor(255, 245, 158, 11)); // Amber
+    else
+      Brush := TGPSolidBrush.Create(MakeColor(255, 100, 116, 139)); // Slate Gray
+    end;
     try
       G.FillEllipse(Brush, Single(R.Left + 12), Single(R.Top + (R.Height div 2) - 4), 8.0, 8.0);
     finally
@@ -1370,6 +1676,16 @@ begin
     finally
       Path.Free;
     end;
+
+    // Render cached tvg-logo image if available, or trigger async download
+    if Ch.LogoUrl <> '' then
+    begin
+      LogoImg := nil;
+      if (FLogoCache <> nil) and FLogoCache.TryGetValue(Ch.LogoUrl, LogoImg) and (LogoImg <> nil) then
+        G.DrawImage(LogoImg, Single(R.Left + 62), Single(R.Top + (R.Height - 22) div 2), 22.0, 22.0)
+      else
+        EnsureChannelLogoAsync(Ch.LogoUrl);
+    end;
   finally
     G.Free;
   end;
@@ -1408,8 +1724,86 @@ begin
     Canvas.Font.Style := [];
   end;
 
-  TextR := System.Types.Rect(R.Left + 76, R.Top, BadgeR.Left - 10, R.Bottom);
+  if Ch.LogoUrl <> '' then
+  begin
+    if (FLogoCache <> nil) and FLogoCache.ContainsKey(Ch.LogoUrl) then
+      TextR := System.Types.Rect(R.Left + 92, R.Top, BadgeR.Left - 10, R.Bottom)
+    else
+    begin
+      Canvas.Font.Size := 7;
+      Canvas.Font.Color := RGB(100, 200, 255);
+      Canvas.Font.Style := [fsBold];
+      Canvas.TextOut(R.Left + 72, R.Top + (R.Height - Canvas.TextHeight('TV')) div 2, 'TV');
+      TextR := System.Types.Rect(R.Left + 92, R.Top, BadgeR.Left - 10, R.Bottom);
+    end;
+  end
+  else
+    TextR := System.Types.Rect(R.Left + 76, R.Top, BadgeR.Left - 10, R.Bottom);
   DrawText(Canvas.Handle, PChar(Ch.Name), Length(Ch.Name), TextR, DT_LEFT or DT_VCENTER or DT_SINGLELINE or DT_END_ELLIPSIS);
+end;
+
+procedure TFrmIPTV.EnsureChannelLogoAsync(const AUrl: string);
+begin
+  if FClosingForm or (AUrl = '') then Exit;
+  if FLogoCache = nil then FLogoCache := TObjectDictionary<string, TGPImage>.Create([doOwnsValues]);
+  if FLogoPending = nil then FLogoPending := TDictionary<string, Boolean>.Create;
+  if FLogoCache.ContainsKey(AUrl) or FLogoPending.ContainsKey(AUrl) then Exit;
+  if FLogoPending.Count > 60 then Exit; // Keep burst bounded
+
+  FLogoPending.Add(AUrl, True);
+  TThread.CreateAnonymousThread(
+    procedure
+    var
+      HTTP: THTTPClient;
+      Resp: IHTTPResponse;
+      MS: TMemoryStream;
+      SA: IStream;
+      Img: TGPImage;
+    begin
+      Img := nil;
+      HTTP := THTTPClient.Create;
+      try
+        HTTP.ConnectionTimeout := 2500;
+        HTTP.ResponseTimeout := 3500;
+        HTTP.UserAgent := 'VLCModern/1.0';
+        try
+          Resp := HTTP.Get(AUrl);
+          if (Resp <> nil) and (Resp.StatusCode = 200) and (Resp.ContentStream.Size > 0) and (Resp.ContentStream.Size < 512 * 1024) then
+          begin
+            MS := TMemoryStream.Create;
+            Resp.ContentStream.Position := 0;
+            MS.CopyFrom(Resp.ContentStream, 0);
+            MS.Position := 0;
+            SA := TStreamAdapter.Create(MS, soOwned);
+            Img := TGPImage.Create(SA);
+            if Img.GetLastStatus <> Ok then
+              FreeAndNil(Img);
+          end;
+        except
+          FreeAndNil(Img);
+        end;
+      finally
+        HTTP.Free;
+      end;
+
+      TThread.Queue(nil,
+        TThreadProcedure(procedure
+        begin
+          if not FClosingForm then
+          begin
+            if (Img <> nil) and (FLogoCache <> nil) and not FLogoCache.ContainsKey(AUrl) then
+              FLogoCache.Add(AUrl, Img)
+            else
+              Img.Free;
+            if FLogoPending <> nil then
+              FLogoPending.Remove(AUrl);
+            if Assigned(lstChannels) then
+              lstChannels.Invalidate;
+          end
+          else
+            Img.Free;
+        end));
+    end).Start;
 end;
 
 end.

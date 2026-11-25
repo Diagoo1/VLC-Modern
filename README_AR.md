@@ -3,13 +3,13 @@
 <p align="center">مشغّل وسائط لويندوز مبني باستخدام Delphi وVCL وLibVLC.</p>
 <p align="center"><a href="README.md">English</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">الإبلاغ عن مشكلة</a></p>
 
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/Status-Public%20Beta-D97706" alt="Status: Public Beta"></a> <img src="https://img.shields.io/badge/Platform-Windows%20x86-1473E6" alt="Platform: Windows x86"> <img src="https://img.shields.io/badge/Language-Delphi%2013-E62431" alt="Language: Delphi 13"> <img src="https://img.shields.io/badge/UI-VCL-6D4AFF" alt="UI: VCL"> <img src="https://img.shields.io/badge/Playback-LibVLC%203.0.20-E56A16" alt="Playback: LibVLC 3.0.20"> <img src="https://img.shields.io/badge/Theme-Dark-333333" alt="Theme: Dark"></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/Release-v1.0.0-1473E6" alt="Release: v1.0.0"></a> <img src="https://img.shields.io/badge/Platform-Windows%20x86-1473E6" alt="Platform: Windows x86"> <img src="https://img.shields.io/badge/Language-Delphi%2013-E62431" alt="Language: Delphi 13"> <img src="https://img.shields.io/badge/UI-VCL-6D4AFF" alt="UI: VCL"> <img src="https://img.shields.io/badge/Playback-LibVLC%203.0.20-E56A16" alt="Playback: LibVLC 3.0.20"> <img src="https://img.shields.io/badge/Theme-Dark-333333" alt="Theme: Dark"></p>
 
-> **Public Beta · نسخة تجريبية عامة.** البرنامج لسه تحت التطوير، وممكن تقابل أخطاء أو ميزات غير مكتملة. النسخة متاحة للتجربة وإرسال الملاحظات.
+> **الإصدار الرسمي v1.0.0.** اختر EXE للتثبيت في Program Files أو ZIP محمول للتشغيل بعد فك الضغط.
 
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-Setup-Full-Windows.exe"><strong>مثبّت Full (EXE)</strong></a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-Full-Windows.zip">محمول Full (ZIP)</a> <a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img alt="الإبلاغ عن خطأ" src="https://img.shields.io/badge/Report%20a%20bug-GitHub-586069?style=for-the-badge"></a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.0/VLC-Modern-v1.0.0-Setup-Full-Windows.exe"><strong>مثبّت Full (EXE)</strong></a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.0/VLC-Modern-v1.0.0-Portable-Full-Windows.zip">محمول Full (ZIP)</a> <a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img alt="الإبلاغ عن خطأ" src="https://img.shields.io/badge/Report%20a%20bug-GitHub-586069?style=for-the-badge"></a></p>
 
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-Setup-Lite-Windows.exe"><strong>مثبّت Lite (EXE)</strong></a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-Lite-Windows.zip">محمول Lite (ZIP)</a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.0/VLC-Modern-v1.0.0-Setup-Lite-Windows.exe"><strong>مثبّت Lite (EXE)</strong></a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.0/VLC-Modern-v1.0.0-Portable-Lite-Windows.zip">محمول Lite (ZIP)</a></p>
 
 في مثبّت Lite، تقدر تختار تنزيل إضافات التشغيل وFFmpeg أثناء التثبيت. لو انقطع الاتصال، يكتمل تثبيت المشغّل وتقدر تعيد المحاولة من الإعدادات ← Components.
 
@@ -17,7 +17,7 @@
 - **Lite** تشمل المشغّل وملفات DLL الأساسية. ثبّت إضافات LibVLC لتشغيل الوسائط، واختر FFmpeg بشكل منفصل للقص الدقيق.
 - **YouTube** يستخدم Node.js المحمول المرفق في النسختين على ويندوز 64 بت، من غير تثبيت يدوي.
 - **الإعدادات ← Playback Components** تفتح نافذة تثبيت المكوّنات ومزامنتها. أعد تشغيل المشغّل بعد تثبيت أو تحديث إضافات LibVLC.
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v0.1.0/VLC-Modern-v0.1.0-Public-Beta-Full-Windows.zip">تحميل نسخة ويندوز</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">الإبلاغ عن خطأ</a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v0.1.0">v0.1.0 Beta</a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.0/VLC-Modern-v1.0.0-Portable-Full-Windows.zip">تحميل نسخة ويندوز</a> · <a href="https://github.com/Diagoo1/VLC-Modern/issues/new">الإبلاغ عن خطأ</a> · <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.0">v1.0.0</a></p>
 
 ## صور البرنامج
 
