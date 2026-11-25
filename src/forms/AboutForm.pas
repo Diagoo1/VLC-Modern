@@ -194,7 +194,7 @@ begin
 
   if Tag = '' then
     FUpdateStatus.Caption := 'Could not check for updates. Try again later.'
-  else if SameText(Tag, 'v1.0.5') then
+  else if SameText(Tag, 'v1.0.6') then
     FUpdateStatus.Caption := 'You have the latest published release (' + Tag + ').'
   else
     FUpdateStatus.Caption := 'GitHub release ' + Tag + ' is listed under Releases.';
@@ -294,7 +294,7 @@ begin
   Text(Hero, 'VLC Modern', 96, 15, 22, True);
   EngineText := Text(Hero, 'Windows media player powered by LibVLC', 97, 61, 10);
   Badge := Card(Hero, 380, 19, 132, 28, 10, BadgeFill, HeroEdge);
-  VersionText := Text(Badge, 'v1.0.5', 0, 5, 9, True);
+  VersionText := Text(Badge, 'v1.0.6', 0, 5, 9, True);
   VersionText.Left := (Badge.Width - VersionText.Width) div 2;
 
   Profile := Card(Body, 16, 130, 532, 139, 14, DP_COLOR_ELEVATED, DP_COLOR_BORDER);

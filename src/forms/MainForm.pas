@@ -410,6 +410,7 @@ type
     procedure mnuAudioRecordClick(Sender: TObject);
     procedure mnuAnimatedGifClick(Sender: TObject);
     procedure mnuRecordVideoMP4Click(Sender: TObject);
+    procedure SaveOnlineVideoClick(Sender: TObject);
     procedure mnuWebRemoteClick(Sender: TObject);
     procedure ToggleVoiceClarifier;
     procedure ToggleNightMode;
@@ -510,6 +511,8 @@ type
     FPlaylistPaths: TStringList;
     FPlatformCacheFiles: TStringList;
     FPlatformRequest: Cardinal;
+    FOnlineVideoURL, FOnlineVideoAgent, FOnlineVideoTitle: string;
+    FOnlineVideoSaving: Boolean;
     FPlaylistOptions: TObjectDictionary<string, TStringList>;
     FCurrentPlaylistIndex: Integer;
     FUpdatingTrackBar: Boolean;
@@ -857,7 +860,7 @@ var
 implementation
 
 uses
-  EffectsForm, MediaInfoForm, JumpTimeForm, PreferencesForm, BookmarksForm, OpenMediaForm, ConvertForm, IPTVForm, MessagesForm, CustomizeForm, AboutForm, System.IniFiles, System.StrUtils, PlayerDialogs, VideoInput, PlayerMenu, Vcl.Clipbrd, Vcl.Imaging.pngimage, Winapi.Dwmapi, WatermarkOSD, InstanceBroker, DualSubtitles, System.IOUtils, ThumbnailSheet, GifMaker, RuntimeComponents, PlayerPaths, System.Hash, Winapi.CommCtrl;
+  EffectsForm, MediaInfoForm, JumpTimeForm, PreferencesForm, BookmarksForm, OpenMediaForm, ConvertForm, IPTVForm, MessagesForm, CustomizeForm, AboutForm, System.IniFiles, System.StrUtils, PlayerDialogs, VideoInput, PlayerMenu, Vcl.Clipbrd, Vcl.Imaging.pngimage, Winapi.Dwmapi, WatermarkOSD, InstanceBroker, DualSubtitles, System.IOUtils, ThumbnailSheet, GifMaker, RuntimeComponents, PlayerPaths, OnlineVideoSave, System.Net.URLClient, System.Hash, Winapi.CommCtrl;
 
 {$R *.dfm}
 
@@ -2621,6 +2624,11 @@ begin
 
   lblOSD.Visible := False;
 
+  var OnlineSave := TMenuItem.Create(Self);
+  OnlineSave.Caption := 'Save YouTube Video...';
+  OnlineSave.OnClick := SaveOnlineVideoClick;
+  mnuTools.Add(OnlineSave);
+
   // Initialize Modern Interface
   InitModernPlayerUI;
   UsePlayerColors(Self);
@@ -3949,6 +3957,15 @@ begin
           try
             if UserAgent <> '' then StreamOptions.Add(':http-user-agent=' + UserAgent);
             PlayFile(DirectUrl, StreamOptions, OrigUrl);
+            var SourceHost := LowerCase(TURI.Create(OrigUrl).Host);
+            if (FCurrentFile = DirectUrl) and DirectUrl.StartsWith('https://') and
+               ((SourceHost = 'youtu.be') or SourceHost.EndsWith('.youtu.be') or
+                (SourceHost = 'youtube.com') or SourceHost.EndsWith('.youtube.com')) then
+            begin
+              FOnlineVideoURL := DirectUrl;
+              FOnlineVideoAgent := UserAgent;
+              FOnlineVideoTitle := VideoTitle;
+            end;
           finally
             StreamOptions.Free;
           end;
@@ -4008,6 +4025,9 @@ begin
   FVideoPreferencesApplied := False;
   if not SameText(FCurrentFile, AFilePath) then FPrimarySubtitlePath := '';
   FCurrentFile := AFilePath;
+  FOnlineVideoURL := '';
+  FOnlineVideoAgent := '';
+  FOnlineVideoTitle := '';
   var DisplayPath := AFilePath;
   if SourceURL <> '' then DisplayPath := SourceURL;
   AddRecentMedia(DisplayPath);
@@ -5197,6 +5217,54 @@ end;
 procedure TFrmMain.mnuAnimatedGifClick(Sender: TObject);
 begin
   GenerateAnimatedGif;
+end;
+
+procedure TFrmMain.SaveOnlineVideoClick(Sender: TObject);
+begin
+  if FOnlineVideoSaving then
+  begin
+    ShowOSD('A YouTube video is already being saved.');
+    Exit;
+  end;
+  if FOnlineVideoURL = '' then
+  begin
+    ShowOSD('Open a YouTube video to save it.');
+    Exit;
+  end;
+  var URL := FOnlineVideoURL;
+  var Agent := FOnlineVideoAgent;
+  var Dialog := TSaveDialog.Create(Self);
+  try
+    Dialog.Title := 'Save YouTube Video';
+    Dialog.Filter := 'MP4 video (*.mp4)|*.mp4';
+    Dialog.DefaultExt := 'mp4';
+    Dialog.Options := [ofPathMustExist, ofNoChangeDir];
+    var Title := Trim(FOnlineVideoTitle);
+    if Title = '' then Title := 'YouTube video';
+    for var I := 1 to Length(Title) do
+      if (Title[I] < ' ') or CharInSet(Title[I], ['<', '>', ':', '"', '/', '\', '|', '?', '*']) then
+        Title[I] := '_';
+    Dialog.FileName := Copy(Title, 1, 120) + '.mp4';
+    if not Dialog.Execute then Exit;
+    var Destination := Dialog.FileName;
+    if FileExists(Destination) then
+    begin
+      ShowOSD('Choose a filename that does not already exist.');
+      Exit;
+    end;
+    FOnlineVideoSaving := True;
+    ShowOSD('Saving YouTube video in the background...');
+    SaveOnlineMP4Async(URL, Agent, Destination,
+      procedure(const ErrorMessage: string)
+      begin
+        if GAppClosing then Exit;
+        FOnlineVideoSaving := False;
+        if ErrorMessage = '' then ShowOSD('Saved: ' + ExtractFileName(Destination))
+        else PlayerMessage('Could not save the YouTube video.' + sLineBreak + ErrorMessage);
+      end);
+  finally
+    Dialog.Free;
+  end;
 end;
 
 procedure TFrmMain.mnuRecordVideoMP4Click(Sender: TObject);
