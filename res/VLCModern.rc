@@ -9,3 +9,16 @@ PREF_TABAUDIO RCDATA "preferences\\tabAudio.dfm"
 PREF_TABSUBTITLES RCDATA "preferences\\tabSubtitles.dfm"
 PREF_TABNETWORK RCDATA "preferences\\tabNetwork.dfm"
 PREF_TABASSOCIATIONS RCDATA "preferences\\tabAssociations.dfm"
+DEV_AVATAR RCDATA "developer_avatar.jpg"
+
+1 VERSIONINFO
+FILEVERSION 1,0,10,0
+PRODUCTVERSION 1,0,10,0
+FILEOS 0x00040004
+FILETYPE 1
+BEGIN
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0409, 1200
+  END
+END

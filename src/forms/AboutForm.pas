@@ -1,4 +1,4 @@
-unit AboutForm;
+﻿unit AboutForm;
 
 interface
 
@@ -183,6 +183,25 @@ begin
   FUpdateTimer.Enabled := True;
 end;
 
+function RunningVersionTag: string;
+var
+  Size, Ignored, InfoSize: DWORD;
+  Data: TBytes;
+  Info: PVSFixedFileInfo;
+  FileName: string;
+begin
+  Result := '';
+  FileName := Application.ExeName;
+  Size := GetFileVersionInfoSize(PChar(FileName), Ignored);
+  if Size = 0 then Exit;
+  SetLength(Data, Size);
+  if not GetFileVersionInfo(PChar(FileName), 0, Size, @Data[0]) then Exit;
+  if not VerQueryValue(@Data[0], '\', Pointer(Info), InfoSize) then Exit;
+  if (InfoSize < SizeOf(TVSFixedFileInfo)) or (Info.dwSignature <> $FEEF04BD) then Exit;
+  Result := Format('v%d.%d.%d', [HiWord(Info.dwFileVersionMS),
+    LoWord(Info.dwFileVersionMS), HiWord(Info.dwFileVersionLS)]);
+end;
+
 procedure TFrmAbout.UpdateFinished(Sender: TObject);
 var
   Tag: string;
@@ -194,7 +213,7 @@ begin
 
   if Tag = '' then
     FUpdateStatus.Caption := 'Could not check for updates. Try again later.'
-  else if SameText(Tag, 'v1.0.10') then
+  else if SameText(Tag, RunningVersionTag) then
     FUpdateStatus.Caption := 'You have the latest published release (' + Tag + ').'
   else
     FUpdateStatus.Caption := 'GitHub release ' + Tag + ' is listed under Releases.';
@@ -294,7 +313,8 @@ begin
   Text(Hero, 'VLC Modern', 96, 15, 22, True);
   EngineText := Text(Hero, 'Windows media player powered by LibVLC', 97, 61, 10);
   Badge := Card(Hero, 380, 19, 132, 28, 10, BadgeFill, HeroEdge);
-  VersionText := Text(Badge, 'v1.0.10', 0, 5, 9, True);
+  VersionText := Text(Badge, RunningVersionTag, 0, 5, 9, True);
+  if VersionText.Caption = '' then VersionText.Caption := 'Unknown version';
   VersionText.Left := (Badge.Width - VersionText.Width) div 2;
 
   Profile := Card(Body, 16, 130, 532, 139, 14, DP_COLOR_ELEVATED, DP_COLOR_BORDER);

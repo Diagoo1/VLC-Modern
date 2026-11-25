@@ -20,11 +20,18 @@
   #define MediaProgId "VLCModern.MediaFile"
 #endif
 
+#define BinaryVersion GetVersionNumbersString(Payload + "\VLCModern.exe")
+#if BinaryVersion == "" || BinaryVersion == "0.0.0.0" || Copy(BinaryVersion, Len(BinaryVersion)-1, 2) != ".0"
+  #error VLCModern.exe must embed a release version with a zero fourth component
+#endif
+#define ReleaseVersion Copy(BinaryVersion, 1, Len(BinaryVersion)-2)
+
 [Setup]
 AppId={#InstallId}
 AppName={#RegisteredName}
-AppVersion=1.0.10
-AppVerName={#RegisteredName} 1.0.10 ({#Edition})
+AppVersion={#ReleaseVersion}
+VersionInfoVersion={#BinaryVersion}
+AppVerName={#RegisteredName} {#ReleaseVersion} ({#Edition})
 AppPublisher=Tarek Sadek
 AppPublisherURL=https://diagoo1.github.io/VLC-Modern/
 AppSupportURL=https://github.com/Diagoo1/VLC-Modern/issues
@@ -40,7 +47,7 @@ ChangesAssociations=yes
 SetupIconFile=..\res\app_icon.ico
 UninstallDisplayIcon={app}\VLCModern.exe
 OutputDir={#OutputPath}
-OutputBaseFilename=VLC-Modern-v1.0.10-Setup-{#Edition}-Windows
+OutputBaseFilename=VLC-Modern-v{#ReleaseVersion}-Setup-{#Edition}-Windows
 WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes
