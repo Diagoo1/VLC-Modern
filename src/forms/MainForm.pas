@@ -2649,8 +2649,8 @@ begin
     on E: Exception do PlayerMessage('Could not activate playback plugins: ' + E.Message);
   end;
   // Setup LibVLC
-  PluginsDir := ComponentPath('plugins');
-  SetEnvironmentVariable('VLC_PLUGIN_PATH', PChar(PluginsDir));
+  PluginsDir := PlaybackPluginsPath;
+  SetLibVLCPluginPath(PluginsDir);
 
   if not LoadLibVLC('') then
   begin
@@ -2659,7 +2659,7 @@ begin
   end;
 
   if PlaybackPluginsInstalled and not EnsurePlaybackEngine then
-    PlayerMessage('Failed to initialize LibVLC: ' + string(libvlc_errmsg()));
+    ShowOSD('Playback could not start. Check Settings > Playback Components.');
   FPendingVolume := FSettings.StartupVolume;
   modernVolumeSlider.Volume := FSettings.StartupVolume;
   tbVolume.Position := FSettings.StartupVolume;
@@ -3909,7 +3909,11 @@ begin
     ShowOSD('Install playback plugins in Settings > Playback Components.');
     Exit;
   end;
-  if (FMediaPlayer = nil) or (FVlcInstance = nil) then Exit;
+  if not EnsurePlaybackEngine then
+  begin
+    ShowOSD('Playback could not start. Check Settings > Playback Components.');
+    Exit;
+  end;
 
   if (Pos('://', AFilePath) = 0) and not FileExists(AFilePath) then
   begin

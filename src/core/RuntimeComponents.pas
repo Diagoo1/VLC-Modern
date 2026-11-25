@@ -5,6 +5,7 @@ interface
 uses Vcl.Forms;
 
 function PlaybackPluginsInstalled: Boolean;
+function PlaybackPluginsPath: string;
 procedure ApplyPendingComponents;
 procedure ShowRuntimeComponents(Owner: TForm);
 
@@ -34,7 +35,14 @@ end;
 
 function PlaybackPluginsInstalled: Boolean;
 begin
-  Result := HasPlaybackPlugins(ComponentPath('plugins'));
+  Result := HasPlaybackPlugins(PlaybackPluginsPath);
+end;
+
+function PlaybackPluginsPath: string;
+begin
+  Result := ComponentPath('plugins');
+  if not HasPlaybackPlugins(Result) then
+    Result := BundledPath('plugins-basic');
 end;
 
 procedure ApplyPendingComponents;
@@ -141,7 +149,8 @@ begin
      (Size <= 0) or (Size > 160 * 1024 * 1024) then
     raise Exception.Create('The release package could not be verified.');
   if Plugins then Stamp := ComponentPath('plugins\.release-digest')
-  else Stamp := ComponentPath('tools\.ffmpeg-release-digest');
+  else Stamp := TPath.Combine(TPath.GetDirectoryName(ComponentPath('tools\ffmpeg.exe')),
+    '.ffmpeg-release-digest');
   if MatchesRevision(Stamp, Digest) and
      ((Plugins and PlaybackPluginsInstalled) or
       (not Plugins and TFile.Exists(ComponentPath('tools\ffmpeg.exe')))) then Exit('Up to date');
@@ -218,7 +227,7 @@ begin
       for var FileName in TDirectory.GetFiles(Path) do
         if not MoveFileEx(PChar(FileName), PChar(TPath.Combine(Target, TPath.GetFileName(FileName))),
           MOVEFILE_REPLACE_EXISTING or MOVEFILE_WRITE_THROUGH) then RaiseLastOSError;
-      TFile.WriteAllText(Stamp, Digest);
+      TFile.WriteAllText(TPath.Combine(Target, '.ffmpeg-release-digest'), Digest);
       Result := 'Installed';
     end;
   finally
@@ -275,7 +284,7 @@ begin
   ClientHeight := 380;
   AddLabel('Select components to install or synchronize from VLC Modern on GitHub.', 24, 22);
   Plugins := AddChoice('LibVLC playback plugins',
-    'Required for video, audio, subtitles and streaming in the Lite edition.',
+    'Adds the complete LibVLC playback and streaming plugin set.',
     62, not PlaybackPluginsInstalled);
   Encoder := AddChoice('FFmpeg (64-bit Windows)',
     'Enables precise MP4 clipping with frame-accurate start positions.',
@@ -311,23 +320,26 @@ begin
     var Match := TRegEx.Match(string(libvlc_get_version()), '^[0-9]+(?:\.[0-9]+)+');
     if Match.Success then Engine := Engine + ' ' + Match.Value;
   end;
-  if PlaybackPluginsInstalled then
+  if HasPlaybackPlugins(ComponentPath('plugins')) then
     PluginInfo.Caption := Engine + '  |  Installed  |  Revision ' +
       RevisionText(ComponentPath('plugins\.release-digest'))
+  else if PlaybackPluginsInstalled then
+    PluginInfo.Caption := Engine + '  |  Basic playback included'
   else PluginInfo.Caption := Engine + '  |  Not installed';
   if TDirectory.Exists(AppPath('plugins.pending')) then
     PluginInfo.Caption := PluginInfo.Caption + '  |  Restart required';
   if TFile.Exists(ComponentPath('tools\ffmpeg.exe')) then
   begin
     var Version := 'FFmpeg';
-    var Notice := ComponentPath('tools\FFmpeg-NOTICE.txt');
+    var EncoderDirectory := TPath.GetDirectoryName(ComponentPath('tools\ffmpeg.exe'));
+    var Notice := TPath.Combine(EncoderDirectory, 'FFmpeg-NOTICE.txt');
     if TFile.Exists(Notice) then
     begin
       var Match := TRegEx.Match(TFile.ReadAllText(Notice), '^FFmpeg [0-9]+(?:\.[0-9]+)+');
       if Match.Success then Version := Match.Value;
     end;
     EncoderInfo.Caption := Version + '  |  Installed  |  Revision ' +
-      RevisionText(ComponentPath('tools\.ffmpeg-release-digest'));
+      RevisionText(TPath.Combine(EncoderDirectory, '.ffmpeg-release-digest'));
   end
   else EncoderInfo.Caption := 'FFmpeg  |  Not installed';
 end;

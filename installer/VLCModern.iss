@@ -23,8 +23,8 @@
 [Setup]
 AppId={#InstallId}
 AppName={#RegisteredName}
-AppVersion=1.0.0
-AppVerName={#RegisteredName} 1.0.0 ({#Edition})
+AppVersion=1.0.1
+AppVerName={#RegisteredName} 1.0.1 ({#Edition})
 AppPublisher=Tarek Sadek
 AppPublisherURL=https://diagoo1.github.io/VLC-Modern/
 AppSupportURL=https://github.com/Diagoo1/VLC-Modern/issues
@@ -40,7 +40,7 @@ ChangesAssociations=yes
 SetupIconFile=..\res\app_icon.ico
 UninstallDisplayIcon={app}\VLCModern.exe
 OutputDir={#OutputPath}
-OutputBaseFilename=VLC-Modern-v1.0.0-Setup-{#Edition}-Windows
+OutputBaseFilename=VLC-Modern-v1.0.1-Setup-{#Edition}-Windows
 WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes
@@ -72,6 +72,8 @@ Source: "{#Payload}\plugins\*"; DestDir: "{app}\plugins"; Flags: ignoreversion r
 Source: "{#Payload}\tools\ffmpeg.exe"; DestDir: "{app}\tools"; Flags: ignoreversion
 Source: "{#Payload}\tools\FFmpeg-*.txt"; DestDir: "{app}\tools"; Flags: ignoreversion
 Source: "{#Payload}\tools\.ffmpeg-release-digest"; DestDir: "{app}\tools"; Flags: ignoreversion
+#else
+Source: "{#Payload}\plugins-basic\*"; DestDir: "{app}\plugins-basic"; Flags: ignoreversion recursesubdirs createallsubdirs
 #endif
 
 [Icons]

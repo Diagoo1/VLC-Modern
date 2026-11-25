@@ -14,6 +14,49 @@ type
   Plibvlc_media_t = Pointer;
   Plibvlc_media_player_t = Pointer;
   Plibvlc_equalizer_t = Pointer;
+  Plibvlc_renderer_discoverer_t = Pointer;
+  Plibvlc_renderer_item_t = Pointer;
+  Plibvlc_event_manager_t = Pointer;
+
+  Plibvlc_event_t = ^libvlc_event_t;
+  libvlc_event_t = record
+    i_type: Integer;
+    p_obj: Pointer;
+    u_ptr: Pointer;
+  end;
+  libvlc_callback_t = procedure(p_event: Plibvlc_event_t; p_user_data: Pointer); cdecl;
+
+  Plibvlc_audio_track_t = ^libvlc_audio_track_t;
+  libvlc_audio_track_t = record
+    i_channels: Cardinal;
+    i_rate: Cardinal;
+  end;
+
+  Plibvlc_video_track_t = ^libvlc_video_track_t;
+  libvlc_video_track_t = record
+    i_height: Cardinal;
+    i_width: Cardinal;
+    i_sar_num: Cardinal;
+    i_sar_den: Cardinal;
+    i_frame_rate_num: Cardinal;
+    i_frame_rate_den: Cardinal;
+  end;
+
+  Plibvlc_media_track_t = ^libvlc_media_track_t;
+  PPlibvlc_media_track_t = ^Plibvlc_media_track_t;
+  PPPlibvlc_media_track_t = ^PPlibvlc_media_track_t;
+  libvlc_media_track_t = record
+    i_codec: Cardinal;
+    i_original_fourcc: Cardinal;
+    i_id: Integer;
+    i_type: Integer; // 0=audio, 1=video, 2=text in libvlc_track_type_t (actually 0=unknown, 0=audio? Wait: unknown=-1, audio=0, video=1, text=2)
+    i_profile: Integer;
+    i_level: Integer;
+    u_track: Pointer;
+    i_bitrate: Cardinal;
+    psz_language: PAnsiChar;
+    psz_description: PAnsiChar;
+  end;
   TLibVLCMediaStats = record
     ReadBytes: Integer;
     InputBitrate: Single;
@@ -97,11 +140,21 @@ const
   libvlc_AudioChannel_Right   = 4;
   libvlc_AudioChannel_Dolbys  = 5;
 
+  libvlc_track_unknown = -1;
+  libvlc_track_audio   = 0;
+  libvlc_track_video   = 1;
+  libvlc_track_text    = 2;
+
+  libvlc_RendererDiscovererItemAdded   = $502;
+  libvlc_RendererDiscovererItemDeleted = $503;
+
 var
   libvlc_video_set_mouse_input: procedure(p_mi: Plibvlc_media_player_t; on_: Cardinal); cdecl;
   libvlc_video_set_key_input: procedure(p_mi: Plibvlc_media_player_t; on_: Cardinal); cdecl;
   libvlc_video_set_callbacks: procedure(p_mi: Plibvlc_media_player_t;
     Lock, Unlock, Display, Opaque: Pointer); cdecl;
+  libvlc_video_set_format_callbacks: procedure(p_mi: Plibvlc_media_player_t;
+    Setup, Cleanup: Pointer); cdecl;
   // Core Functions
   libvlc_new: function(argc: Integer; argv: PPAnsiChar): Plibvlc_instance_t; cdecl;
   libvlc_release: procedure(p_instance: Plibvlc_instance_t); cdecl;
@@ -219,6 +272,24 @@ var
   // Track description release
   libvlc_track_description_list_release: procedure(p_td: Plibvlc_track_description_t); cdecl;
 
+  // Renderer Discoverer (Chromecast / DLNA) & Events / Tracks
+  libvlc_renderer_discoverer_new: function(p_inst: Plibvlc_instance_t; psz_name: PAnsiChar): Plibvlc_renderer_discoverer_t; cdecl;
+  libvlc_renderer_discoverer_release: procedure(p_rd: Plibvlc_renderer_discoverer_t); cdecl;
+  libvlc_renderer_discoverer_start: function(p_rd: Plibvlc_renderer_discoverer_t): Integer; cdecl;
+  libvlc_renderer_discoverer_stop: procedure(p_rd: Plibvlc_renderer_discoverer_t); cdecl;
+  libvlc_renderer_discoverer_event_manager: function(p_rd: Plibvlc_renderer_discoverer_t): Plibvlc_event_manager_t; cdecl;
+  libvlc_renderer_item_name: function(p_item: Plibvlc_renderer_item_t): PAnsiChar; cdecl;
+  libvlc_renderer_item_type: function(p_item: Plibvlc_renderer_item_t): PAnsiChar; cdecl;
+  libvlc_renderer_item_hold: function(p_item: Plibvlc_renderer_item_t): Plibvlc_renderer_item_t; cdecl;
+  libvlc_renderer_item_release: procedure(p_item: Plibvlc_renderer_item_t); cdecl;
+  libvlc_media_player_set_renderer: function(p_mi: Plibvlc_media_player_t; p_item: Plibvlc_renderer_item_t): Integer; cdecl;
+  libvlc_event_attach: function(p_event_manager: Plibvlc_event_manager_t; i_event_type: Integer; f_callback: libvlc_callback_t; p_user_data: Pointer): Integer; cdecl;
+  libvlc_event_detach: procedure(p_event_manager: Plibvlc_event_manager_t; i_event_type: Integer; f_callback: libvlc_callback_t; p_user_data: Pointer); cdecl;
+  libvlc_media_tracks_get: function(p_md: Plibvlc_media_t; tracks: PPPlibvlc_media_track_t): Cardinal; cdecl;
+  libvlc_media_tracks_release: procedure(p_tracks: PPlibvlc_media_track_t; i_count: Cardinal); cdecl;
+  libvlc_media_get_codec_description: function(i_type: Integer; i_codec: Cardinal): PAnsiChar; cdecl;
+
+procedure SetLibVLCPluginPath(const Directory: string);
 function LoadLibVLC(const ADllPath: string = ''): Boolean;
 procedure UnloadLibVLC;
 function IsLibVLCLoaded: Boolean;
@@ -232,6 +303,16 @@ var
 function GetProc(const AProcName: AnsiString): Pointer;
 begin
   Result := GetProcAddress(hLibVLC, PAnsiChar(AProcName));
+end;
+
+function PutVLCEnvironment(Value: PAnsiChar): Integer; cdecl;
+  external 'msvcrt.dll' name '_putenv';
+
+procedure SetLibVLCPluginPath(const Directory: string);
+begin
+  // LibVLC 3 reads the C runtime environment, which is cached separately.
+  PutVLCEnvironment(PAnsiChar(UTF8Encode('VLC_PLUGIN_PATH=' + Directory)));
+  SetEnvironmentVariable('VLC_PLUGIN_PATH', PChar(Directory));
 end;
 
 function LoadLibVLC(const ADllPath: string): Boolean;
@@ -273,6 +354,7 @@ begin
   @libvlc_video_set_mouse_input := GetProc('libvlc_video_set_mouse_input');
   @libvlc_video_set_key_input := GetProc('libvlc_video_set_key_input');
   @libvlc_video_set_callbacks := GetProc('libvlc_video_set_callbacks');
+  @libvlc_video_set_format_callbacks := GetProc('libvlc_video_set_format_callbacks');
   @libvlc_release := GetProc('libvlc_release');
   @libvlc_get_version := GetProc('libvlc_get_version');
   @libvlc_errmsg := GetProc('libvlc_errmsg');
@@ -376,6 +458,22 @@ begin
   @libvlc_media_player_set_equalizer := GetProc('libvlc_media_player_set_equalizer');
 
   @libvlc_track_description_list_release := GetProc('libvlc_track_description_list_release');
+
+  @libvlc_renderer_discoverer_new := GetProc('libvlc_renderer_discoverer_new');
+  @libvlc_renderer_discoverer_release := GetProc('libvlc_renderer_discoverer_release');
+  @libvlc_renderer_discoverer_start := GetProc('libvlc_renderer_discoverer_start');
+  @libvlc_renderer_discoverer_stop := GetProc('libvlc_renderer_discoverer_stop');
+  @libvlc_renderer_discoverer_event_manager := GetProc('libvlc_renderer_discoverer_event_manager');
+  @libvlc_renderer_item_name := GetProc('libvlc_renderer_item_name');
+  @libvlc_renderer_item_type := GetProc('libvlc_renderer_item_type');
+  @libvlc_renderer_item_hold := GetProc('libvlc_renderer_item_hold');
+  @libvlc_renderer_item_release := GetProc('libvlc_renderer_item_release');
+  @libvlc_media_player_set_renderer := GetProc('libvlc_media_player_set_renderer');
+  @libvlc_event_attach := GetProc('libvlc_event_attach');
+  @libvlc_event_detach := GetProc('libvlc_event_detach');
+  @libvlc_media_tracks_get := GetProc('libvlc_media_tracks_get');
+  @libvlc_media_tracks_release := GetProc('libvlc_media_tracks_release');
+  @libvlc_media_get_codec_description := GetProc('libvlc_media_get_codec_description');
 
   Result := Assigned(libvlc_new) and Assigned(libvlc_media_player_new);
 end;
