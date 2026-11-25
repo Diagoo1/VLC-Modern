@@ -60,11 +60,7 @@ The playback screenshots show *Cartoon Sky*, a demo clip made from original AI-g
 
 **IPTV setup.** Choose Xtream Codes, Stalker / MAC, an M3U URL, or a local playlist. The screenshot shows the connection form with empty credentials.
 
-## Network streaming and conversion
-
-![Opening a network stream](screenshots/open-media.png)
-
-**Open Network Stream.** Enter a stream URL and adjust network caching.
+## Conversion
 
 ![MP4 conversion setup](screenshots/convert-stream.png)
 
