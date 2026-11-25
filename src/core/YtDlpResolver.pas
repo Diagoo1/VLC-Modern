@@ -173,7 +173,7 @@ begin
   TThread.CreateAnonymousThread(
     procedure
     var
-      ExePath, CmdLine, OutText, Line, TitleOut, UrlOut, AgentOut, ErrOut, DlErr, LocalPath: string;
+      ExePath, CmdLine, OutText, Line, TitleOut, UrlOut, AgentOut, ErrOut, DlErr: string;
       SA: TSecurityAttributes;
       ReadPipe, WritePipe: THandle;
       SI: TStartupInfoW;
@@ -237,20 +237,15 @@ begin
           RuntimeOption := '--no-js-runtimes --js-runtimes "quickjs:' + QuickJS + '" '
         else if TFile.Exists(PortableNode) then
           RuntimeOption := '--no-js-runtimes --js-runtimes "node:' + PortableNode + '" ';
-        CmdLine := '"' + ExePath + '" -f "best[protocol=https][ext=mp4]/best[ext=mp4]/best" ' +
-          '--print "VLC_TITLE:%(title)s" --print "VLC_URL:%(url)s" --print "VLC_AGENT:%(http_headers.User-Agent)s" --ignore-config ' +
-          '--no-plugin-dirs ' + RuntimeOption + '--socket-timeout 8 --retries 1 --no-playlist --no-warnings -- "' +
-          AUrl + '"';
         var Host := LowerCase(TURI.Create(AUrl).Host);
-        if (Host = 'youtube.com') or Host.EndsWith('.youtube.com') or
-           (Host = 'youtu.be') or Host.EndsWith('.youtu.be') then
-        begin
-          LocalPath := TPath.Combine(TPath.GetTempPath, 'VLCModern-Web-' + TGUID.NewGuid.ToString + '.mp4');
-          CmdLine := '"' + ExePath + '" -f "best[protocol=https][ext=mp4]" --ignore-config --no-plugin-dirs ' +
-            RuntimeOption + '--socket-timeout 8 --retries 1 --no-playlist --no-progress ' +
-            '--max-filesize 96M --no-overwrites --no-part --print "after_move:VLC_TITLE:%(title)s" -o "' +
-            StringReplace(LocalPath, '%', '%%', [rfReplaceAll]) + '" -- "' + AUrl + '"';
-        end;
+        var IsYouTube := (Host = 'youtube.com') or Host.EndsWith('.youtube.com') or
+          (Host = 'youtu.be') or Host.EndsWith('.youtu.be');
+        var Format := 'best[protocol=https][ext=mp4]/best[ext=mp4]/best';
+        if IsYouTube then Format := 'best[protocol=https][ext=mp4]';
+        CmdLine := '"' + ExePath + '" -f "' + Format + '" --skip-download ' +
+          '--print "VLC_TITLE:%(title)s" --print "VLC_URL:%(url)s" --print "VLC_AGENT:%(http_headers.User-Agent)s" --ignore-config ' +
+          '--no-plugin-dirs ' + RuntimeOption + '--socket-timeout 8 --retries 1 --no-playlist -- "' +
+          AUrl + '"';
         UniqueString(CmdLine);
         if CreateProcessW(PWideChar(ExePath), PWideChar(CmdLine), nil, nil, True, CREATE_NO_WINDOW, nil, nil, SI, PI) then
         begin
@@ -258,7 +253,6 @@ begin
           WritePipe := 0;
           RawOut := '';
           var Deadline := GetTickCount64 + 25000;
-          if LocalPath <> '' then Inc(Deadline, 95000);
           var ExitStatus: DWORD := DWORD(-1);
           try
             repeat
@@ -273,8 +267,6 @@ begin
                 if Length(RawOut) > 1024 * 1024 then Break;
               end
               else if WaitForSingleObject(PI.hProcess, 25) = WAIT_OBJECT_0 then Break;
-              if (LocalPath <> '') and FileExists(LocalPath) and
-                 (TFile.GetSize(LocalPath) > 96 * 1024 * 1024) then Break;
             until GetTickCount64 >= Deadline;
             if WaitForSingleObject(PI.hProcess, 0) <> WAIT_OBJECT_0 then
             begin
@@ -311,12 +303,8 @@ begin
             Lines.Free;
           end;
 
-          if (LocalPath <> '') and (ExitStatus = 0) and FileExists(LocalPath) and
-             (TFile.GetSize(LocalPath) > 0) and (TFile.GetSize(LocalPath) <= 96 * 1024 * 1024) then
-            UrlOut := LocalPath;
           Ok := (ExitStatus = 0) and (UrlOut <> '');
-          if not Ok and (LocalPath <> '') then System.SysUtils.DeleteFile(LocalPath);
-          if not Ok and (LocalPath <> '') and not UseBackupRuntime and
+          if not Ok and IsYouTube and not UseBackupRuntime and
              TFile.Exists(QuickJS) and TFile.Exists(PortableNode) then
           begin
             ResolveAsync(AUrl, OnComplete, True);
@@ -326,7 +314,7 @@ begin
           begin
             UrlOut := '';
             if ErrOut = '' then
-              if LocalPath <> '' then
+              if IsYouTube then
               begin
                 if not TFile.Exists(PortableNode) and ContainsText(OutText, 'JavaScript runtime') then
                   ErrOut := 'This YouTube video needs Node.js. Download it from Settings > Playback Components and try again.'

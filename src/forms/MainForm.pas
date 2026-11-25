@@ -830,7 +830,8 @@ type
     function LoadAudioFile(const Path: string): Boolean;
     function LoadSecondarySubtitleFile(const Path: string): Boolean;
     procedure SeekTo(TimeMs: Int64);
-    procedure PlayFile(const AFilePath: string; AOptions: TStrings = nil);
+    procedure PlayFile(const AFilePath: string; AOptions: TStrings = nil;
+      const SourceURL: string = '');
     procedure ApplyInterfaceCustomization;
     procedure ResetInterfaceDefaults;
     function GetMenuBarVisible: Boolean;
@@ -3895,7 +3896,8 @@ begin
     Result := Format('%.2d:%.2d', [M, S]);
 end;
 
-procedure TFrmMain.PlayFile(const AFilePath: string; AOptions: TStrings);
+procedure TFrmMain.PlayFile(const AFilePath: string; AOptions: TStrings;
+  const SourceURL: string);
 var
   Utf8Path: UTF8String;
   Ini: TAppSettings;
@@ -3921,7 +3923,7 @@ begin
     Exit;
   end;
   Inc(FPlatformRequest);
-  if TYtDlpResolver.IsSupportedSiteUrl(AFilePath) then
+  if (SourceURL = '') and TYtDlpResolver.IsSupportedSiteUrl(AFilePath) then
   begin
     var Request := FPlatformRequest;
     ShowOSD('Preparing video via yt-dlp...');
@@ -3946,7 +3948,7 @@ begin
           var StreamOptions := TStringList.Create;
           try
             if UserAgent <> '' then StreamOptions.Add(':http-user-agent=' + UserAgent);
-            PlayFile(DirectUrl, StreamOptions);
+            PlayFile(DirectUrl, StreamOptions, OrigUrl);
           finally
             StreamOptions.Free;
           end;
@@ -4006,9 +4008,10 @@ begin
   FVideoPreferencesApplied := False;
   if not SameText(FCurrentFile, AFilePath) then FPrimarySubtitlePath := '';
   FCurrentFile := AFilePath;
-  if (FPlatformCacheFiles = nil) or (FPlatformCacheFiles.IndexOf(AFilePath) < 0) then
-    AddRecentMedia(AFilePath);
-  GlobalLog('Playback started: ' + AFilePath);
+  var DisplayPath := AFilePath;
+  if SourceURL <> '' then DisplayPath := SourceURL;
+  AddRecentMedia(DisplayPath);
+  GlobalLog('Playback started: ' + DisplayPath);
   FATime := -1;
   FBTime := -1;
 
