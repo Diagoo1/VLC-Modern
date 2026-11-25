@@ -228,7 +228,7 @@ begin
         SI.hStdError := WritePipe;
         ZeroMemory(@PI, SizeOf(PI));
 
-        var PortableNode := TPath.Combine(ExtractFilePath(ParamStr(0)), 'tools\node\node.exe');
+        var PortableNode := ComponentPath('tools\node\node.exe');
         var RuntimeOption := '--js-runtimes node ';
         if TFile.Exists(PortableNode) then
           RuntimeOption := '--js-runtimes "node:' + PortableNode + '" ';
@@ -242,7 +242,7 @@ begin
         begin
           LocalPath := TPath.Combine(TPath.GetTempPath, 'VLCModern-Web-' + TGUID.NewGuid.ToString + '.mp4');
           CmdLine := '"' + ExePath + '" -f "best[protocol=https][ext=mp4]" --ignore-config --no-plugin-dirs ' +
-            RuntimeOption + '--socket-timeout 8 --retries 1 --no-playlist --no-warnings --no-progress ' +
+            RuntimeOption + '--socket-timeout 8 --retries 1 --no-playlist --no-progress ' +
             '--max-filesize 96M --no-overwrites --no-part --print "after_move:VLC_TITLE:%(title)s" -o "' +
             StringReplace(LocalPath, '%', '%%', [rfReplaceAll]) + '" -- "' + AUrl + '"';
         end;
@@ -315,7 +315,12 @@ begin
           begin
             UrlOut := '';
             if ErrOut = '' then
-              if LocalPath <> '' then ErrOut := 'Could not prepare YouTube video for playback'
+              if LocalPath <> '' then
+              begin
+                if not TFile.Exists(PortableNode) and ContainsText(OutText, 'JavaScript runtime') then
+                  ErrOut := 'This YouTube video needs Node.js. Download it from Settings > Playback Components and try again.'
+                else ErrOut := 'Could not prepare YouTube video for playback';
+              end
               else ErrOut := 'yt-dlp could not resolve stream URL';
           end;
         end

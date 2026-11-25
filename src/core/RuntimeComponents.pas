@@ -235,11 +235,52 @@ begin
   end;
 end;
 
+function InstallJavaScriptRuntime(Client: THTTPClient; const Progress: TComponentProgress): string;
+const
+  NodeVersion = '24.22.3';
+  Root = 'node-v' + NodeVersion + '-win-x64';
+  Digest = 'e612af99f626ab415ea225af6bce5c971feb448cb5cae250bb1c3fa50c5f7d9f';
+var Stage, Archive, Target: string; Output: TFileStream; Zip: TZipFile;
+    Response: IHTTPResponse; Meter: TDownloadMeter;
+begin
+  Target := AppPath('tools\node');
+  if TFile.Exists(TPath.Combine(Target, 'node.exe')) then Exit('Already installed');
+  Stage := AppPath('.node-' + TGUID.NewGuid.ToString);
+  TDirectory.CreateDirectory(Stage);
+  try
+    Archive := TPath.Combine(Stage, 'node.zip');
+    Output := TFileStream.Create(Archive, fmCreate);
+    try
+      Meter := TDownloadMeter.Create;
+      try
+        Meter.Progress := Progress;
+        Client.OnReceiveData := Meter.Receive;
+        try
+          Response := Client.Get('https://nodejs.org/dist/v' + NodeVersion + '/' + Root + '.zip', Output);
+          if Response.StatusCode <> 200 then
+            raise Exception.Create('Could not download Node.js.');
+        finally Client.OnReceiveData := nil; end;
+      finally Meter.Free; end;
+    finally Output.Free; end;
+    if not SameText(THashSHA2.GetHashStringFromFile(Archive), Digest) then
+      raise Exception.Create('The Node.js download did not match the expected checksum.');
+    Zip := TZipFile.Create;
+    try
+      Zip.Open(Archive, zmRead);
+      Zip.Extract(Root + '/node.exe', Stage, True);
+      Zip.Extract(Root + '/LICENSE', Stage, True);
+    finally Zip.Free; end;
+    TDirectory.CreateDirectory(TPath.GetDirectoryName(Target));
+    TDirectory.Move(TPath.Combine(Stage, Root), Target);
+    Result := 'Installed';
+  finally TDirectory.Delete(Stage, True); end;
+end;
+
 type
   TComponentsDialog = class(TForm)
   private
-    Plugins, Encoder: TCheckBox;
-    Status, PluginInfo, EncoderInfo: TLabel;
+    Plugins, Encoder, JavaScript: TCheckBox;
+    Status, PluginInfo, EncoderInfo, JavaScriptInfo: TLabel;
     ProgressBar: TProgressBar;
     SyncButton, CloseButton: TButton;
     Busy: Boolean;
@@ -272,7 +313,7 @@ constructor TComponentsDialog.Create(AOwner: TComponent);
   begin
     Result := TButton.Create(Self);
     Result.Parent := Self;
-    Result.SetBounds(X, 326, 145, 34);
+    Result.SetBounds(X, 406, 145, 34);
     Result.Caption := Text;
   end;
 begin
@@ -281,7 +322,7 @@ begin
   Position := poOwnerFormCenter;
   BorderStyle := bsDialog;
   ClientWidth := 650;
-  ClientHeight := 380;
+  ClientHeight := 460;
   AddLabel('Select components to install or synchronize from VLC Modern on GitHub.', 24, 22);
   Plugins := AddChoice('LibVLC playback plugins',
     'Adds the complete LibVLC playback and streaming plugin set.',
@@ -289,14 +330,20 @@ begin
   Encoder := AddChoice('FFmpeg (64-bit Windows)',
     'Enables precise MP4 clipping with frame-accurate start positions.',
     151, False);
+  JavaScript := AddChoice('YouTube JavaScript runtime (Node.js)',
+    'Optional for YouTube. Downloaded here and used without a system installation.',
+    233, False);
+  JavaScript.Enabled := TOSVersion.Architecture = arIntelX64;
   Encoder.Enabled := TOSVersion.Architecture = arIntelX64;
   PluginInfo := AddLabel('', 45, 111);
   EncoderInfo := AddLabel('', 45, 200);
+  JavaScriptInfo := AddLabel('', 45, 282);
+  JavaScriptInfo.Font.Color := DP_COLOR_MUTED;
   ProgressBar := TProgressBar.Create(Self);
   ProgressBar.Parent := Self;
-  ProgressBar.SetBounds(24, 245, 600, 9);
+  ProgressBar.SetBounds(24, 325, 600, 9);
   ProgressBar.Max := 100;
-  Status := AddLabel('', 24, 265);
+  Status := AddLabel('', 24, 345);
   Status.AutoSize := False;
   Status.WordWrap := True;
   Status.Height := 44;
@@ -342,6 +389,9 @@ begin
       RevisionText(TPath.Combine(EncoderDirectory, '.ffmpeg-release-digest'));
   end
   else EncoderInfo.Caption := 'FFmpeg  |  Not installed';
+  if TFile.Exists(ComponentPath('tools\node\node.exe')) then
+    JavaScriptInfo.Caption := 'Node.js  |  Installed'
+  else JavaScriptInfo.Caption := 'Node.js  |  Optional';
 end;
 
 procedure TComponentsDialog.PostProgress(const Component, Message: string; Percent: Integer);
@@ -363,7 +413,8 @@ procedure TComponentsDialog.Sync(Sender: TObject);
 begin
   var WantPlugins := Plugins.Checked;
   var WantEncoder := Encoder.Checked and Encoder.Enabled;
-  if not WantPlugins and not WantEncoder then
+  var WantJavaScript := JavaScript.Checked and JavaScript.Enabled;
+  if not WantPlugins and not WantEncoder and not WantJavaScript then
   begin
     Status.Caption := 'Select at least one component.';
     Exit;
@@ -371,6 +422,7 @@ begin
   Busy := True;
   Plugins.Enabled := False;
   Encoder.Enabled := False;
+  JavaScript.Enabled := False;
   SyncButton.Enabled := False;
   CloseButton.Enabled := False;
   ProgressBar.Position := 0;
@@ -386,26 +438,36 @@ begin
           Client.UserAgent := 'VLCModern';
           Client.ConnectionTimeout := 10000;
           Client.ResponseTimeout := 30000;
-          Response := Client.Get(ReleaseAPI);
-          if Response.StatusCode <> 200 then raise Exception.Create('GitHub is currently unavailable.');
-          Catalog := TJSONObject.ParseJSONValue(Response.ContentAsString);
-          try
-            if not (Catalog is TJSONObject) then raise Exception.Create('Invalid release information.');
-            var Assets := TJSONObject(Catalog).GetValue<TJSONArray>('assets');
-            if Assets = nil then raise Exception.Create('The release contains no packages.');
-            ResultText := '';
-            if WantPlugins then
-              ResultText := 'LibVLC: ' + StageComponent(Client, Assets, True,
-                procedure(const Message: string; Percent: Integer)
-                begin PostProgress('LibVLC plugins', Message, Percent); end);
-            if WantEncoder then
-            begin
-              if ResultText <> '' then ResultText := ResultText + sLineBreak;
-              ResultText := ResultText + 'FFmpeg: ' + StageComponent(Client, Assets, False,
-                procedure(const Message: string; Percent: Integer)
-                begin PostProgress('FFmpeg', Message, Percent); end);
-            end;
-          finally Catalog.Free; end;
+          if WantPlugins or WantEncoder then
+          begin
+            Response := Client.Get(ReleaseAPI);
+            if Response.StatusCode <> 200 then raise Exception.Create('GitHub is currently unavailable.');
+            Catalog := TJSONObject.ParseJSONValue(Response.ContentAsString);
+            try
+              if not (Catalog is TJSONObject) then raise Exception.Create('Invalid release information.');
+              var Assets := TJSONObject(Catalog).GetValue<TJSONArray>('assets');
+              if Assets = nil then raise Exception.Create('The release contains no packages.');
+              ResultText := '';
+              if WantPlugins then
+                ResultText := 'LibVLC: ' + StageComponent(Client, Assets, True,
+                  procedure(const Message: string; Percent: Integer)
+                  begin PostProgress('LibVLC plugins', Message, Percent); end);
+              if WantEncoder then
+              begin
+                if ResultText <> '' then ResultText := ResultText + sLineBreak;
+                ResultText := ResultText + 'FFmpeg: ' + StageComponent(Client, Assets, False,
+                  procedure(const Message: string; Percent: Integer)
+                  begin PostProgress('FFmpeg', Message, Percent); end);
+              end;
+            finally Catalog.Free; end;
+          end;
+          if WantJavaScript then
+          begin
+            if ResultText <> '' then ResultText := ResultText + sLineBreak;
+            ResultText := ResultText + 'Node.js: ' + InstallJavaScriptRuntime(Client,
+              procedure(const Message: string; Percent: Integer)
+              begin PostProgress('Node.js', Message, Percent); end);
+          end;
         except
           on E: Exception do ResultText := E.Message;
         end;
@@ -419,6 +481,7 @@ begin
           Busy := False;
           Plugins.Enabled := True;
           Encoder.Enabled := TOSVersion.Architecture = arIntelX64;
+          JavaScript.Enabled := Encoder.Enabled;
           SyncButton.Enabled := True;
           CloseButton.Enabled := True;
         end));
