@@ -15,7 +15,7 @@ Lite includes basic local playback. You can download the full plugins and FFmpeg
 
 - **Full** includes the LibVLC playback plugins and FFmpeg. Precise MP4 clipping uses the bundled encoder on 64-bit Windows.
 - **Lite** includes the player and its core DLLs. Install the LibVLC plugins to enable playback and select FFmpeg separately for precise clipping.
-- **YouTube** uses the portable Node.js runtime included in both editions on 64-bit Windows.
+- **YouTube** may require a supported Node.js on PATH for some videos. Local playback works without it.
 - **Settings → Playback Components** reopens the component installer and synchronizes selected packages. Restart the player after installing or updating the LibVLC plugins.
 <p align="center"><a href="https://diagoo1.github.io/VLC-Modern/#download"><img alt="Download for Windows" src="https://img.shields.io/badge/Download%20for%20Windows-1262A3?style=for-the-badge&amp;logo=windows&amp;logoColor=white"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img alt="Report a bug" src="https://img.shields.io/badge/Report%20a%20bug-243850?style=for-the-badge&amp;logo=github&amp;logoColor=white"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.2"><img alt="v1.0.2" src="https://img.shields.io/badge/v1.0.2-243850?style=for-the-badge&amp;logo=github&amp;logoColor=white"></a></p>
 
