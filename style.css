@@ -177,3 +177,30 @@ html[dir=rtl] .icon-control[data-icon="previous"]::before{transform:translateX(-
 .gallery .slide-dot{width:1.35rem;height:1.6rem}
 .gallery .slide-dot[aria-pressed=true]::before{width:.9rem}
 @media(max-width:385px){.gallery .slide-dot{width:1.18rem}}
+
+/* Compact masthead and a centered startup image as the first-screen focal point. */
+.header{
+ border-color:#2b4155;background:linear-gradient(110deg,#182534ee,#101923ed);
+ box-shadow:0 10px 28px #04090e50
+}
+.header .brand img{border-radius:50%;box-shadow:0 0 16px #40bfff42}
+.header nav a{color:#c1d1de}
+.header nav a[href="#download"]{color:#aee6ff;background:#1a3246}
+.header nav a[href="#download"]:hover{background:#244960}
+.hero{gap:clamp(1.35rem,3vw,2.15rem);padding-block:clamp(2.5rem,5vw,4.25rem)}
+.hero h1{margin-block:.65rem .85rem}
+.hero-image{position:relative;isolation:isolate;width:min(100%,61rem)}
+.hero-image::before{
+ content:"";position:absolute;z-index:-1;inset:8% -3% 5%;pointer-events:none;
+ background:radial-gradient(ellipse at 50% 45%,#2085c44a 0%,#185b8b24 44%,transparent 72%);
+ filter:blur(24px)
+}
+.hero-image img{box-shadow:0 22px 58px #02080eb5}
+@media(min-width:821px){
+ .header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);padding-block:.85rem}
+ .header nav{margin:0;gap:.8rem}
+ .header .language-menu{justify-self:end}
+ .hero h1{font-size:clamp(3.2rem,5.5vw,5rem)}
+ .hero h1 br{display:none}
+}
+@media(max-width:500px){.header nav{justify-content:center}.hero-image::before{inset:5% 1%}}
