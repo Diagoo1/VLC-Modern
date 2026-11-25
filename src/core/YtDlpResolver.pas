@@ -15,7 +15,8 @@ type
     class function FindYtDlpBinary: string;
     class function EnsureYtDlpBinary(out ErrorMsg: string): string;
     class function TryNativeHtmlExtract(const AUrl: string; out DirectUrl, VideoTitle: string): Boolean;
-    class procedure ResolveAsync(const AUrl: string; OnComplete: TYtDlpComplete);
+    class procedure ResolveAsync(const AUrl: string; OnComplete: TYtDlpComplete;
+      UseBackupRuntime: Boolean = False);
   end;
 
 implementation
@@ -161,7 +162,8 @@ begin
   end;
 end;
 
-class procedure TYtDlpResolver.ResolveAsync(const AUrl: string; OnComplete: TYtDlpComplete);
+class procedure TYtDlpResolver.ResolveAsync(const AUrl: string; OnComplete: TYtDlpComplete;
+  UseBackupRuntime: Boolean);
 begin
   if not IsSupportedSiteUrl(AUrl) then
   begin
@@ -229,9 +231,12 @@ begin
         ZeroMemory(@PI, SizeOf(PI));
 
         var PortableNode := ComponentPath('tools\node\node.exe');
-        var RuntimeOption := '--js-runtimes node ';
-        if TFile.Exists(PortableNode) then
-          RuntimeOption := '--js-runtimes "node:' + PortableNode + '" ';
+        var QuickJS := BundledPath('tools\quickjs-ng\qjs.exe');
+        var RuntimeOption := '--no-js-runtimes --js-runtimes node ';
+        if not UseBackupRuntime and TFile.Exists(QuickJS) then
+          RuntimeOption := '--no-js-runtimes --js-runtimes "quickjs:' + QuickJS + '" '
+        else if TFile.Exists(PortableNode) then
+          RuntimeOption := '--no-js-runtimes --js-runtimes "node:' + PortableNode + '" ';
         CmdLine := '"' + ExePath + '" -f "best[protocol=https][ext=mp4]/best[ext=mp4]/best" ' +
           '--print "VLC_TITLE:%(title)s" --print "VLC_URL:%(url)s" --print "VLC_AGENT:%(http_headers.User-Agent)s" --ignore-config ' +
           '--no-plugin-dirs ' + RuntimeOption + '--socket-timeout 8 --retries 1 --no-playlist --no-warnings -- "' +
@@ -311,6 +316,12 @@ begin
             UrlOut := LocalPath;
           Ok := (ExitStatus = 0) and (UrlOut <> '');
           if not Ok and (LocalPath <> '') then System.SysUtils.DeleteFile(LocalPath);
+          if not Ok and (LocalPath <> '') and not UseBackupRuntime and
+             TFile.Exists(QuickJS) and TFile.Exists(PortableNode) then
+          begin
+            ResolveAsync(AUrl, OnComplete, True);
+            Exit;
+          end;
           if not Ok then
           begin
             UrlOut := '';

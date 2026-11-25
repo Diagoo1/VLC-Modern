@@ -23,8 +23,8 @@
 [Setup]
 AppId={#InstallId}
 AppName={#RegisteredName}
-AppVersion=1.0.3
-AppVerName={#RegisteredName} 1.0.3 ({#Edition})
+AppVersion=1.0.4
+AppVerName={#RegisteredName} 1.0.4 ({#Edition})
 AppPublisher=Tarek Sadek
 AppPublisherURL=https://diagoo1.github.io/VLC-Modern/
 AppSupportURL=https://github.com/Diagoo1/VLC-Modern/issues
@@ -40,7 +40,7 @@ ChangesAssociations=yes
 SetupIconFile=..\res\app_icon.ico
 UninstallDisplayIcon={app}\VLCModern.exe
 OutputDir={#OutputPath}
-OutputBaseFilename=VLC-Modern-v1.0.3-Setup-{#Edition}-Windows
+OutputBaseFilename=VLC-Modern-v1.0.4-Setup-{#Edition}-Windows
 WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes
@@ -61,6 +61,7 @@ Name: "downloadffmpeg"; Description: "Download FFmpeg (frame-accurate MP4 clippi
 #endif
 
 [Files]
+Source: "{#Payload}\tools\quickjs-ng\*"; DestDir: "{app}\tools\quickjs-ng"; Flags: ignoreversion
 Source: "{#Payload}\VLCModern.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\libvlc.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\libvlccore.dll"; DestDir: "{app}"; Flags: ignoreversion
