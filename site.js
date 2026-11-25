@@ -201,6 +201,42 @@ if (shots.length) {
     if (motion.matches) playing = false;
     updatePlayback();
   });
+  function enableSwipe(surface) {
+    let start = null;
+    let suppressClick = false;
+    surface.classList.add("swipe-image");
+    surface.addEventListener("dragstart", event => event.preventDefault());
+    surface.addEventListener("pointerdown", event => {
+      if (!event.isPrimary || event.button !== 0) return;
+      suppressClick = false;
+      start = {id: event.pointerId, x: event.clientX, y: event.clientY};
+      surface.setPointerCapture(event.pointerId);
+    });
+    surface.addEventListener("pointerup", event => {
+      if (start?.id !== event.pointerId) return;
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      start = null;
+      if (Math.abs(dx) < 42 || Math.abs(dx) <= Math.abs(dy) * 1.2) return;
+      suppressClick = true;
+      const direction = document.documentElement.dir === "rtl" ? -1 : 1;
+      showScreenshot(current + (dx < 0 ? direction : -direction));
+    });
+    for (const type of ["pointercancel", "lostpointercapture"]) {
+      surface.addEventListener(type, event => {
+        if (start?.id === event.pointerId) start = null;
+      });
+    }
+    surface.addEventListener("click", event => {
+      if (!suppressClick || event.detail === 0) return;
+      suppressClick = false;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+  }
+
+  enableSwipe(fullSize);
+  enableSwipe(viewerImage);
   showScreenshot(0);
 }
 const navLinks = [...document.querySelectorAll(".header nav a")];
