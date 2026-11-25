@@ -23,8 +23,8 @@
 [Setup]
 AppId={#InstallId}
 AppName={#RegisteredName}
-AppVersion=1.0.8
-AppVerName={#RegisteredName} 1.0.8 ({#Edition})
+AppVersion=1.0.9
+AppVerName={#RegisteredName} 1.0.9 ({#Edition})
 AppPublisher=Tarek Sadek
 AppPublisherURL=https://diagoo1.github.io/VLC-Modern/
 AppSupportURL=https://github.com/Diagoo1/VLC-Modern/issues
@@ -40,7 +40,7 @@ ChangesAssociations=yes
 SetupIconFile=..\res\app_icon.ico
 UninstallDisplayIcon={app}\VLCModern.exe
 OutputDir={#OutputPath}
-OutputBaseFilename=VLC-Modern-v1.0.8-Setup-{#Edition}-Windows
+OutputBaseFilename=VLC-Modern-v1.0.9-Setup-{#Edition}-Windows
 WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes
@@ -73,7 +73,7 @@ Source: "{#Payload}\tools\ffmpeg.exe"; DestDir: "{app}\tools"; Flags: ignorevers
 Source: "{#Payload}\tools\FFmpeg-*.txt"; DestDir: "{app}\tools"; Flags: ignoreversion
 Source: "{#Payload}\tools\.ffmpeg-release-digest"; DestDir: "{app}\tools"; Flags: ignoreversion
 #else
-Source: "{#Payload}\plugins-basic\*"; DestDir: "{app}\plugins-basic"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#Payload}\plugins\*"; DestDir: "{app}\plugins"; Flags: onlyifdoesntexist recursesubdirs createallsubdirs; Check: InstallStarterPlugins
 #endif
 
 [Icons]
@@ -145,6 +145,9 @@ Filename: "{app}\VLCModern.exe"; WorkingDir: "{app}"; Description: "Launch VLC M
 Filename: "ms-settings:defaultapps?registeredAppMachine=VLC%20Modern"; Description: "Open Windows Default Apps to choose file associations"; Flags: shellexec nowait postinstall skipifsilent runasoriginaluser unchecked
 
 [InstallDelete]
+#if Edition == "Full"
+Type: files; Name: "{app}\plugins\.lite-baseline"
+#endif
 Type: files; Name: "{app}\tools\node\node.exe"
 Type: files; Name: "{app}\tools\node\LICENSE"
 Type: dirifempty; Name: "{app}\tools\node"
@@ -182,6 +185,11 @@ begin
   Result := True;
 end;
 
+function InstallStarterPlugins: Boolean;
+begin
+  Result := not FileExists(ExpandConstant('{app}\plugins\.release-digest'));
+end;
+
 function InstallComponent(const Name, Archive, Hash: String; IsPlugins: Boolean): Boolean;
 var
   Stage, Target: String;
@@ -191,7 +199,7 @@ begin
   try
     if IsPlugins then begin
       Target := ExpandConstant('{app}\plugins');
-      if DirExists(Target) then begin
+      if DirExists(Target) and not FileExists(Target + '\.lite-baseline') then begin
         Result := True;
         Exit;
       end;
@@ -214,8 +222,15 @@ begin
         RaiseException('Playback plugin archive is incomplete');
       if not SaveStringToFile(Stage + '\.release-digest', 'sha256:' + Hash, False) then
         RaiseException('Could not write playback plugins revision');
-      if not RenameFile(Stage, Target) then
+      if DirExists(Target) and not RenameFile(Target, Stage + '-starter') then
+        RaiseException('Could not stage the starter plugins');
+      if not RenameFile(Stage, Target) then begin
+        if DirExists(Stage + '-starter') then
+          RenameFile(Stage + '-starter', Target);
         RaiseException('Could not activate playback plugins');
+      end;
+      if DirExists(Stage + '-starter') then
+        DelTree(Stage + '-starter', True, True, True);
     end else begin
       if not FileExists(Stage + '\ffmpeg.exe') then
         RaiseException('FFmpeg archive is incomplete');

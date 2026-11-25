@@ -2,14 +2,16 @@ unit VideoSaveProgress;
 
 interface
 
-uses System.Classes, Vcl.Forms, Vcl.StdCtrls, Vcl.ComCtrls, OnlineVideoSave;
+uses System.SysUtils, System.Classes, Vcl.Forms, Vcl.StdCtrls, Vcl.ComCtrls, OnlineVideoSave;
 
 type
   TVideoSaveProgress = class(TForm)
   private
     FStatus: TLabel;
     FBar: TProgressBar;
-    FCancel: TButton;
+    FCancel, FRetry: TButton;
+    FRetryAction: TProc;
+    procedure RetryClick(Sender: TObject);
     procedure CancelClick(Sender: TObject);
     procedure CancelOnClose(Sender: TObject; var CanClose: Boolean);
   public
@@ -17,11 +19,13 @@ type
     constructor Create(AOwner: TComponent); override;
     procedure UpdateProgress(Percent, RemainingSeconds: Integer);
     procedure RequestCancel;
+    procedure BeginAttempt;
+    procedure ShowInterrupted(const Retry: TProc);
   end;
 
 implementation
 
-uses System.SysUtils, PlayerDialogs;
+uses Winapi.Windows, PlayerDialogs;
 
 constructor TVideoSaveProgress.Create(AOwner: TComponent);
 begin
@@ -47,8 +51,47 @@ begin
   FCancel.SetBounds(295, 98, 120, 34);
   FCancel.Caption := 'Cancel';
   FCancel.OnClick := CancelClick;
+  FRetry := TButton.Create(Self);
+  FRetry.Parent := Self;
+  FRetry.SetBounds(164, 98, 120, 34);
+  FRetry.Caption := 'Retry';
+  FRetry.Visible := False;
+  FRetry.OnClick := RetryClick;
   OnCloseQuery := CancelOnClose;
   ApplyPlayerAppearance(Self);
+end;
+
+procedure TVideoSaveProgress.BeginAttempt;
+begin
+  FStatus.AutoSize := True;
+  FStatus.WordWrap := False;
+  FStatus.Caption := 'Connecting...';
+  FBar.Visible := True;
+  FBar.Position := 0;
+  FRetry.Visible := False;
+  FCancel.Caption := 'Cancel';
+  FCancel.Enabled := True;
+end;
+
+procedure TVideoSaveProgress.ShowInterrupted(const Retry: TProc);
+begin
+  FRetryAction := Retry;
+  FBar.Visible := False;
+  FStatus.AutoSize := False;
+  FStatus.WordWrap := True;
+  FStatus.Width := FBar.Width;
+  FStatus.Height := MulDiv(42, CurrentPPI, 96);
+  FStatus.Caption := 'The connection was interrupted. The incomplete download was removed.';
+  FCancel.Caption := 'Close';
+  FCancel.Enabled := True;
+  FRetry.Visible := True;
+end;
+
+procedure TVideoSaveProgress.RetryClick(Sender: TObject);
+begin
+  var Retry := FRetryAction;
+  FRetryAction := nil;
+  if Assigned(Retry) then Retry();
 end;
 
 procedure TVideoSaveProgress.UpdateProgress(Percent, RemainingSeconds: Integer);
@@ -81,13 +124,13 @@ end;
 
 procedure TVideoSaveProgress.CancelClick(Sender: TObject);
 begin
-  RequestCancel;
+  if Task = nil then Close else RequestCancel;
 end;
 
 procedure TVideoSaveProgress.CancelOnClose(Sender: TObject; var CanClose: Boolean);
 begin
-  CanClose := False;
-  RequestCancel;
+  CanClose := Task = nil;
+  if not CanClose then RequestCancel;
 end;
 
 end.

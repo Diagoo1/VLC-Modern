@@ -19,7 +19,7 @@ foreach ($edition in @('Full','Lite')) {
     if ($TestBuild) { $arguments += '/DTestBuild=1' }
     & $compilerPath @arguments (Join-Path $PSScriptRoot 'VLCModern.iss')
     if ($LASTEXITCODE) { throw "Installer compilation failed for $edition" }
-    $file = "VLC-Modern-v1.0.8-Setup-$edition-Windows.exe"
+    $file = "VLC-Modern-v1.0.9-Setup-$edition-Windows.exe"
     $hash = (Get-FileHash -LiteralPath (Join-Path $destination $file)).Hash.ToLowerInvariant()
     Set-Content -LiteralPath (Join-Path $destination "$file.sha256") -Value "$hash  $file"
 }

@@ -13,6 +13,7 @@ type
 procedure ShowVideoPlayPauseWatermark(TargetControl: TWinControl; IsPlaying: Boolean);
 procedure ShowVideoTextOSD(TargetControl: TWinControl; const AText: string);
 procedure CloseAllOSDWindows;
+procedure MovePlaybackOSD(Owner: HWND; DX, DY: Integer);
 procedure HidePlaybackOSD;
 procedure ConfigureTextOSD(DurationMs, FontSize: Integer);
 
@@ -402,7 +403,7 @@ begin
               Blend.AlphaFormat := AC_SRC_ALPHA;
 
               UpdateLayeredWindow(FHWnd, DC, @PointDest, @Size, MemDC, @PointSrc, 0, @Blend, ULW_ALPHA);
-              SetWindowPos(FHWnd, HWND_TOPMOST, PointDest.X, PointDest.Y, Size.cx, Size.cy,
+              SetWindowPos(FHWnd, HWND_TOP, PointDest.X, PointDest.Y, Size.cx, Size.cy,
                 SWP_NOACTIVATE or SWP_SHOWWINDOW);
             end;
           finally
@@ -694,7 +695,7 @@ begin
               Blend.AlphaFormat := AC_SRC_ALPHA;
 
               UpdateLayeredWindow(FHWnd, DC, @PointDest, @Size, MemDC, @PointSrc, 0, @Blend, ULW_ALPHA);
-              SetWindowPos(FHWnd, HWND_TOPMOST, PointDest.X, PointDest.Y, Size.cx, Size.cy,
+              SetWindowPos(FHWnd, HWND_TOP, PointDest.X, PointDest.Y, Size.cx, Size.cy,
                 SWP_NOACTIVATE or SWP_SHOWWINDOW);
             end;
           finally
@@ -720,6 +721,21 @@ begin
   if GWatermarkOSD = nil then
     GWatermarkOSD := TWin32WatermarkOSD.Create;
   GWatermarkOSD.Trigger(TargetControl, IsPlaying);
+end;
+
+procedure MovePlaybackOSD(Owner: HWND; DX, DY: Integer);
+  procedure MoveOverlay(Window: HWND);
+  var Bounds: TRect;
+  begin
+    if (Window <> 0) and (GetWindow(Window, GW_OWNER) = Owner) and
+       IsWindowVisible(Window) and GetWindowRect(Window, Bounds) then
+      SetWindowPos(Window, 0, Bounds.Left + DX, Bounds.Top + DY, 0, 0,
+        SWP_NOSIZE or SWP_NOZORDER or SWP_NOACTIVATE or SWP_NOOWNERZORDER);
+  end;
+begin
+  if (DX = 0) and (DY = 0) then Exit;
+  if GWatermarkOSD <> nil then MoveOverlay(GWatermarkOSD.FHWnd);
+  if GTextOSD <> nil then MoveOverlay(GTextOSD.FHWnd);
 end;
 
 procedure HidePlaybackOSD;

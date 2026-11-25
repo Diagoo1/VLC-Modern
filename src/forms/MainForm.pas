@@ -411,6 +411,8 @@ type
     procedure mnuAnimatedGifClick(Sender: TObject);
     procedure mnuRecordVideoMP4Click(Sender: TObject);
     procedure SaveOnlineVideoClick(Sender: TObject);
+    procedure StartOnlineVideoSave(const URL, Agent, Destination: string);
+    procedure OnlineVideoSaveClose(Sender: TObject; var Action: TCloseAction);
     procedure mnuWebRemoteClick(Sender: TObject);
     procedure ToggleVoiceClarifier;
     procedure ToggleNightMode;
@@ -511,6 +513,7 @@ type
     FPlaylistPaths: TStringList;
     FPlatformCacheFiles: TStringList;
     FPlatformRequest: Cardinal;
+    FNativeRecentGeometry: Boolean;
     FOnlineVideoURL, FOnlineVideoAgent, FOnlineVideoTitle: string;
     FOnlineVideoSaveProgress: TVideoSaveProgress;
     FCloseAfterOnlineSave: Boolean;
@@ -835,7 +838,7 @@ type
     function LoadSecondarySubtitleFile(const Path: string): Boolean;
     procedure SeekTo(TimeMs: Int64);
     procedure PlayFile(const AFilePath: string; AOptions: TStrings = nil;
-      const SourceURL: string = '');
+      const SourceURL: string = ''; NativeGeometry: Boolean = False);
     procedure ApplyInterfaceCustomization;
     procedure ResetInterfaceDefaults;
     function GetMenuBarVisible: Boolean;
@@ -1343,6 +1346,7 @@ begin
 
     lblVolPctDisplay := TLabel.Create(Self);
     lblVolPctDisplay.Parent := cardBottomDock;
+    lblVolPctDisplay.OnMouseDown := OnDockMouseDown;
     lblVolPctDisplay.AutoSize := True;
     lblVolPctDisplay.Font.Name := 'Segoe UI';
     lblVolPctDisplay.Font.Size := 9;
@@ -2831,7 +2835,7 @@ end;
 
 procedure TFrmMain.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
-  if Assigned(FOnlineVideoSaveProgress) then
+  if Assigned(FOnlineVideoSaveProgress) and (FOnlineVideoSaveProgress.Task <> nil) then
   begin
     CanClose := False;
     FCloseAfterOnlineSave := True;
@@ -2986,6 +2990,8 @@ end;
 procedure TFrmMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
   SavePlaybackResume;
+  HidePlaybackOSD;
+  ShowWindow(Handle, SW_HIDE);
   Action := caFree;
   Application.Terminate;
 end;
@@ -3913,7 +3919,7 @@ begin
 end;
 
 procedure TFrmMain.PlayFile(const AFilePath: string; AOptions: TStrings;
-  const SourceURL: string);
+  const SourceURL: string; NativeGeometry: Boolean);
 var
   Utf8Path: UTF8String;
   Ini: TAppSettings;
@@ -3964,7 +3970,7 @@ begin
           var StreamOptions := TStringList.Create;
           try
             if UserAgent <> '' then StreamOptions.Add(':http-user-agent=' + UserAgent);
-            PlayFile(DirectUrl, StreamOptions, OrigUrl);
+            PlayFile(DirectUrl, StreamOptions, OrigUrl, NativeGeometry);
             var SourceHost := LowerCase(TURI.Create(OrigUrl).Host);
             if (FCurrentFile = DirectUrl) and DirectUrl.StartsWith('https://') and
                ((SourceHost = 'youtu.be') or SourceHost.EndsWith('.youtu.be') or
@@ -4033,6 +4039,7 @@ begin
   FVideoPreferencesApplied := False;
   if not SameText(FCurrentFile, AFilePath) then FPrimarySubtitlePath := '';
   FCurrentFile := AFilePath;
+  FNativeRecentGeometry := NativeGeometry;
   FOnlineVideoURL := '';
   FOnlineVideoAgent := '';
   FOnlineVideoTitle := '';
@@ -5231,7 +5238,8 @@ procedure TFrmMain.SaveOnlineVideoClick(Sender: TObject);
 begin
   if Assigned(FOnlineVideoSaveProgress) then
   begin
-    ShowOSD('A YouTube video is already being saved.');
+    FOnlineVideoSaveProgress.Show;
+    FOnlineVideoSaveProgress.BringToFront;
     Exit;
   end;
   if FOnlineVideoURL = '' then
@@ -5262,26 +5270,9 @@ begin
     end;
     FOnlineVideoSaveProgress := TVideoSaveProgress.Create(Self);
     try
-      FOnlineVideoSaveProgress.Task := SaveOnlineMP4Async(URL, Agent, Destination,
-        procedure(Percent, RemainingSeconds: Integer)
-        begin
-          if not GAppClosing and Assigned(FOnlineVideoSaveProgress) then
-            FOnlineVideoSaveProgress.UpdateProgress(Percent, RemainingSeconds);
-        end,
-        procedure(const ErrorMessage: string; Cancelled: Boolean)
-        begin
-          if GAppClosing then Exit;
-          FreeAndNil(FOnlineVideoSaveProgress);
-          if FCloseAfterOnlineSave then
-          begin
-            Close;
-            Exit;
-          end;
-          if Cancelled then ShowOSD('Video save cancelled.')
-          else if ErrorMessage = '' then ShowOSD('Saved: ' + ExtractFileName(Destination))
-          else PlayerMessage('Could not save the YouTube video.' + sLineBreak + ErrorMessage);
-        end);
+      FOnlineVideoSaveProgress.OnClose := OnlineVideoSaveClose;
       FOnlineVideoSaveProgress.Show;
+      StartOnlineVideoSave(URL, Agent, Destination);
     except
       FreeAndNil(FOnlineVideoSaveProgress);
       raise;
@@ -5289,6 +5280,39 @@ begin
   finally
     Dialog.Free;
   end;
+end;
+
+procedure TFrmMain.OnlineVideoSaveClose(Sender: TObject; var Action: TCloseAction);
+begin
+  FOnlineVideoSaveProgress := nil;
+  Action := caFree;
+end;
+
+procedure TFrmMain.StartOnlineVideoSave(const URL, Agent, Destination: string);
+begin
+  FOnlineVideoSaveProgress.BeginAttempt;
+  FOnlineVideoSaveProgress.Task := SaveOnlineMP4Async(URL, Agent, Destination,
+    procedure(Percent, RemainingSeconds: Integer)
+    begin
+      if not GAppClosing and Assigned(FOnlineVideoSaveProgress) then
+        FOnlineVideoSaveProgress.UpdateProgress(Percent, RemainingSeconds);
+    end,
+    procedure(const ErrorMessage: string; Cancelled, Interrupted: Boolean)
+    begin
+      if GAppClosing or not Assigned(FOnlineVideoSaveProgress) then Exit;
+      FOnlineVideoSaveProgress.Task := nil;
+      if Interrupted and not FCloseAfterOnlineSave then
+      begin
+        FOnlineVideoSaveProgress.ShowInterrupted(
+          procedure begin StartOnlineVideoSave(URL, Agent, Destination); end);
+        Exit;
+      end;
+      FreeAndNil(FOnlineVideoSaveProgress);
+      if FCloseAfterOnlineSave then Close
+      else if Cancelled then ShowOSD('Video save cancelled.')
+      else if ErrorMessage = '' then ShowOSD('Saved: ' + ExtractFileName(Destination))
+      else PlayerMessage('Could not save the YouTube video.' + sLineBreak + ErrorMessage);
+    end);
 end;
 
 procedure TFrmMain.mnuRecordVideoMP4Click(Sender: TObject);
@@ -8483,17 +8507,25 @@ end;
 
 procedure TFrmMain.OnDockMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
-  if Button = mbLeft then
+  if (Button = mbLeft) and not FIsFullscreen and (WindowState = wsNormal) and
+     (Sender is TControl) then
   begin
+    var ScreenPoint := TControl(Sender).ClientToScreen(Point(X, Y));
     ReleaseCapture;
-    Perform(WM_SYSCOMMAND, $F012, 0);
+    PostMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION,
+      MakeLParam(Word(ScreenPoint.X), Word(ScreenPoint.Y)));
   end;
 end;
 
 procedure TFrmMain.WMWindowPosChanging(var Msg:TWMWindowPosChanging);
 begin
   inherited;
-  if FIsFullscreen or (WindowState<>wsNormal) or (Msg.WindowPos=nil) then Exit;
+  if (Msg.WindowPos = nil) or FClosing then Exit;
+  if FIsFullscreen or (WindowState <> wsNormal) then
+  begin
+    HidePlaybackOSD;
+    Exit;
+  end;
   var Pos:=Msg.WindowPos;
   var X:=Pos.x; var Y:=Pos.y; var W:=Pos.cx; var H:=Pos.cy;
   if Pos.flags and SWP_NOMOVE<>0 then begin X:=Left; Y:=Top; end;
@@ -8503,6 +8535,9 @@ begin
   X:=EnsureRange(X,Work.Left,Work.Right-W); Y:=EnsureRange(Y,Work.Top,Work.Bottom-H);
   if (X<>Left) or (Y<>Top) then Pos.flags:=Pos.flags and not SWP_NOMOVE;
   if (W<>Width) or (H<>Height) then Pos.flags:=Pos.flags and not SWP_NOSIZE;
+  if (W <> Width) or (H <> Height) then HidePlaybackOSD
+  else if (Pos.flags and SWP_NOMOVE = 0) and HandleAllocated and IsWindowVisible(Handle) then
+    MovePlaybackOSD(Handle, X - Left, Y - Top);
   Pos.x:=X; Pos.y:=Y; Pos.cx:=W; Pos.cy:=H;
 end;
 
@@ -8783,18 +8818,27 @@ begin
         var VideoW, VideoH: Cardinal;
         if (libvlc_video_get_size(FMediaPlayer, 0, @VideoW, @VideoH) = 0) and (VideoW > 0) then
         begin
-          var Aspect := UTF8Encode(FSettings.AspectRatio);
-          if (FSettings.AspectRatio = 'Default') and (FSettings.Transform in [1, 3, 6, 7]) and (VideoH > 0) then
+          var Ratio := FSettings.AspectRatio;
+          var CropMode := FSettings.Crop;
+          var Zoom := FSettings.ZoomPercent;
+          if FNativeRecentGeometry then
+          begin
+            Ratio := 'Default';
+            CropMode := 'Default';
+            Zoom := 0;
+          end;
+          var Aspect := UTF8Encode(Ratio);
+          if (Ratio = 'Default') and (FSettings.Transform in [1, 3, 6, 7]) and (VideoH > 0) then
           begin
             Aspect := UTF8Encode(Format('%d:%d', [VideoH, VideoW]));
             libvlc_video_set_aspect_ratio(FMediaPlayer, PAnsiChar(Aspect));
           end
-          else if FSettings.AspectRatio = 'Default' then libvlc_video_set_aspect_ratio(FMediaPlayer, nil)
+          else if Ratio = 'Default' then libvlc_video_set_aspect_ratio(FMediaPlayer, nil)
           else libvlc_video_set_aspect_ratio(FMediaPlayer, PAnsiChar(Aspect));
-          var Crop := UTF8Encode(FSettings.Crop);
-          if FSettings.Crop = 'Default' then libvlc_video_set_crop_geometry(FMediaPlayer, nil)
+          var Crop := UTF8Encode(CropMode);
+          if CropMode = 'Default' then libvlc_video_set_crop_geometry(FMediaPlayer, nil)
           else libvlc_video_set_crop_geometry(FMediaPlayer, PAnsiChar(Crop));
-          libvlc_video_set_scale(FMediaPlayer, FSettings.ZoomPercent / 100.0);
+          libvlc_video_set_scale(FMediaPlayer, Zoom / 100.0);
           FVideoPreferencesApplied := True;
         end;
       end;
@@ -9095,7 +9139,7 @@ begin
   begin
     Path := TMenuItem(Sender).Hint;
     if (Path <> '') then
-      PlayFile(Path);
+      PlayFile(Path, nil, '', True);
   end;
 end;
 

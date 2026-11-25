@@ -4,7 +4,7 @@ param(
 )
 $ErrorActionPreference='Stop'
 $source=(Resolve-Path -LiteralPath $FullPlugins).Path
-$target=Join-Path (Resolve-Path -LiteralPath $LitePackage).Path 'plugins-basic'
+$target=Join-Path (Resolve-Path -LiteralPath $LitePackage).Path 'plugins'
 $modules=@{
     access=@('libfilesystem_plugin.dll','libhttp_plugin.dll','libhttps_plugin.dll','libtcp_plugin.dll')
     misc=@('libgnutls_plugin.dll')
@@ -23,3 +23,5 @@ foreach($category in $modules.Keys){
         Copy-Item -LiteralPath (Join-Path $source "$category/$file") -Destination $directory.FullName -Force
     }
 }
+
+Set-Content -LiteralPath (Join-Path $target '.lite-baseline') -Value 'Lite starter pack' -Encoding ascii

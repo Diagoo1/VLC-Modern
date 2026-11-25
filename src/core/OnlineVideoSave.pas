@@ -7,7 +7,7 @@ type
     procedure Cancel;
   end;
   TOnlineVideoSaveProgress = reference to procedure(Percent, RemainingSeconds: Integer);
-  TOnlineVideoSaveResult = reference to procedure(const ErrorMessage: string; Cancelled: Boolean);
+  TOnlineVideoSaveResult = reference to procedure(const ErrorMessage: string; Cancelled, Interrupted: Boolean);
 
 function SaveOnlineMP4Async(const URL, UserAgent, Destination: string;
   const OnProgress: TOnlineVideoSaveProgress;
@@ -17,7 +17,7 @@ implementation
 
 uses
   Winapi.Windows, System.SysUtils, System.Classes, System.Net.HttpClient, System.SyncObjs,
-  System.Math;
+  System.Math, System.Net.URLClient;
 
 type
   TOnlineVideoSave = class(TInterfacedObject, IOnlineVideoSave)
@@ -135,8 +135,9 @@ begin
       TempName, ErrorMessage: string;
       Client: THTTPClient;
       Output: TFileStream;
-      Cancelled: Boolean;
+      Cancelled, Interrupted: Boolean;
     begin
+      Interrupted := False;
       TempName := Destination + '.' + TGUID.NewGuid.ToString + '.part';
       try
         if Task.IsCancelled then Abort;
@@ -151,8 +152,19 @@ begin
           Client.OnReceiveData := Task.Receive;
           Output := TFileStream.Create(TempName, fmCreate or fmShareExclusive);
           try
-            var Response := Client.Get(URL, Output);
+            var Response: IHTTPResponse;
+            try
+              Response := Client.Get(URL, Output);
+            except
+              on E: ENetException do
+              begin
+                Interrupted := True;
+                raise;
+              end;
+            end;
             if Task.IsCancelled then Abort;
+            if (Response.StatusCode = 200) and (Response.ContentLength > Output.Size) then
+              Interrupted := True;
             if (Response.StatusCode <> 200) or (Response.ContentLength <= 0) or
                (Response.ContentLength <> Output.Size) then
               raise Exception.Create('The server did not return the complete video. Reopen the video and try again.');
@@ -176,12 +188,13 @@ begin
       begin
         ErrorMessage := 'Could not remove the temporary file: ' + TempName;
         Cancelled := False;
+        Interrupted := False;
       end;
       TThread.Queue(nil, TThreadProcedure(
         procedure
         begin
           if KeepAlive <> nil then
-            if Assigned(OnComplete) then OnComplete(ErrorMessage, Cancelled);
+            if Assigned(OnComplete) then OnComplete(ErrorMessage, Cancelled, Interrupted and not Cancelled);
         end));
     end).Start;
 end;

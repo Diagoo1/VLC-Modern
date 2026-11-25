@@ -33,6 +33,12 @@ begin
     TDirectory.Exists(TPath.Combine(Folder, 'video_output'));
 end;
 
+function HasFullPlaybackPlugins: Boolean;
+begin
+  var Folder := ComponentPath('plugins');
+  Result := HasPlaybackPlugins(Folder) and
+    not TFile.Exists(TPath.Combine(Folder, '.lite-baseline'));
+end;
 function PlaybackPluginsInstalled: Boolean;
 begin
   Result := HasPlaybackPlugins(PlaybackPluginsPath);
@@ -326,7 +332,7 @@ begin
   AddLabel('Select components to install or synchronize from VLC Modern on GitHub.', 24, 22);
   Plugins := AddChoice('LibVLC playback plugins',
     'Adds the complete LibVLC playback and streaming plugin set.',
-    62, not HasPlaybackPlugins(ComponentPath('plugins')));
+    62, not HasFullPlaybackPlugins);
   Encoder := AddChoice('FFmpeg (64-bit Windows)',
     'Enables precise MP4 clipping with frame-accurate start positions.',
     151, False);
@@ -367,11 +373,11 @@ begin
     var Match := TRegEx.Match(string(libvlc_get_version()), '^[0-9]+(?:\.[0-9]+)+');
     if Match.Success then Engine := Engine + ' ' + Match.Value;
   end;
-  if HasPlaybackPlugins(ComponentPath('plugins')) then
+  if HasFullPlaybackPlugins then
     PluginInfo.Caption := Engine + '  |  Installed  |  Revision ' +
       RevisionText(ComponentPath('plugins\.release-digest'))
   else if PlaybackPluginsInstalled then
-    PluginInfo.Caption := Engine + '  |  Basic playback included'
+    PluginInfo.Caption := Engine + '  |  Starter plugins installed. Full pack available.'
   else PluginInfo.Caption := Engine + '  |  Not installed';
   if TDirectory.Exists(AppPath('plugins.pending')) then
     PluginInfo.Caption := PluginInfo.Caption + '  |  Restart required';
