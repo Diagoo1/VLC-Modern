@@ -48,6 +48,17 @@
 
 Choose **Light**, **Dark**, or **Follow system** under **Settings → General → Theme**. The default is **Follow system**. Theme changes apply when the player restarts.
 
+### Live TV, network streams, and conversion
+
+Each screenshot opens at full size.
+
+| Live TV / IPTV | Open Network Stream | Convert & Stream Media |
+| --- | --- | --- |
+| [![Live TV and IPTV source setup](docs/screenshots/iptv.png)](docs/screenshots/iptv.png) | [![Network source and caching setup](docs/screenshots/open-media.png)](docs/screenshots/open-media.png) | [![Media conversion setup](docs/screenshots/convert-stream.png)](docs/screenshots/convert-stream.png) |
+| Connect an Xtream Codes or Stalker / MAC provider, open an M3U URL or file, or try playback samples. | Enter an HTTP, RTSP, or RTMP source and set the network cache. Other tabs cover discs and capture devices. | Choose a local file or URL, an output profile, and a destination. The screenshot shows H.264 + AAC in MP4. |
+
+The IPTV source workflow was informed by [IPTVnator](https://github.com/4gray/iptvnator). The screenshots above show VLC Modern. See the [IPTVnator project site](https://4gray.github.io/iptvnator/) for its own interface and features.
+
 [Browse full-size screenshots and captions →](docs/SCREENSHOTS.md)
 
 ## Features

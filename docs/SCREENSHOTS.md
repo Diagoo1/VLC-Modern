@@ -20,7 +20,7 @@ The playback screenshots show *Cartoon Sky*, a demo clip made from original AI-g
 
 ![General preferences](screenshots/preferences.png)
 
-**Settings.** The sidebar groups playback, video, audio, subtitles, and network options. The General page brings together window behavior, on-screen messages, and mouse controls.
+**Settings.** The sidebar groups playback, video, audio, subtitles, and network options. The General page brings together window behavior, on-screen messages, and mouse controls. Components and Reset sit together below the sidebar in both themes.
 
 ### Light Mode
 
@@ -59,3 +59,15 @@ The playback screenshots show *Cartoon Sky*, a demo clip made from original AI-g
 ![Live TV and IPTV source setup](screenshots/iptv.png)
 
 **IPTV setup.** Choose Xtream Codes, Stalker / MAC, an M3U URL, or a local playlist. The screenshot shows the connection form with empty credentials.
+
+## Network streaming and conversion
+
+![Opening a network stream](screenshots/open-media.png)
+
+**Open Network Stream.** Enter a stream URL and adjust network caching.
+
+![MP4 conversion setup](screenshots/convert-stream.png)
+
+**Convert & Stream Media.** Select a file or URL, an output profile, and the destination.
+
+[IPTVnator](https://github.com/4gray/iptvnator) informed the IPTV source workflow. Its own screenshots and features are available on the [IPTVnator project site](https://4gray.github.io/iptvnator/).
