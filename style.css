@@ -43,3 +43,16 @@ html[lang=ar]{font-family:"Cairo","Segoe UI",sans-serif}
  .gallery-controls{display:flex;overflow-x:auto;padding:.25rem .22rem .6rem}
  .gallery-controls button{width:auto;flex:none}
 }
+
+.hero{gap:clamp(1.5rem,4vw,3.7rem);padding-block:clamp(3.6rem,8vw,7.25rem)}
+.hero-image{position:relative;padding:.55rem;background:#0e1a27;border:1px solid #365269;border-radius:1.25rem;box-shadow:0 25px 70px #0008}
+.hero-image img{height:auto;box-shadow:none;border-radius:.85rem;border:0}
+.hero-image figcaption{padding-inline:.45rem;margin-block:.5rem .1rem}
+.header nav a{padding:.35rem .48rem;border-radius:.45rem}
+.header nav a[aria-current="location"]{background:#193448}
+.slider-caption,.slider-tools{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.slider-caption{justify-content:space-between;margin-top:.75rem}
+.slider-tools .secondary{min-height:2.45rem;padding:.43rem .68rem}
+.slider-tools [aria-pressed=true]{border-color:#64d2ff75;color:var(--accent)}
+@media(max-width:500px){.header{padding-inline:.7rem;gap:.55rem}.header nav{gap:.35rem;font-size:.9rem}.hero-image{padding:.3rem}.slider-tools{width:100%}.slider-tools button{flex:1}.slider-caption{gap:.65rem}}
+.slider-caption{margin:0 0 .75rem}.gallery-controls{scrollbar-width:thin;scrollbar-color:#38566f transparent}
