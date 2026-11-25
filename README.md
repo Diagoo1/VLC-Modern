@@ -25,15 +25,15 @@
 
 **Main player.** The VLC Modern splash screen on startup, with the rounded control dock below.
 
-| Opening media | Preferences | Audio effects |
-| --- | --- | --- |
-| ![Open Media](docs/screenshots/open-media.png) | ![Preferences](docs/screenshots/preferences.png) | ![Equalizer](docs/screenshots/equalizer.png) |
-| Network streams, discs, and capture devices. | Sidebar navigation and playback preferences. | Presets, preamp, and individual frequency bands. |
+| Preferences | Audio effects |
+| --- | --- |
+| [![Preferences in Dark Mode](docs/screenshots/preferences.png)](docs/screenshots/preferences.png) | ![Equalizer](docs/screenshots/equalizer.png) |
+| Components and Reset align below the sidebar. | Presets, preamp, and per-band gain. |
 
-| Playlist | Fullscreen | Live TV and IPTV |
-| --- | --- | --- |
-| ![Playlist during playback](docs/screenshots/playlist.png) | ![Fullscreen dock](docs/screenshots/fullscreen.png) | ![IPTV setup](docs/screenshots/iptv.png) |
-| Docked queue with the active item highlighted. | Rounded floating dock over the video. | Source selection and connection fields. |
+| Playlist | Fullscreen |
+| --- | --- |
+| ![Playlist during playback](docs/screenshots/playlist.png) | ![Fullscreen dock](docs/screenshots/fullscreen.png) |
+| Docked queue with the active item highlighted. | Rounded floating dock over the video. |
 
 ### Light Mode
 
