@@ -51,7 +51,7 @@ object tabNetwork: TTabSheet
         'Catchup Buffering'
         'DVR Time-Shifted')
     end
-    object chkHlsHardware: TCheckBox
+    object chkHlsHardware: TPlayerCheckBox
       Left = 18
       Top = 84
       Width = 350
@@ -91,7 +91,7 @@ object tabNetwork: TTabSheet
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
         'AppleCoreMedia/1.0.0')
     end
-    object chkPassReferer: TCheckBox
+    object chkPassReferer: TPlayerCheckBox
       Left = 18
       Top = 78
       Width = 350

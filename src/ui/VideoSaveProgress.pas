@@ -2,14 +2,14 @@ unit VideoSaveProgress;
 
 interface
 
-uses System.SysUtils, System.Classes, Vcl.Forms, Vcl.StdCtrls, Vcl.ComCtrls, OnlineVideoSave;
+uses CurvedControls, System.SysUtils, System.Classes, Vcl.Forms, Vcl.StdCtrls, Vcl.ComCtrls, OnlineVideoSave;
 
 type
   TVideoSaveProgress = class(TForm)
   private
     FStatus: TLabel;
-    FBar: TProgressBar;
-    FCancel, FRetry: TButton;
+    FBar: TPlayerProgress;
+    FCancel, FRetry: TPlayerTextButton;
     FRetryAction: TProc;
     procedure RetryClick(Sender: TObject);
     procedure CancelClick(Sender: TObject);
@@ -25,7 +25,7 @@ type
 
 implementation
 
-uses Winapi.Windows, PlayerDialogs;
+uses Winapi.Windows, PlayerDialogs, PlayerLanguage;
 
 constructor TVideoSaveProgress.Create(AOwner: TComponent);
 begin
@@ -39,37 +39,47 @@ begin
   FStatus := TLabel.Create(Self);
   FStatus.Parent := Self;
   FStatus.SetBounds(24, 24, 392, 24);
-  FStatus.Caption := 'Connecting...';
+  if PlayerIsArabic then
+  begin
+    FStatus.AutoSize := False;
+    FStatus.Alignment := taRightJustify;
+  end;
+  FStatus.Caption := Translate('Connecting...');
 
-  FBar := TProgressBar.Create(Self);
+  FBar := TPlayerProgress.Create(Self);
   FBar.Parent := Self;
   FBar.SetBounds(24, 59, 392, 8);
   FBar.Max := 100;
 
-  FCancel := TButton.Create(Self);
+  FCancel := TPlayerTextButton.Create(Self);
   FCancel.Parent := Self;
   FCancel.SetBounds(295, 98, 120, 34);
-  FCancel.Caption := 'Cancel';
+  FCancel.Caption := Translate('Cancel');
   FCancel.OnClick := CancelClick;
-  FRetry := TButton.Create(Self);
+  FRetry := TPlayerTextButton.Create(Self);
   FRetry.Parent := Self;
   FRetry.SetBounds(164, 98, 120, 34);
   FRetry.Caption := 'Retry';
   FRetry.Visible := False;
   FRetry.OnClick := RetryClick;
   OnCloseQuery := CancelOnClose;
-  ApplyPlayerAppearance(Self);
+  ApplyPlayerAppearance(Self, True);
 end;
 
 procedure TVideoSaveProgress.BeginAttempt;
 begin
-  FStatus.AutoSize := True;
+  FStatus.AutoSize := not PlayerIsArabic;
+  if PlayerIsArabic then
+  begin
+    FStatus.Width := FBar.Width;
+    FStatus.Alignment := taRightJustify;
+  end;
   FStatus.WordWrap := False;
-  FStatus.Caption := 'Connecting...';
+  FStatus.Caption := Translate('Connecting...');
   FBar.Visible := True;
   FBar.Position := 0;
   FRetry.Visible := False;
-  FCancel.Caption := 'Cancel';
+  FCancel.Caption := Translate('Cancel');
   FCancel.Enabled := True;
 end;
 
@@ -81,8 +91,8 @@ begin
   FStatus.WordWrap := True;
   FStatus.Width := FBar.Width;
   FStatus.Height := MulDiv(42, CurrentPPI, 96);
-  FStatus.Caption := 'The connection was interrupted. The incomplete download was removed.';
-  FCancel.Caption := 'Close';
+  FStatus.Caption := Translate('The connection was interrupted. The incomplete download was removed.');
+  FCancel.Caption := Translate('Close');
   FCancel.Enabled := True;
   FRetry.Visible := True;
 end;
@@ -101,16 +111,16 @@ begin
   if not FCancel.Enabled then Exit;
   if Percent < 0 then
   begin
-    FStatus.Caption := 'Downloading...';
+    FStatus.Caption := Translate('Downloading...');
     Exit;
   end;
   FBar.Position := Percent;
   if Percent = 100 then
-    FStatus.Caption := '100% | Verifying MP4...'
+    FStatus.Caption := Translate('100% | Verifying MP4...')
   else
   begin
-    if RemainingSeconds < 0 then Estimate := 'Estimating time remaining...'
-    else Estimate := Format('~%d:%.2d remaining', [RemainingSeconds div 60, RemainingSeconds mod 60]);
+    if RemainingSeconds < 0 then Estimate := Translate('Estimating time remaining...')
+    else Estimate := Format(Translate('~%d:%.2d remaining'), [RemainingSeconds div 60, RemainingSeconds mod 60]);
     FStatus.Caption := IntToStr(Percent) + '% | ' + Estimate;
   end;
 end;
@@ -118,7 +128,7 @@ end;
 procedure TVideoSaveProgress.RequestCancel;
 begin
   if Task <> nil then Task.Cancel;
-  FStatus.Caption := 'Cancelling...';
+  FStatus.Caption := Translate('Cancelling...');
   FCancel.Enabled := False;
 end;
 

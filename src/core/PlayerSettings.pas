@@ -19,15 +19,21 @@ type
     ZoomPercent, SubtitleMargin: Integer;
     OSDDuration, OSDFontSize: Integer;
     RememberWindow, StartFullscreen, BossKeyHide, ShowSpeedOSD: Boolean;
+    SkipOpening, SkipEnding: Boolean;
+    VoiceClarifier, NightMode, HeadphoneSurround, KaraokeMode, AudioPassthrough: Boolean;
+    SkipOpeningSeconds, SkipEndingSeconds: Integer;
     Transform, ReplayGain, ReplayPreamp, ReplayDefault: Integer;
-    Sharpen, Deband: Integer;
+    Sharpen, Deband, VideoProfile, BufferPreset, ScalingMode: Integer;
+    Lut3DPath: string;
+    ShaderInvert, ShaderSharpen, ShaderEdgeDetect, ShaderFilmGrain: Boolean;
+    ShaderDenoise, ShaderSepia, ShaderPosterize, ShaderAnaglyph: Boolean;
     ReplayPeakProtection: Boolean;
     SubtitleColor, SubtitleOutline, SubtitleShadow, SubtitleBackground: Integer;
     CompressorValues: array[0..6] of Integer;
     SpatializerValues: array[0..4] of Integer;
     WidenerValues: array[0..3] of Integer;
     class function Load(const Path: string): TPlayerSettings; static;
-    procedure ApplyMedia(Media: Plibvlc_media_t; Network: Boolean);
+    procedure ApplyMedia(Media: Plibvlc_media_t; Network: Boolean; const StreamAgent: string = '');
     function EngineOptions: TArray<UTF8String>;
   end;
 
@@ -72,15 +78,19 @@ begin
     Result.JumpMedium := MediumSteps[EnsureRange(Ini.ReadInteger('Playback', 'JumpMedium', 1), 0, 2)];
     Result.JumpLong := LongSteps[EnsureRange(Ini.ReadInteger('Playback', 'JumpLong', 1), 0, 2)];
     Result.PreservePitch := Ini.ReadBool('Playback', 'Scaletempo', True);
+    Result.SkipOpening := Ini.ReadBool('Playback', 'SkipOpening', False);
+    Result.SkipOpeningSeconds := EnsureRange(Ini.ReadInteger('Playback', 'SkipOpeningSeconds', 90), 1, 600);
+    Result.SkipEnding := Ini.ReadBool('Playback', 'SkipEnding', False);
+    Result.SkipEndingSeconds := EnsureRange(Ini.ReadInteger('Playback', 'SkipEndingSeconds', 60), 1, 600);
     Result.Hardware := EnsureRange(Ini.ReadInteger('Video', 'HwAccel', 0), 0, 3);
     Result.DirectRendering := Ini.ReadBool('Video', 'ZeroCopy', True);
     Result.VideoOutput := EnsureRange(Ini.ReadInteger('Video', 'Vout', 0), 0, 4);
     Result.Deinterlace := EnsureRange(Ini.ReadInteger('Video', 'Deinterlace', 1), 0, 4);
     Result.AudioOutput := EnsureRange(Ini.ReadInteger('Audio', 'Aout', 0), 0, 3);
-    Result.AspectRatio := Ini.ReadString('Video', 'AspectRatio', 'Default');
-    if Ini.ReadBool('Video', 'AspectAuto', True) then Result.AspectRatio := 'Default';
-    Result.Crop := Ini.ReadString('Video', 'Crop', 'Default');
-    Result.ZoomPercent := EnsureRange(Ini.ReadInteger('Video', 'ZoomPercent', 0), 0, 400);
+    // Older versions shared these values with the temporary playback controls.
+    Result.AspectRatio := Ini.ReadString('Video', 'DefaultAspectRatio', 'Default');
+    Result.Crop := Ini.ReadString('Video', 'DefaultCrop', 'Default');
+    Result.ZoomPercent := EnsureRange(Ini.ReadInteger('Video', 'DefaultZoomPercent', 0), 0, 400);
     Result.AudioLanguage := Ini.ReadString('Audio', 'PreferredLanguages', '');
     Result.SubtitleLanguage := Ini.ReadString('Subtitles', 'PreferredLanguages', '');
     Result.AudioDeviceID := Ini.ReadString('Audio', 'DeviceID', '');
@@ -90,14 +100,31 @@ begin
     Result.StartupVolume := EnsureRange(Ini.ReadInteger('Audio', 'DefaultVolume', 100), 0, 200);
     if Result.RememberVolume then Result.StartupVolume := EnsureRange(Ini.ReadInteger('Audio', 'LastVolume', Result.StartupVolume), 0, 200);
     Result.Normalize := Ini.ReadBool('Audio', 'Normalizer', False);
+    Result.VoiceClarifier := Ini.ReadBool('Audio', 'VoiceClarifier', False);
+    Result.NightMode := Ini.ReadBool('Audio', 'NightMode', False);
+    Result.HeadphoneSurround := Ini.ReadBool('Audio', 'HeadphoneSurround', False);
+    Result.KaraokeMode := Ini.ReadBool('Audio', 'KaraokeMode', False);
+    Result.AudioPassthrough := Ini.ReadBool('Audio', 'AudioPassthrough', False);
     Result.SubtitleFont := Ini.ReadString('Subtitles', 'Font', 'Segoe UI');
     Result.SubtitleSize := FontSizes[EnsureRange(Ini.ReadInteger('Subtitles', 'Size', 1), 0, 3)];
     Result.SubtitleEncoding := Encodings[EnsureRange(Ini.ReadInteger('Subtitles', 'Encoding', 0), 0, 4)];
     Result.SubtitleBold := Ini.ReadBool('Subtitles', 'Bold', True);
     Result.SubtitleAutoLoad := Ini.ReadBool('Subtitles', 'AutoLoad', True);
     Result.Transform := EnsureRange(Ini.ReadInteger('Video', 'Transform', 0), 0, 7);
+    Result.VideoProfile := EnsureRange(Ini.ReadInteger('Video', 'VideoProfile', 0), 0, 5);
+    Result.ScalingMode := EnsureRange(Ini.ReadInteger('Video', 'ScalingMode', 0), 0, 3);
+    Result.Lut3DPath := Ini.ReadString('Video', 'Lut3DPath', '');
+    Result.BufferPreset := EnsureRange(Ini.ReadInteger('Network', 'BufferPreset', 1), 0, 3);
     Result.Sharpen := EnsureRange(Ini.ReadInteger('Video', 'Sharpen', 0), 0, 3);
     Result.Deband := EnsureRange(Ini.ReadInteger('Video', 'Deband', 0), 0, 3);
+    Result.ShaderInvert := Ini.ReadBool('VideoShaders', 'Invert', False);
+    Result.ShaderSharpen := Ini.ReadBool('VideoShaders', 'Sharpen', False);
+    Result.ShaderEdgeDetect := Ini.ReadBool('VideoShaders', 'EdgeDetect', False);
+    Result.ShaderFilmGrain := Ini.ReadBool('VideoShaders', 'FilmGrain', False);
+    Result.ShaderDenoise := Ini.ReadBool('VideoShaders', 'Denoise', False);
+    Result.ShaderSepia := Ini.ReadBool('VideoShaders', 'Sepia', False);
+    Result.ShaderPosterize := Ini.ReadBool('VideoShaders', 'Posterize', False);
+    Result.ShaderAnaglyph := Ini.ReadBool('VideoShaders', 'Anaglyph', False);
     Result.ReplayGain := EnsureRange(Ini.ReadInteger('Audio', 'ReplayGain', 0), 0, 2);
     Result.ReplayPreamp := (EnsureRange(Ini.ReadInteger('Audio', 'ReplayPreamp', 4), 0, 8) - 4) * 3;
     Result.ReplayDefault := (EnsureRange(Ini.ReadInteger('Audio', 'ReplayDefault', 4), 0, 8) - 4) * 3;
@@ -132,10 +159,12 @@ const Transforms: array[0..7] of string = ('', '90', '180', '270', 'hflip', 'vfl
       Backgrounds: array[0..4] of Integer = (0, 64, 128, 192, 255);
       SharpenValues: array[0..3] of string = ('0', '0.2', '0.6', '1.2');
       DebandValues: array[0..3] of string = ('0', '0.8', '1.2', '2.0');
+      SwScaleModes: array[0..3] of Integer = (10, 9, 2, 1);
 begin
   Result := ['--quiet', '--no-video-title-show', '--no-snapshot-preview', '--no-mouse-events', '--no-osd', '--ignore-config'];
   var Options := TStringList.Create;
   try
+    Options.Add('--swscale-mode=' + IntToStr(SwScaleModes[EnsureRange(ScalingMode, 0, 3)]));
     var Filters := '';
     if Transform > 0 then
     begin
@@ -155,12 +184,55 @@ begin
       Options.Add('--gradfun-strength=' + DebandValues[Deband]);
       Options.Add('--gradfun-radius=16');
     end;
+    if ShaderInvert then
+    begin
+      if Filters <> '' then Filters := Filters + ':';
+      Filters := Filters + 'invert';
+    end;
+    if ShaderSharpen then
+    begin
+      if Filters <> '' then Filters := Filters + ':';
+      Filters := Filters + 'sharpen';
+      Options.Add('--sharpen-sigma=1.5');
+    end;
+    if ShaderEdgeDetect then
+    begin
+      if Filters <> '' then Filters := Filters + ':';
+      Filters := Filters + 'edgedetection';
+    end;
+    if ShaderFilmGrain then
+    begin
+      if Filters <> '' then Filters := Filters + ':';
+      Filters := Filters + 'grain';
+      Options.Add('--grain-variance=2.0');
+    end;
+    if ShaderDenoise then
+    begin
+      if Filters <> '' then Filters := Filters + ':';
+      Filters := Filters + 'hqdn3d';
+    end;
+    if ShaderSepia then
+    begin
+      if Filters <> '' then Filters := Filters + ':';
+      Filters := Filters + 'sepia';
+    end;
+    if ShaderPosterize then
+    begin
+      if Filters <> '' then Filters := Filters + ':';
+      Filters := Filters + 'posterize';
+    end;
+    if ShaderAnaglyph then
+    begin
+      if Filters <> '' then Filters := Filters + ':';
+      Filters := Filters + 'anaglyph';
+    end;
     if Filters <> '' then Options.Add('--video-filter=' + Filters);
     Options.Add('--audio-replay-gain-mode=' + GainModes[ReplayGain]);
     Options.Add('--audio-replay-gain-preamp=' + IntToStr(ReplayPreamp));
     Options.Add('--audio-replay-gain-default=' + IntToStr(ReplayDefault));
     if ReplayPeakProtection then Options.Add('--audio-replay-gain-peak-protection')
     else Options.Add('--no-audio-replay-gain-peak-protection');
+    if AudioPassthrough then Options.Add('--spdif');
     Options.Add('--freetype-color=' + IntToStr(Colors[SubtitleColor]));
     Options.Add('--freetype-outline-thickness=' + IntToStr(SubtitleOutline));
     Options.Add('--freetype-shadow-opacity=' + IntToStr(Shadows[SubtitleShadow]));
@@ -169,7 +241,7 @@ begin
   finally Options.Free; end;
 end;
 
-procedure TPlayerSettings.ApplyMedia(Media: Plibvlc_media_t; Network: Boolean);
+procedure TPlayerSettings.ApplyMedia(Media: Plibvlc_media_t; Network: Boolean; const StreamAgent: string);
 const HW: array[0..3] of string = ('any', 'd3d11va', 'dxva2', 'none');
       VOut: array[0..4] of string = ('', 'direct3d11', 'direct3d9', 'wingdi', 'glwin32');
       Deinterlacers: array[0..4] of string = ('', 'yadif', 'yadif2x', 'bob', 'linear');
@@ -181,6 +253,8 @@ const HW: array[0..3] of string = ('any', 'd3d11va', 'dxva2', 'none');
       TextColors: array[0..3] of Integer = ($FFFFFF, $FFE08A, $80FF80, $80E8FF);
       ShadowOpacity: array[0..3] of Integer = (0, 64, 128, 192);
       BackgroundOpacity: array[0..4] of Integer = (0, 64, 128, 192, 255);
+      BufferValues: array[0..3] of Integer = (300, 1200, 3500, 10000);
+      SwScaleModes: array[0..3] of Integer = (10, 9, 2, 1);
 var Filters: string;
   procedure Add(const Option: string);
   var Bytes: UTF8String;
@@ -202,16 +276,61 @@ begin
   if Network and not HLSHardware then Add('avcodec-hw=none')
   else Add('avcodec-hw=' + HW[Hardware]);
   if DirectRendering then Add('avcodec-dr') else Add('no-avcodec-dr');
+  Add('swscale-mode=' + IntToStr(SwScaleModes[EnsureRange(ScalingMode, 0, 3)]));
   if VideoOutput <> 0 then Add('vout=' + VOut[VideoOutput]);
   if Deinterlace = 0 then Add('deinterlace=0')
   else if Deinterlace = 1 then Add('deinterlace=-1')
   else Add('deinterlace=1');
   if Deinterlace > 0 then Add('deinterlace-mode=' + Deinterlacers[Deinterlace]);
+  var VidFilters := '';
   if Transform > 0 then
   begin
-    Add('video-filter=transform');
+    VidFilters := 'transform';
     Add('transform-type=' + Transforms[Transform]);
   end;
+  if ShaderInvert then
+  begin
+    if VidFilters <> '' then VidFilters := VidFilters + ':';
+    VidFilters := VidFilters + 'invert';
+  end;
+  if ShaderSharpen then
+  begin
+    if VidFilters <> '' then VidFilters := VidFilters + ':';
+    VidFilters := VidFilters + 'sharpen';
+    Add('sharpen-sigma=1.5');
+  end;
+  if ShaderEdgeDetect then
+  begin
+    if VidFilters <> '' then VidFilters := VidFilters + ':';
+    VidFilters := VidFilters + 'edgedetection';
+  end;
+  if ShaderFilmGrain then
+  begin
+    if VidFilters <> '' then VidFilters := VidFilters + ':';
+    VidFilters := VidFilters + 'grain';
+    Add('grain-variance=2.0');
+  end;
+  if ShaderDenoise then
+  begin
+    if VidFilters <> '' then VidFilters := VidFilters + ':';
+    VidFilters := VidFilters + 'hqdn3d';
+  end;
+  if ShaderSepia then
+  begin
+    if VidFilters <> '' then VidFilters := VidFilters + ':';
+    VidFilters := VidFilters + 'sepia';
+  end;
+  if ShaderPosterize then
+  begin
+    if VidFilters <> '' then VidFilters := VidFilters + ':';
+    VidFilters := VidFilters + 'posterize';
+  end;
+  if ShaderAnaglyph then
+  begin
+    if VidFilters <> '' then VidFilters := VidFilters + ':';
+    VidFilters := VidFilters + 'anaglyph';
+  end;
+  if VidFilters <> '' then Add('video-filter=' + VidFilters);
   Add('freetype-font=' + SubtitleFont);
   Add('freetype-fontsize=' + IntToStr(SubtitleSize));
   Add('subsdec-encoding=' + SubtitleEncoding);
@@ -260,12 +379,41 @@ begin
     Add('stereowiden-dry-mix=' + Decimal(WidenerValues[3] / 100));
   end;
   if EqualizerTwoPass then Add('equalizer-2pass') else Add('no-equalizer-2pass');
-  if Filters <> '' then Add('audio-filter=' + Filters);
-  if Network then
+  if AudioPassthrough then Add('spdif');
+  if KaraokeMode then AddFilter('karaoke');
+  if HeadphoneSurround then
   begin
-    Add('network-caching=' + IntToStr(Cache));
-    Add('http-user-agent=' + UserAgent);
+    AddFilter('headphone');
+    Add('headphone-dim=2');
+    Add('headphone-compensate');
   end;
+  if VoiceClarifier then
+  begin
+    AddFilter('param_eq');
+    Add('param-eq-f1=2000');
+    Add('param-eq-gain1=6.0');
+    Add('param-eq-q1=1.2');
+  end;
+  if NightMode then
+  begin
+    AddFilter('compressor');
+    Add('compressor-rms-peak=0.2');
+    Add('compressor-attack=15');
+    Add('compressor-release=300');
+    Add('compressor-threshold=-24');
+    Add('compressor-ratio=5');
+    Add('compressor-knee=3');
+    Add('compressor-makeup-gain=6');
+    AddFilter('normvol');
+  end;
+  if Filters <> '' then Add('audio-filter=' + Filters);
+  var BufMs := BufferValues[EnsureRange(BufferPreset, 0, 3)];
+  Add('network-caching=' + IntToStr(BufMs));
+  Add('file-caching=' + IntToStr(BufMs));
+  Add('live-caching=' + IntToStr(BufMs));
+  Add('disc-caching=' + IntToStr(BufMs));
+  if Network then
+    Add('http-user-agent=' + UserAgent);
 end;
 
 end.

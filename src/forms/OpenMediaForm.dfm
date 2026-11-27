@@ -142,7 +142,7 @@ object FrmOpenMedia: TFrmOpenMedia
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 1
-    object btnCancel: TButton
+    object btnCancel: TPlayerTextButton
       Left = 398
       Top = 10
       Width = 90
@@ -151,7 +151,7 @@ object FrmOpenMedia: TFrmOpenMedia
       TabOrder = 0
       OnClick = btnCancelClick
     end
-    object btnPlay: TButton
+    object btnPlay: TPlayerTextButton
       Left = 298
       Top = 10
       Width = 90

@@ -4,6 +4,9 @@ interface
 
 uses System.SysUtils;
 
+const
+  StalkerStreamUserAgent = 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG200 stbapp ver: 2 rev: 250 Safari/533.3';
+
 type
   IPlaylistRequest = interface
     ['{E356F148-516A-4DB2-A81C-FE8F70712D53}']
@@ -18,8 +21,65 @@ function DownloadStalker(const Portal, MAC: string; const Command: string = ''):
 
 implementation
 
-uses System.Classes, System.SyncObjs, System.Net.HttpClient, System.JSON,
+uses Winapi.Windows, System.Classes, System.SyncObjs, System.Net.HttpClient, System.JSON,
   System.NetEncoding, System.StrUtils, System.Generics.Collections;
+
+type
+  TStalkerSession = record
+    Token: string;
+    ExpiresTick: UInt64;
+  end;
+
+var
+  GStalkerLock: TCriticalSection = nil;
+  GStalkerSessions: TDictionary<string, TStalkerSession> = nil;
+
+function TryGetStalkerToken(const Key: string; out Token: string): Boolean;
+var
+  Sess: TStalkerSession;
+begin
+  Result := False;
+  Token := '';
+  if GStalkerLock = nil then Exit;
+  GStalkerLock.Enter;
+  try
+    if (GStalkerSessions <> nil) and GStalkerSessions.TryGetValue(Key, Sess) and
+       (GetTickCount64 < Sess.ExpiresTick) and (Sess.Token <> '') then
+    begin
+      Token := Sess.Token;
+      Result := True;
+    end;
+  finally
+    GStalkerLock.Leave;
+  end;
+end;
+
+procedure SaveStalkerToken(const Key, Token: string);
+var
+  Sess: TStalkerSession;
+begin
+  if (GStalkerLock = nil) or (Token = '') then Exit;
+  Sess.Token := Token;
+  Sess.ExpiresTick := GetTickCount64 + 10 * 60 * 1000;
+  GStalkerLock.Enter;
+  try
+    if GStalkerSessions = nil then GStalkerSessions := TDictionary<string, TStalkerSession>.Create;
+    GStalkerSessions.AddOrSetValue(Key, Sess);
+  finally
+    GStalkerLock.Leave;
+  end;
+end;
+
+procedure ClearStalkerToken(const Key: string);
+begin
+  if GStalkerLock = nil then Exit;
+  GStalkerLock.Enter;
+  try
+    if GStalkerSessions <> nil then GStalkerSessions.Remove(Key);
+  finally
+    GStalkerLock.Leave;
+  end;
+end;
 
 type
   TBoundedStream = class(TMemoryStream)
@@ -42,8 +102,8 @@ type
 
 function TBoundedStream.Write(const Buffer; Count: Longint): Longint;
 begin
-  if Position + Count > 16 * 1024 * 1024 then
-    raise EStreamError.Create('The playlist exceeds the 16 MB limit.');
+  if Position + Count > 128 * 1024 * 1024 then
+    raise EStreamError.Create('The playlist exceeds the 128 MB limit.');
   Result := inherited Write(Buffer, Count);
 end;
 
@@ -87,12 +147,13 @@ begin
   if EndsText('/c', Base) then Delete(Base, Length(Base) - 1, 2);
   if EndsText('.php', Base) then Endpoint := Base
   else Endpoint := Base + '/server/load.php';
-  HTTP.UserAgent := 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3';
+  HTTP.UserAgent := StalkerStreamUserAgent;
   HTTP.CustomHeaders['X-User-Agent'] := 'Model: MAG250; Link: WiFi';
-  HTTP.CustomHeaders['Cookie'] := 'mac=' + TNetEncoding.URL.Encode(FMAC) +
+  HTTP.CustomHeaders['Cookie'] := 'mac=' + TNetEncoding.URL.Encode(Trim(FMAC)) +
     '; stb_lang=en; timezone=UTC';
   HTTP.CustomHeaders['Referer'] := Base + '/c/';
-  Root := Fetch('type=stb&action=handshake');
+
+  Root := Fetch('type=stb&action=handshake&token=&prehash=');
   try Token := Root.GetValue<string>('js.token', ''); finally Root.Free; end;
   if Token = '' then raise EConvertError.Create('The portal did not authorize this device.');
   HTTP.CustomHeaders['Authorization'] := 'Bearer ' + Token;
@@ -109,6 +170,25 @@ begin
       Result := Link.GetValue<string>('js.cmd', '').Trim;
       if StartsText('ffmpeg ', Result) then Delete(Result, 1, 7);
       if StartsText('ffrt ', Result) then Delete(Result, 1, 5);
+      // Some Stalker portals return &stream=& (empty) from create_link when cmd already contains stream=<id>.
+      if (Pos('stream=&', Result) > 0) or EndsText('stream=', Result) then
+      begin
+        var SP := Pos('stream=', FCommand);
+        if SP > 0 then
+        begin
+          var ValStart := SP + 7;
+          var ValEnd := PosEx('&', FCommand, ValStart);
+          if ValEnd = 0 then ValEnd := Length(FCommand) + 1;
+          var StreamVal := Copy(FCommand, ValStart, ValEnd - ValStart);
+          if StreamVal <> '' then
+          begin
+            if Pos('stream=&', Result) > 0 then
+              Result := StringReplace(Result, 'stream=&', 'stream=' + StreamVal + '&', [])
+            else if EndsText('stream=', Result) then
+              Result := Result + StreamVal;
+          end;
+        end;
+      end;
       if not StartsText('http://', Result) and not StartsText('https://', Result) then
         raise EConvertError.Create('The portal did not provide a playable stream.');
     finally Link.Free; end;
@@ -136,6 +216,7 @@ begin
       Command := Obj.GetValue<string>('cmd', '');
       if Command = '' then Continue;
       Output.AppendLine('#EXTINF:-1 tvg-id="' + Clean(Obj.GetValue<string>('xmltv_id', '')) +
+        '" tvg-logo="' + Clean(Obj.GetValue<string>('logo', '')) +
         '" group-title="' + Clean(GroupName) + '",' + Clean(Name));
       Output.AppendLine('stalker-cmd://' + TNetEncoding.URL.Encode(Command));
     end;
@@ -170,8 +251,8 @@ begin
   Data := TBoundedStream.Create;
   try
     try
-      HTTP.ConnectionTimeout := 5000;
-      HTTP.ResponseTimeout := 10000;
+      HTTP.ConnectionTimeout := 8000;
+      HTTP.ResponseTimeout := 45000;
       if FMAC <> '' then
       begin
         FContent := StalkerContent(HTTP);
@@ -217,5 +298,12 @@ begin
       Work.Execute;
     end).Start;
 end;
+
+initialization
+  GStalkerLock := TCriticalSection.Create;
+
+finalization
+  FreeAndNil(GStalkerSessions);
+  FreeAndNil(GStalkerLock);
 
 end.

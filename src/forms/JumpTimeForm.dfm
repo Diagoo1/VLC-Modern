@@ -100,7 +100,7 @@ object FrmJumpTime: TFrmJumpTime
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 3
-    object btnJump: TButton
+    object btnJump: TPlayerTextButton
       Left = 140
       Top = 8
       Width = 80
@@ -110,7 +110,7 @@ object FrmJumpTime: TFrmJumpTime
       TabOrder = 0
       OnClick = btnJumpClick
     end
-    object btnCancel: TButton
+    object btnCancel: TPlayerTextButton
       Left = 226
       Top = 8
       Width = 80

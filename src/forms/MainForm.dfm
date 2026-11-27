@@ -63,7 +63,7 @@ object FrmMain: TFrmMain
           Font.Style = []
           ParentFont = False
         end
-        object btnHidePlaylist: TButton
+        object btnHidePlaylist: TPlayerTextButton
           Left = 246
           Top = 6
           Width = 28
@@ -163,7 +163,7 @@ object FrmMain: TFrmMain
       end
     end
   end
-  object pnlBottom: TPanel
+  object pnlBottom: TPlayerDockPanel
     Left = 0
     Top = 486
     Width = 980
@@ -197,7 +197,7 @@ object FrmMain: TFrmMain
         Font.Style = []
         ParentFont = False
       end
-      object tbProgress: TTrackBar
+      object tbProgress: TPlayerSlider
         Left = 0
         Top = 0
         Width = 860
@@ -206,8 +206,6 @@ object FrmMain: TFrmMain
         Max = 1000
         PageSize = 50
         TabOrder = 0
-        ThumbLength = 14
-        TickStyle = tsNone
         OnChange = tbProgressChange
       end
     end
@@ -237,7 +235,7 @@ object FrmMain: TFrmMain
         Align = alLeft
         BevelOuter = bvNone
         TabOrder = 1
-        object tbVolume: TTrackBar
+        object tbVolume: TPlayerSlider
           Left = 50
           Top = 13
           Width = 85
@@ -246,8 +244,6 @@ object FrmMain: TFrmMain
           PageSize = 10
           Position = 100
           TabOrder = 0
-          ThumbLength = 12
-          TickStyle = tsNone
           OnChange = tbVolumeChange
         end
         object lblVolPct: TLabel
@@ -348,6 +344,10 @@ object FrmMain: TFrmMain
         ShortCut = 16451
         OnClick = mnuOpenCaptureClick
       end
+      object mnuScreenCapture: TMenuItem
+        Caption = 'Open &Desktop Screen (30 FPS)'
+        OnClick = mnuScreenCaptureClick
+      end
       object mnuOpenClipboard: TMenuItem
         Caption = 'Open &Location from clipboard'
         ShortCut = 16470
@@ -404,8 +404,38 @@ object FrmMain: TFrmMain
         ShortCut = 16450
         OnClick = mnuBookmarksClick
       end
+      object mnuSleepTimer: TMenuItem
+        Caption = 'Sleep &Timer (Auto-Close)'
+        object mnuSleepOff: TMenuItem
+          Tag = 0
+          Caption = 'Off'
+          Checked = True
+          OnClick = mnuSleepTimerItemClick
+        end
+        object mnuSleep15: TMenuItem
+          Tag = 15
+          Caption = '15 Minutes'
+          OnClick = mnuSleepTimerItemClick
+        end
+        object mnuSleep30: TMenuItem
+          Tag = 30
+          Caption = '30 Minutes'
+          OnClick = mnuSleepTimerItemClick
+        end
+        object mnuSleep60: TMenuItem
+          Tag = 60
+          Caption = '60 Minutes'
+          OnClick = mnuSleepTimerItemClick
+        end
+        object mnuSleep90: TMenuItem
+          Tag = 90
+          Caption = '90 Minutes'
+          OnClick = mnuSleepTimerItemClick
+        end
+      end
       object mnuRenderer: TMenuItem
         Caption = '&Renderer'
+        OnClick = mnuRendererClick
       end
       object mnuSpeed: TMenuItem
         Caption = 'Spee&d'
@@ -473,6 +503,14 @@ object FrmMain: TFrmMain
         ShortCut = 16468
         OnClick = mnuJumpTimeClick
       end
+      object mnuSkipOpening: TMenuItem
+        Caption = 'Skip &Opening (Intro)'
+        OnClick = mnuSkipOpeningClick
+      end
+      object mnuSkipEnding: TMenuItem
+        Caption = 'Skip &Ending (Outro)'
+        OnClick = mnuSkipEndingClick
+      end
       object mnuSepPlay2: TMenuItem
         Caption = '-'
       end
@@ -510,6 +548,11 @@ object FrmMain: TFrmMain
       end
       object mnuAudioDevice: TMenuItem
         Caption = 'Audio &Device'
+      end
+      object mnuCycleAudioDevice: TMenuItem
+        Caption = 'Cycle Audio &Output Device'
+        ShortCut = 32833
+        OnClick = mnuCycleAudioDeviceClick
       end
       object mnuAudioChannel: TMenuItem
         Caption = 'Stereo &Mode / Channel'
@@ -561,6 +604,33 @@ object FrmMain: TFrmMain
       object mnuAudioDelayMinus: TMenuItem
         Caption = 'Audio Delay (-50ms)'
         OnClick = mnuAudioDelayMinusClick
+      end
+      object mnuSepAudioFilters: TMenuItem
+        Caption = '-'
+      end
+      object mnuVoiceClarifier: TMenuItem
+        Caption = 'Voice &Clarifier (Dialogue Boost)'
+        OnClick = mnuVoiceClarifierClick
+      end
+      object mnuNightMode: TMenuItem
+        Caption = '&Night Mode (Compress Loud Audio)'
+        OnClick = mnuNightModeClick
+      end
+      object mnuHeadphoneSurround: TMenuItem
+        Caption = '3D &Headphone Surround (HRTF)'
+        OnClick = mnuHeadphoneSurroundClick
+      end
+      object mnuKaraokeMode: TMenuItem
+        Caption = '&Voice Removal (Karaoke Mode)'
+        OnClick = mnuKaraokeModeClick
+      end
+      object mnuAudioPassthrough: TMenuItem
+        Caption = 'Digital Audio &Passthrough (S/PDIF / HDMI)'
+        OnClick = mnuAudioPassthroughClick
+      end
+      object mnuAudioRecord: TMenuItem
+        Caption = '&Record Audio Stream...'
+        OnClick = mnuAudioRecordClick
       end
       object mnuSep3: TMenuItem
         Caption = '-'
@@ -661,8 +731,110 @@ object FrmMain: TFrmMain
         ShortCut = 49235
         OnClick = mnuSnapshotClick
       end
+      object mnuCleanSnapshot: TMenuItem
+        Caption = 'Take &Clean Snapshot (No Subtitles)'
+        ShortCut = 57427
+        OnClick = mnuCleanSnapshotClick
+      end
+      object mnuThumbnailSheet: TMenuItem
+        Caption = 'Save &Thumbnail Sheet...'
+        ShortCut = 24659
+        OnClick = mnuThumbnailSheetClick
+      end
+      object mnuAnimatedGif: TMenuItem
+        Caption = 'Create &Animated GIF...'
+        OnClick = mnuAnimatedGifClick
+      end
+      object mnuRecordVideoMP4: TMenuItem
+        Caption = 'Record &Live Video (MP4)...'
+        ShortCut = 32835
+        OnClick = mnuRecordVideoMP4Click
+      end
+      object mnuVideoPresets: TMenuItem
+        Caption = 'Video &Profiles (Presets)'
+        object mnuProfileDefault: TMenuItem
+          Tag = 0
+          Caption = 'Default / Normal'
+          OnClick = mnuProfileItemClick
+        end
+        object mnuProfileCinema: TMenuItem
+          Tag = 1
+          Caption = 'Cinema (Warm Contrast)'
+          OnClick = mnuProfileItemClick
+        end
+        object mnuProfileAnime: TMenuItem
+          Tag = 2
+          Caption = 'Anime / Vivid (High Saturation)'
+          OnClick = mnuProfileItemClick
+        end
+        object mnuProfileEyeComfort: TMenuItem
+          Tag = 3
+          Caption = 'Eye Comfort (Night / Low Blue)'
+          OnClick = mnuProfileItemClick
+        end
+        object mnuProfileNoir: TMenuItem
+          Tag = 4
+          Caption = 'Noir / Black && White'
+          OnClick = mnuProfileItemClick
+        end
+        object mnuProfileSports: TMenuItem
+          Tag = 5
+          Caption = 'Sports / Vibrant'
+          OnClick = mnuProfileItemClick
+        end
+      end
+      object mnuShaders: TMenuItem
+        Caption = 'Pixel &Shaders && Effects'
+        object mnuShaderInvert: TMenuItem
+          Tag = 0
+          Caption = '&Invert Colors'
+          OnClick = mnuShaderItemClick
+        end
+        object mnuShaderSharpen: TMenuItem
+          Tag = 1
+          Caption = '&Sharpen Details'
+          OnClick = mnuShaderItemClick
+        end
+        object mnuShaderDenoise: TMenuItem
+          Tag = 4
+          Caption = '&3D Denoise (Clean Noise)'
+          OnClick = mnuShaderItemClick
+        end
+        object mnuShaderFilmGrain: TMenuItem
+          Tag = 3
+          Caption = 'Film &Grain'
+          OnClick = mnuShaderItemClick
+        end
+        object mnuShaderEdgeDetect: TMenuItem
+          Tag = 2
+          Caption = '&Edge Detect (Cartoon)'
+          OnClick = mnuShaderItemClick
+        end
+        object mnuShaderSepia: TMenuItem
+          Tag = 5
+          Caption = 'Sepia (&Vintage)'
+          OnClick = mnuShaderItemClick
+        end
+        object mnuShaderPosterize: TMenuItem
+          Tag = 6
+          Caption = '&Posterize (Pop Art)'
+          OnClick = mnuShaderItemClick
+        end
+        object mnuShaderAnaglyph: TMenuItem
+          Tag = 7
+          Caption = '3D &Anaglyph (Red/Cyan)'
+          OnClick = mnuShaderItemClick
+        end
+        object mnuSepShader: TMenuItem
+          Caption = '-'
+        end
+        object mnuShaderReset: TMenuItem
+          Caption = '&Reset All Shaders'
+          OnClick = mnuResetShadersClick
+        end
+      end
       object mnuPanScan: TMenuItem
-        Caption = 'Pan && &Scan'
+        Caption = 'Zoom && &Position'
         object mnuPanReset: TMenuItem
           Tag = 5
           Caption = 'Reset (Num 5)'
@@ -709,6 +881,101 @@ object FrmMain: TFrmMain
           OnClick = mnuPanScanItemClick
         end
       end
+      object mnuLoad3DLUT: TMenuItem
+        Caption = 'Load 3D &LUT Profile (.cube)...'
+        OnClick = mnuLoad3DLUTClick
+      end
+      object mnuGPUShaders: TMenuItem
+        Caption = '&GPU HLSL Shaders (Direct3D 11)'
+        object mnuGPUAnime4K: TMenuItem
+          Tag = 0
+          Caption = 'Anime4K Edge && Line Enhance (GPU)'
+          OnClick = mnuGPUShaderItemClick
+        end
+        object mnuGPUCAS: TMenuItem
+          Tag = 1
+          Caption = 'CAS Adaptive Sharpen (GPU)'
+          OnClick = mnuGPUShaderItemClick
+        end
+        object mnuGPUDeband: TMenuItem
+          Tag = 2
+          Caption = 'Ordered Deband && Dither (GPU)'
+          OnClick = mnuGPUShaderItemClick
+        end
+        object mnuGPUACES: TMenuItem
+          Tag = 3
+          Caption = 'ACES Filmic HDR->SDR Tone Map (GPU)'
+          OnClick = mnuGPUShaderItemClick
+        end
+        object mnuGPUCRT: TMenuItem
+          Tag = 4
+          Caption = 'CRT Retro Scanlines (GPU)'
+          OnClick = mnuGPUShaderItemClick
+        end
+        object mnuGPULevels: TMenuItem
+          Tag = 5
+          Caption = 'TV->PC Levels 16-235 -> 0-255 (GPU)'
+          OnClick = mnuGPUShaderItemClick
+        end
+        object mnuGPUBT601: TMenuItem
+          Tag = 6
+          Caption = 'BT.601 -> BT.709 Color Matrix (GPU)'
+          OnClick = mnuGPUShaderItemClick
+        end
+        object mnuSepGPULoad: TMenuItem
+          Caption = '-'
+        end
+        object mnuGPULoadHLSL: TMenuItem
+          Caption = 'Load Custom .hlsl Pixel Shader...'
+          OnClick = mnuGPULoadHLSLClick
+        end
+        object mnuGPUDisable: TMenuItem
+          Caption = 'Disable GPU Shader Pipeline (Native Zero-Copy)'
+          OnClick = mnuGPUDisableClick
+        end
+      end
+      object mnu3DMode: TMenuItem
+        Caption = '3&D Stereo Mode (PotPlayer)'
+        object mnu3DNormal: TMenuItem
+          Tag = 0
+          Caption = 'Normal 2D'
+          Checked = True
+          OnClick = mnu3DModeItemClick
+        end
+        object mnu3DSBS: TMenuItem
+          Tag = 1
+          Caption = '3D Side-by-Side (SBS) -> 2D'
+          OnClick = mnu3DModeItemClick
+        end
+        object mnu3DTAB: TMenuItem
+          Tag = 2
+          Caption = '3D Top-and-Bottom (TAB) -> 2D'
+          OnClick = mnu3DModeItemClick
+        end
+      end
+      object mnuScaling: TMenuItem
+        Caption = 'Video &Scaling Algorithm'
+        object mnuScaleSpline36: TMenuItem
+          Tag = 0
+          Caption = 'Spline36 (Sharp High-Quality)'
+          OnClick = mnuScalingItemClick
+        end
+        object mnuScaleLanczos: TMenuItem
+          Tag = 1
+          Caption = 'Lanczos (Anti-Aliased)'
+          OnClick = mnuScalingItemClick
+        end
+        object mnuScaleBicubic: TMenuItem
+          Tag = 2
+          Caption = 'Bicubic (Balanced)'
+          OnClick = mnuScalingItemClick
+        end
+        object mnuScaleBilinear: TMenuItem
+          Tag = 3
+          Caption = 'Bilinear (Fast)'
+          OnClick = mnuScalingItemClick
+        end
+      end
     end
     object mnuSubtitle: TMenuItem
       Caption = '&Subtitle'
@@ -731,6 +998,35 @@ object FrmMain: TFrmMain
       object mnuSubDelayMinus: TMenuItem
         Caption = 'Subtitle Delay (-50ms)'
         OnClick = mnuSubDelayMinusClick
+      end
+      object mnuSubSizePlus: TMenuItem
+        Caption = 'Subtitle Font Size + (Larger)'
+        ShortCut = 32801
+        OnClick = mnuSubSizePlusClick
+      end
+      object mnuSubSizeMinus: TMenuItem
+        Caption = 'Subtitle Font Size - (Smaller)'
+        ShortCut = 32802
+        OnClick = mnuSubSizeMinusClick
+      end
+      object mnuSubMoveUp: TMenuItem
+        Caption = 'Move Subtitles Up'
+        ShortCut = 32806
+        OnClick = mnuSubMoveUpClick
+      end
+      object mnuSubMoveDown: TMenuItem
+        Caption = 'Move Subtitles Down'
+        ShortCut = 32808
+        OnClick = mnuSubMoveDownClick
+      end
+      object mnuDownloadOnlineSub: TMenuItem
+        Caption = 'Download Subtitles &Online (OpenSubtitles)...'
+        ShortCut = 24661
+        OnClick = mnuDownloadOnlineSubClick
+      end
+      object mnuTranslateSub: TMenuItem
+        Caption = '&Translate Subtitles (Online Machine Translation)...'
+        OnClick = mnuTranslateSubClick
       end
     end
     object mnuTools: TMenuItem
@@ -775,6 +1071,10 @@ object FrmMain: TFrmMain
       object mnuThemes: TMenuItem
         Caption = '&Theme / Style'
         OnClick = mnuThemesClick
+      end
+      object mnuWebRemote: TMenuItem
+        Caption = '&Web Remote Control Server (Port 8080)'
+        OnClick = mnuWebRemoteClick
       end
       object mnuSepTools: TMenuItem
         Caption = '-'
@@ -854,6 +1154,11 @@ object FrmMain: TFrmMain
     end
     object mnuHelp: TMenuItem
       Caption = '&Help'
+      object mnuHotkeys: TMenuItem
+        Caption = '&Keyboard Shortcuts Reference...'
+        ShortCut = 112
+        OnClick = mnuHotkeysClick
+      end
       object mnuAbout: TMenuItem
         Caption = '&About VLC Modern...'
         OnClick = mnuAboutClick
@@ -1044,6 +1349,29 @@ object FrmMain: TFrmMain
       object popAudioDelayMinus: TMenuItem
         Caption = 'Audio Delay (-50ms)'
         OnClick = mnuAudioDelayMinusClick
+      end
+      object popSepAudioFilters: TMenuItem
+        Caption = '-'
+      end
+      object popVoiceClarifier: TMenuItem
+        Caption = 'Voice &Clarifier (Dialogue Boost)'
+        OnClick = mnuVoiceClarifierClick
+      end
+      object popNightMode: TMenuItem
+        Caption = '&Night Mode (Compress Loud Audio)'
+        OnClick = mnuNightModeClick
+      end
+      object popHeadphoneSurround: TMenuItem
+        Caption = '3D &Headphone Surround (HRTF)'
+        OnClick = mnuHeadphoneSurroundClick
+      end
+      object popKaraokeMode: TMenuItem
+        Caption = '&Voice Removal (Karaoke Mode)'
+        OnClick = mnuKaraokeModeClick
+      end
+      object popAudioPassthrough: TMenuItem
+        Caption = 'Digital Audio &Passthrough (S/PDIF / HDMI)'
+        OnClick = mnuAudioPassthroughClick
       end
       object popEQPresets: TMenuItem
         Caption = 'Equalizer Presets'

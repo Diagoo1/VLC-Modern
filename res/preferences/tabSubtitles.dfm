@@ -66,7 +66,7 @@ object tabSubtitles: TTabSheet
         'Eastern European (Windows-1250)'
         'Cyrillic (Windows-1251)')
     end
-    object chkSubBold: TCheckBox
+    object chkSubBold: TPlayerCheckBox
       Left = 280
       Top = 104
       Width = 150
@@ -76,7 +76,7 @@ object tabSubtitles: TTabSheet
       State = cbChecked
       TabOrder = 3
     end
-    object chkSubAutoLoad: TCheckBox
+    object chkSubAutoLoad: TPlayerCheckBox
       Left = 18
       Top = 138
       Width = 350

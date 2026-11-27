@@ -8,7 +8,21 @@ type
   TProgramme = record
     StartUTC, EndUTC: TDateTime;
     Title: string;
+    Description: string;
   end;
+
+  TEPGCurrentInfo = record
+    HasProgram: Boolean;
+    CurrentTitle: string;
+    CurrentDescription: string;
+    CurrentStartLocal: TDateTime;
+    CurrentEndLocal: TDateTime;
+    ProgressPercent: Integer;
+    NextTitle: string;
+    NextStartLocal: TDateTime;
+    NextEndLocal: TDateTime;
+  end;
+
   TProgrammeGuide = class
   private
     FChannels: TObjectDictionary<string, TList<TProgramme>>;
@@ -17,11 +31,12 @@ type
     destructor Destroy; override;
     procedure LoadXML(const Content: string);
     function Describe(const ChannelID: string; NowUTC: TDateTime): string;
+    function GetCurrentProgram(const ChannelID: string; NowUTC: TDateTime): TEPGCurrentInfo;
   end;
 
 implementation
 
-uses Xml.XMLIntf, Xml.XMLDoc, System.DateUtils;
+uses Xml.XMLIntf, Xml.XMLDoc, System.DateUtils, System.Math;
 
 function XMLTVTime(const Text: string; out Value: TDateTime): Boolean;
 var S: string; Offset: Integer;
@@ -59,7 +74,7 @@ begin
 end;
 
 procedure TProgrammeGuide.LoadXML(const Content: string);
-var Doc: IXMLDocument; Root, Node, Title: IXMLNode; I: Integer;
+var Doc: IXMLDocument; Root, Node, Title, DescNode: IXMLNode; I: Integer;
     Channel: string; Item: TProgramme; Entries: TList<TProgramme>;
     Parsed: TObjectDictionary<string, TList<TProgramme>>;
 begin
@@ -82,6 +97,9 @@ begin
       Title := Node.ChildNodes.FindNode('title');
       if Title = nil then Continue;
       Item.Title := Title.Text;
+      DescNode := Node.ChildNodes.FindNode('desc');
+      if DescNode <> nil then Item.Description := DescNode.Text else Item.Description := '';
+
       if not Parsed.TryGetValue(Channel, Entries) then
       begin
         Entries := TList<TProgramme>.Create;
@@ -109,6 +127,54 @@ begin
       Inc(Count);
       if Count = 5 then Break;
     end;
+end;
+
+function TProgrammeGuide.GetCurrentProgram(const ChannelID: string; NowUTC: TDateTime): TEPGCurrentInfo;
+var
+  Entries: TList<TProgramme>;
+  Item: TProgramme;
+  I: Integer;
+  TotalSec, ElapsedSec: Int64;
+begin
+  FillChar(Result, SizeOf(Result), 0);
+  Result.HasProgram := False;
+  if not FChannels.TryGetValue(ChannelID, Entries) or (Entries.Count = 0) then Exit;
+
+  for I := 0 to Entries.Count - 1 do
+  begin
+    Item := Entries[I];
+    if (NowUTC >= Item.StartUTC) and (NowUTC < Item.EndUTC) then
+    begin
+      Result.HasProgram := True;
+      Result.CurrentTitle := Item.Title;
+      Result.CurrentDescription := Item.Description;
+      Result.CurrentStartLocal := TTimeZone.Local.ToLocalTime(Item.StartUTC);
+      Result.CurrentEndLocal := TTimeZone.Local.ToLocalTime(Item.EndUTC);
+
+      TotalSec := SecondsBetween(Item.EndUTC, Item.StartUTC);
+      ElapsedSec := SecondsBetween(NowUTC, Item.StartUTC);
+      if TotalSec > 0 then
+        Result.ProgressPercent := EnsureRange(Round((ElapsedSec / TotalSec) * 100), 0, 100)
+      else
+        Result.ProgressPercent := 0;
+
+      // Check next program
+      if I + 1 < Entries.Count then
+      begin
+        Result.NextTitle := Entries[I + 1].Title;
+        Result.NextStartLocal := TTimeZone.Local.ToLocalTime(Entries[I + 1].StartUTC);
+        Result.NextEndLocal := TTimeZone.Local.ToLocalTime(Entries[I + 1].EndUTC);
+      end;
+      Break;
+    end
+    else if (Item.StartUTC > NowUTC) and not Result.HasProgram then
+    begin
+      Result.NextTitle := Item.Title;
+      Result.NextStartLocal := TTimeZone.Local.ToLocalTime(Item.StartUTC);
+      Result.NextEndLocal := TTimeZone.Local.ToLocalTime(Item.EndUTC);
+      Break;
+    end;
+  end;
 end;
 
 end.

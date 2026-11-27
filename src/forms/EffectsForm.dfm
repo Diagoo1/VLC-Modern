@@ -44,7 +44,7 @@ object FrmEffects: TFrmEffects
             Align = alTop
             BevelOuter = bvNone
             TabOrder = 0
-            object chkEnableEQ: TCheckBox
+            object chkEnableEQ: TPlayerCheckBox
               Left = 16
               Top = 10
               Width = 60
@@ -53,7 +53,7 @@ object FrmEffects: TFrmEffects
               TabOrder = 0
               OnClick = chkEnableEQClick
             end
-            object chk2Pass: TCheckBox
+            object chk2Pass: TPlayerCheckBox
               Left = 82
               Top = 10
               Width = 60
@@ -77,7 +77,7 @@ object FrmEffects: TFrmEffects
               TabOrder = 2
               OnChange = cboPresetsChange
             end
-            object btnResetEQ: TButton
+            object btnResetEQ: TPlayerTextButton
               Left = 450
               Top = 7
               Width = 95
@@ -179,20 +179,18 @@ object FrmEffects: TFrmEffects
           Height = 15
           Caption = '16kHz'
         end
-        object tbPreamp: TTrackBar
+        object tbPreamp: TPlayerSlider
           Left = 20
           Top = 28
           Width = 35
           Height = 180
           Max = 20
           Min = -20
-          Orientation = trVertical
+          Orientation = psoVertical
           TabOrder = 0
-          ThumbLength = 15
-          TickStyle = tsNone
           OnChange = tbPreampChange
         end
-        object tbBand0: TTrackBar
+        object tbBand0: TPlayerSlider
           Tag = 0
           Left = 82
           Top = 28
@@ -200,13 +198,11 @@ object FrmEffects: TFrmEffects
           Height = 180
           Max = 20
           Min = -20
-          Orientation = trVertical
+          Orientation = psoVertical
           TabOrder = 1
-          ThumbLength = 15
-          TickStyle = tsNone
           OnChange = tbBandChange
         end
-        object tbBand1: TTrackBar
+        object tbBand1: TPlayerSlider
           Tag = 1
           Left = 132
           Top = 28
@@ -214,13 +210,11 @@ object FrmEffects: TFrmEffects
           Height = 180
           Max = 20
           Min = -20
-          Orientation = trVertical
+          Orientation = psoVertical
           TabOrder = 2
-          ThumbLength = 15
-          TickStyle = tsNone
           OnChange = tbBandChange
         end
-        object tbBand2: TTrackBar
+        object tbBand2: TPlayerSlider
           Tag = 2
           Left = 182
           Top = 28
@@ -228,13 +222,11 @@ object FrmEffects: TFrmEffects
           Height = 180
           Max = 20
           Min = -20
-          Orientation = trVertical
+          Orientation = psoVertical
           TabOrder = 3
-          ThumbLength = 15
-          TickStyle = tsNone
           OnChange = tbBandChange
         end
-        object tbBand3: TTrackBar
+        object tbBand3: TPlayerSlider
           Tag = 3
           Left = 232
           Top = 28
@@ -242,13 +234,11 @@ object FrmEffects: TFrmEffects
           Height = 180
           Max = 20
           Min = -20
-          Orientation = trVertical
+          Orientation = psoVertical
           TabOrder = 4
-          ThumbLength = 15
-          TickStyle = tsNone
           OnChange = tbBandChange
         end
-        object tbBand4: TTrackBar
+        object tbBand4: TPlayerSlider
           Tag = 4
           Left = 282
           Top = 28
@@ -256,13 +246,11 @@ object FrmEffects: TFrmEffects
           Height = 180
           Max = 20
           Min = -20
-          Orientation = trVertical
+          Orientation = psoVertical
           TabOrder = 5
-          ThumbLength = 15
-          TickStyle = tsNone
           OnChange = tbBandChange
         end
-        object tbBand5: TTrackBar
+        object tbBand5: TPlayerSlider
           Tag = 5
           Left = 332
           Top = 28
@@ -270,13 +258,11 @@ object FrmEffects: TFrmEffects
           Height = 180
           Max = 20
           Min = -20
-          Orientation = trVertical
+          Orientation = psoVertical
           TabOrder = 6
-          ThumbLength = 15
-          TickStyle = tsNone
           OnChange = tbBandChange
         end
-        object tbBand6: TTrackBar
+        object tbBand6: TPlayerSlider
           Tag = 6
           Left = 382
           Top = 28
@@ -284,13 +270,11 @@ object FrmEffects: TFrmEffects
           Height = 180
           Max = 20
           Min = -20
-          Orientation = trVertical
+          Orientation = psoVertical
           TabOrder = 7
-          ThumbLength = 15
-          TickStyle = tsNone
           OnChange = tbBandChange
         end
-        object tbBand7: TTrackBar
+        object tbBand7: TPlayerSlider
           Tag = 7
           Left = 432
           Top = 28
@@ -298,13 +282,11 @@ object FrmEffects: TFrmEffects
           Height = 180
           Max = 20
           Min = -20
-          Orientation = trVertical
+          Orientation = psoVertical
           TabOrder = 8
-          ThumbLength = 15
-          TickStyle = tsNone
           OnChange = tbBandChange
         end
-        object tbBand8: TTrackBar
+        object tbBand8: TPlayerSlider
           Tag = 8
           Left = 482
           Top = 28
@@ -312,13 +294,11 @@ object FrmEffects: TFrmEffects
           Height = 180
           Max = 20
           Min = -20
-          Orientation = trVertical
+          Orientation = psoVertical
           TabOrder = 9
-          ThumbLength = 15
-          TickStyle = tsNone
           OnChange = tbBandChange
         end
-        object tbBand9: TTrackBar
+        object tbBand9: TPlayerSlider
           Tag = 9
           Left = 532
           Top = 28
@@ -326,10 +306,8 @@ object FrmEffects: TFrmEffects
           Height = 180
           Max = 20
           Min = -20
-          Orientation = trVertical
+          Orientation = psoVertical
           TabOrder = 10
-          ThumbLength = 15
-          TickStyle = tsNone
           OnChange = tbBandChange
         end
       end
@@ -337,7 +315,7 @@ object FrmEffects: TFrmEffects
     object tabCompressor: TTabSheet
       Caption = 'Compressor'
       ImageIndex = 1
-      object chkEnableCompressor: TCheckBox
+      object chkEnableCompressor: TPlayerCheckBox
         Left = 20
         Top = 15
         Width = 260
@@ -349,7 +327,7 @@ object FrmEffects: TFrmEffects
     object tabSpatializer: TTabSheet
       Caption = 'Spatializer'
       ImageIndex = 2
-      object chkEnableSpatializer: TCheckBox
+      object chkEnableSpatializer: TPlayerCheckBox
         Left = 20
         Top = 15
         Width = 200
@@ -361,7 +339,7 @@ object FrmEffects: TFrmEffects
     object tabStereoWidener: TTabSheet
       Caption = 'Stereo Widener'
       ImageIndex = 3
-      object chkEnableWidener: TCheckBox
+      object chkEnableWidener: TPlayerCheckBox
         Left = 20
         Top = 15
         Width = 200
@@ -382,7 +360,7 @@ end
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 0
-        object chkEnableAdjust: TCheckBox
+        object chkEnableAdjust: TPlayerCheckBox
           Left = 20
           Top = 15
           Width = 160
@@ -405,7 +383,7 @@ end
           Height = 15
           Caption = '1.00'
         end
-        object tbContrast: TTrackBar
+        object tbContrast: TPlayerSlider
           Left = 120
           Top = 50
           Width = 300
@@ -413,8 +391,6 @@ end
           Max = 200
           Position = 100
           TabOrder = 1
-          ThumbLength = 14
-          TickStyle = tsNone
           OnChange = tbVideoAdjustChange
         end
         object lblBrightness: TLabel
@@ -431,7 +407,7 @@ end
           Height = 15
           Caption = '1.00'
         end
-        object tbBrightness: TTrackBar
+        object tbBrightness: TPlayerSlider
           Left = 120
           Top = 90
           Width = 300
@@ -439,8 +415,6 @@ end
           Max = 200
           Position = 100
           TabOrder = 2
-          ThumbLength = 14
-          TickStyle = tsNone
           OnChange = tbVideoAdjustChange
         end
         object lblHue: TLabel
@@ -457,7 +431,7 @@ end
           Height = 15
           Caption = '0 deg'
         end
-        object tbHue: TTrackBar
+        object tbHue: TPlayerSlider
           Left = 120
           Top = 130
           Width = 300
@@ -466,8 +440,6 @@ end
           Min = -180
           Position = 0
           TabOrder = 3
-          ThumbLength = 14
-          TickStyle = tsNone
           OnChange = tbVideoAdjustChange
         end
         object lblSaturation: TLabel
@@ -484,7 +456,7 @@ end
           Height = 15
           Caption = '1.00'
         end
-        object tbSaturation: TTrackBar
+        object tbSaturation: TPlayerSlider
           Left = 120
           Top = 170
           Width = 300
@@ -492,8 +464,6 @@ end
           Max = 300
           Position = 100
           TabOrder = 4
-          ThumbLength = 14
-          TickStyle = tsNone
           OnChange = tbVideoAdjustChange
         end
         object lblGamma: TLabel
@@ -510,7 +480,7 @@ end
           Height = 15
           Caption = '1.00'
         end
-        object tbGamma: TTrackBar
+        object tbGamma: TPlayerSlider
           Left = 120
           Top = 210
           Width = 300
@@ -518,11 +488,9 @@ end
           Max = 1000
           Position = 100
           TabOrder = 5
-          ThumbLength = 14
-          TickStyle = tsNone
           OnChange = tbVideoAdjustChange
         end
-        object btnResetVideo: TButton
+        object btnResetVideo: TPlayerTextButton
           Left = 120
           Top = 260
           Width = 120
@@ -543,13 +511,16 @@ end
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 0
-        object grpAudioSync: TGroupBox
+        object grpAudioSync: TModernCardPanel
           Left = 20
           Top = 20
           Width = 550
           Height = 120
-          Caption = 'Audio / Video Synchronization'
-          TabOrder = 0
+          object lblAudioSyncTitle: TLabel
+            Left = 16
+            Top = 12
+            Caption = 'Audio / Video Synchronization'
+          end
           object lblAudioDelay: TLabel
             Left = 20
             Top = 35
@@ -564,7 +535,7 @@ end
             Height = 15
             Caption = '0 ms'
           end
-          object tbAudioDelay: TTrackBar
+          object tbAudioDelay: TPlayerSlider
             Left = 20
             Top = 60
             Width = 380
@@ -573,11 +544,9 @@ end
             Min = -5000
             Position = 0
             TabOrder = 0
-            ThumbLength = 14
-            TickStyle = tsNone
             OnChange = tbAudioDelayChange
           end
-          object btnAudioDelayMinus: TButton
+          object btnAudioDelayMinus: TPlayerTextButton
             Left = 415
             Top = 60
             Width = 45
@@ -586,7 +555,7 @@ end
             TabOrder = 1
             OnClick = btnAudioDelayMinusClick
           end
-          object btnAudioDelayPlus: TButton
+          object btnAudioDelayPlus: TPlayerTextButton
             Left = 465
             Top = 60
             Width = 45
@@ -596,13 +565,16 @@ end
             OnClick = btnAudioDelayPlusClick
           end
         end
-        object grpSubSync: TGroupBox
+        object grpSubSync: TModernCardPanel
           Left = 20
           Top = 155
           Width = 550
           Height = 120
-          Caption = 'Subtitle Synchronization'
-          TabOrder = 1
+          object lblSubSyncTitle: TLabel
+            Left = 16
+            Top = 12
+            Caption = 'Subtitle Synchronization'
+          end
           object lblSubDelay: TLabel
             Left = 20
             Top = 35
@@ -617,7 +589,7 @@ end
             Height = 15
             Caption = '0 ms'
           end
-          object tbSubDelay: TTrackBar
+          object tbSubDelay: TPlayerSlider
             Left = 20
             Top = 60
             Width = 380
@@ -626,11 +598,9 @@ end
             Min = -5000
             Position = 0
             TabOrder = 0
-            ThumbLength = 14
-            TickStyle = tsNone
             OnChange = tbSubDelayChange
           end
-          object btnSubDelayMinus: TButton
+          object btnSubDelayMinus: TPlayerTextButton
             Left = 415
             Top = 60
             Width = 45
@@ -639,7 +609,7 @@ end
             TabOrder = 1
             OnClick = btnSubDelayMinusClick
           end
-          object btnSubDelayPlus: TButton
+          object btnSubDelayPlus: TPlayerTextButton
             Left = 465
             Top = 60
             Width = 45
@@ -660,7 +630,7 @@ end
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 1
-    object btnSave: TButton
+    object btnSave: TPlayerTextButton
       Left = 390
       Top = 8
       Width = 90
@@ -669,7 +639,7 @@ end
       TabOrder = 0
       OnClick = btnSaveClick
     end
-    object btnClose: TButton
+    object btnClose: TPlayerTextButton
       Left = 490
       Top = 8
       Width = 90

@@ -54,7 +54,7 @@ object tabAudio: TTabSheet
         'Right channel'
         'Dolby stereo')
     end
-    object chkRememberVolume: TCheckBox
+    object chkRememberVolume: TPlayerCheckBox
       Left = 18
       Top = 86
       Width = 320
@@ -64,7 +64,7 @@ object tabAudio: TTabSheet
       State = cbChecked
       TabOrder = 2
     end
-    object chkNormalizer: TCheckBox
+    object chkNormalizer: TPlayerCheckBox
       Left = 18
       Top = 110
       Width = 320
@@ -100,13 +100,12 @@ object tabAudio: TTabSheet
       Font.Style = [fsBold]
       ParentFont = False
     end
-    object tbDefaultVol: TTrackBar
+    object tbDefaultVol: TPlayerSlider
       Left = 14
       Top = 48
       Width = 420
       Height = 35
       Max = 200
-      Frequency = 20
       Position = 100
       TabOrder = 0
       OnChange = tbDefaultVolChange

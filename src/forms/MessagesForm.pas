@@ -10,10 +10,10 @@ uses
 type
   TFrmMessages = class(TForm)
     pnlBottom: TPanel;
-    btnCopy: TButton;
-    btnClear: TButton;
-    btnSave: TButton;
-    btnClose: TButton;
+    btnCopy: TPlayerTextButton;
+    btnClear: TPlayerTextButton;
+    btnSave: TPlayerTextButton;
+    btnClose: TPlayerTextButton;
     memoLog: TMemo;
     SaveDialogLog: TSaveDialog;
 
@@ -59,7 +59,7 @@ end;
 procedure TFrmMessages.AfterConstruction;
 begin
   inherited;
-  ApplyPlayerAppearance(Self);
+  ApplyPlayerAppearance(Self, True);
   if GLogBuffer <> nil then
     memoLog.Lines.Assign(GLogBuffer);
 end;

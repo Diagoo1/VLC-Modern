@@ -29,7 +29,7 @@ object FrmConvert: TFrmConvert
     Height = 23
     TabOrder = 0
   end
-  object btnBrowseSource: TButton
+  object btnBrowseSource: TPlayerTextButton
     Left = 404
     Top = 35
     Width = 80
@@ -74,7 +74,7 @@ object FrmConvert: TFrmConvert
     Height = 23
     TabOrder = 3
   end
-  object btnBrowseDest: TButton
+  object btnBrowseDest: TPlayerTextButton
     Left = 404
     Top = 154
     Width = 80
@@ -90,7 +90,7 @@ object FrmConvert: TFrmConvert
     Height = 65
     BevelOuter = bvNone
     TabOrder = 5
-    object pbConvert: TProgressBar
+    object pbConvert: TPlayerProgress
       Left = 0
       Top = 10
       Width = 468
@@ -113,7 +113,7 @@ object FrmConvert: TFrmConvert
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 6
-    object btnClose: TButton
+    object btnClose: TPlayerTextButton
       Left = 398
       Top = 8
       Width = 90
@@ -122,7 +122,7 @@ object FrmConvert: TFrmConvert
       TabOrder = 0
       OnClick = btnCloseClick
     end
-    object btnStart: TButton
+    object btnStart: TPlayerTextButton
       Left = 280
       Top = 8
       Width = 110

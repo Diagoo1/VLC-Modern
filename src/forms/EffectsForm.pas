@@ -5,7 +5,7 @@ interface
 uses SettingsStore,
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls,
-  Vcl.ComCtrls, Vcl.ExtCtrls, LibVLC;
+  Vcl.ComCtrls, Vcl.ExtCtrls, LibVLC, CurvedControls;
 
 type
   TFrmEffects = class(TForm)
@@ -23,25 +23,25 @@ type
 
     // Equalizer Controls
     pnlAudioTop: TPanel;
-    chkEnableEQ: TCheckBox;
-    chk2Pass: TCheckBox;
+    chkEnableEQ: TPlayerCheckBox;
+    chk2Pass: TPlayerCheckBox;
     lblPreset: TLabel;
     cboPresets: TComboBox;
-    btnResetEQ: TButton;
+    btnResetEQ: TPlayerTextButton;
     pnlBands: TPanel;
     lblPreamp: TLabel;
     lblPreampVal: TLabel;
-    tbPreamp: TTrackBar;
-    tbBand0: TTrackBar;
-    tbBand1: TTrackBar;
-    tbBand2: TTrackBar;
-    tbBand3: TTrackBar;
-    tbBand4: TTrackBar;
-    tbBand5: TTrackBar;
-    tbBand6: TTrackBar;
-    tbBand7: TTrackBar;
-    tbBand8: TTrackBar;
-    tbBand9: TTrackBar;
+    tbPreamp: TPlayerSlider;
+    tbBand0: TPlayerSlider;
+    tbBand1: TPlayerSlider;
+    tbBand2: TPlayerSlider;
+    tbBand3: TPlayerSlider;
+    tbBand4: TPlayerSlider;
+    tbBand5: TPlayerSlider;
+    tbBand6: TPlayerSlider;
+    tbBand7: TPlayerSlider;
+    tbBand8: TPlayerSlider;
+    tbBand9: TPlayerSlider;
     lblBand0: TLabel;
     lblBand1: TLabel;
     lblBand2: TLabel;
@@ -54,48 +54,49 @@ type
     lblBand9: TLabel;
 
     // Sub-tab toggles
-    chkEnableCompressor: TCheckBox;
-    chkEnableSpatializer: TCheckBox;
-    chkEnableWidener: TCheckBox;
+    chkEnableCompressor: TPlayerCheckBox;
+    chkEnableSpatializer: TPlayerCheckBox;
+    chkEnableWidener: TPlayerCheckBox;
 
     // Video Tab
     pnlVideoAdjust: TPanel;
-    chkEnableAdjust: TCheckBox;
+    chkEnableAdjust: TPlayerCheckBox;
     lblContrast: TLabel;
     lblContrastVal: TLabel;
-    tbContrast: TTrackBar;
+    tbContrast: TPlayerSlider;
     lblBrightness: TLabel;
     lblBrightnessVal: TLabel;
-    tbBrightness: TTrackBar;
+    tbBrightness: TPlayerSlider;
     lblHue: TLabel;
     lblHueVal: TLabel;
-    tbHue: TTrackBar;
+    tbHue: TPlayerSlider;
     lblSaturation: TLabel;
     lblSaturationVal: TLabel;
-    tbSaturation: TTrackBar;
+    tbSaturation: TPlayerSlider;
     lblGamma: TLabel;
     lblGammaVal: TLabel;
-    tbGamma: TTrackBar;
-    btnResetVideo: TButton;
+    tbGamma: TPlayerSlider;
+    btnResetVideo: TPlayerTextButton;
 
     // Sync Tab
     pnlSync: TPanel;
-    grpAudioSync: TGroupBox;
+    grpAudioSync: TModernCardPanel;
     lblAudioDelay: TLabel;
     lblAudioDelayVal: TLabel;
-    tbAudioDelay: TTrackBar;
-    btnAudioDelayMinus: TButton;
-    btnAudioDelayPlus: TButton;
-    grpSubSync: TGroupBox;
+    tbAudioDelay: TPlayerSlider;
+    btnAudioDelayMinus: TPlayerTextButton;
+    btnAudioDelayPlus: TPlayerTextButton;
+    grpSubSync: TModernCardPanel;
+    lblAudioSyncTitle, lblSubSyncTitle: TLabel;
     lblSubDelay: TLabel;
     lblSubDelayVal: TLabel;
-    tbSubDelay: TTrackBar;
-    btnSubDelayMinus: TButton;
-    btnSubDelayPlus: TButton;
+    tbSubDelay: TPlayerSlider;
+    btnSubDelayMinus: TPlayerTextButton;
+    btnSubDelayPlus: TPlayerTextButton;
 
     pnlBottom: TPanel;
-    btnSave: TButton;
-    btnClose: TButton;
+    btnSave: TPlayerTextButton;
+    btnClose: TPlayerTextButton;
 
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -124,15 +125,23 @@ type
     procedure chkEnableWidenerClick(Sender: TObject);
     procedure OnGenericSliderChange(Sender: TObject);
 
+  protected
+    procedure CreateParams(var Params: TCreateParams); override;
   private
     FEqualizer: Plibvlc_equalizer_t;
-    FBands: array[0..9] of TTrackBar;
+    FBands: array[0..9] of TPlayerSlider;
     FBandValues: array[0..9] of TLabel;
     FCompressorControls: TList;
     FSpatializerControls: TList;
     FWidenerControls: TList;
     FUpdatingUI: Boolean;
     FLayoutBusy: Boolean;
+    FPrepareEmbedded: Boolean;
+    FResetNotice: TLabel;
+    FResetNoticeTimer: TTimer;
+    procedure FrameEffectPage(Page: TTabSheet);
+    procedure ShowResetNotice;
+    procedure HideResetNotice(Sender: TObject);
     procedure ResetPage(Sender: TObject);
     procedure AddResetActions;
     procedure LayoutEffects(Sender: TObject);
@@ -142,8 +151,10 @@ type
     procedure ApplyVideoAdjustments;
     procedure LoadEffects;
   public
+    constructor CreateForEmbedding(AOwner: TComponent);
     procedure AfterConstruction; override;
     procedure InitializeWithPlayer;
+    procedure PrepareEffectTabs;
     procedure SyncSyncTab;
     procedure ApplyPresetIndex(AIndex: Integer);
   end;
@@ -153,41 +164,159 @@ var
 
 implementation
 
-uses PlayerDialogs, MainForm, System.IniFiles, CurvedControls, System.Math;
+uses PlayerDialogs, MainForm, System.IniFiles, System.Math, PlayerLanguage;
 
 {$R *.dfm}
+
+constructor TFrmEffects.CreateForEmbedding(AOwner: TComponent);
+begin
+  FPrepareEmbedded := True;
+  inherited Create(AOwner);
+end;
 
 procedure TFrmEffects.AfterConstruction;
 begin
   inherited;
-  LoadEffects;
-  BorderStyle := bsSizeable;
-  Constraints.MinWidth := MulDiv(720, CurrentPPI, 96);
-  Constraints.MinHeight := MulDiv(500, CurrentPPI, 96);
-  ClientWidth := MulDiv(760, CurrentPPI, 96);
-  ClientHeight := MulDiv(520, CurrentPPI, 96);
+  DisableAlign;
+  try
+    LoadEffects;
+    BorderStyle := bsSizeable;
+    Constraints.MinWidth := MulDiv(720, CurrentPPI, 96);
+    Constraints.MinHeight := MulDiv(500, CurrentPPI, 96);
+    ClientWidth := MulDiv(760, CurrentPPI, 96);
+    ClientHeight := MulDiv(520, CurrentPPI, 96);
+    AddResetActions;
+    for var Page in [tabEQ, tabCompressor, tabSpatializer, tabStereoWidener, tabVideo] do
+      FrameEffectPage(Page);
+  finally
+    EnableAlign;
+  end;
   OnResize := LayoutEffects;
-  AddResetActions;
-  ApplyPlayerAppearance(Self);
-  LayoutEffects(nil);
+  if not FPrepareEmbedded then
+  begin
+    ApplyPlayerAppearance(Self);
+    PrepareEffectTabs;
+    LayoutEffects(nil);
+  end;
+end;
+
+procedure TFrmEffects.FrameEffectPage(Page: TTabSheet);
+begin
+  Page.DisableAlign;
+  try
+    var Card := TModernCardPanel.Create(Self);
+    var Body := TPanel.Create(Self);
+    Body.BevelOuter := bvNone;
+    Body.ParentBackground := False;
+    Body.Color := DP_COLOR_SURFACE;
+    Body.SetBounds(0, 0, Page.ClientWidth, Page.ClientHeight);
+    while Page.ControlCount > 0 do Page.Controls[0].Parent := Body;
+    Card.Parent := Page;
+    Card.CardColor := DP_COLOR_SURFACE;
+    Card.BorderColor := DP_COLOR_BORDER;
+    Card.AlignWithMargins := True;
+    Card.Margins.SetBounds(10, 8, 10, 8);
+    Card.Align := alClient;
+    var Heading := TLabel.Create(Self);
+    Heading.Parent := Card;
+    Heading.AlignWithMargins := True;
+    Heading.Margins.SetBounds(16, 7, 16, 0);
+    Heading.Align := alTop;
+    Heading.Caption := Translate(Page.Caption);
+    Heading.Font.Style := [fsBold];
+    if PlayerIsArabic then Heading.Alignment := taRightJustify;
+    Body.Parent := Card;
+    Body.AlignWithMargins := True;
+    Body.Margins.SetBounds(5, 0, 5, 5);
+    Body.Align := alClient;
+  finally
+    Page.EnableAlign;
+  end;
+end;
+
+procedure TFrmEffects.ShowResetNotice;
+begin
+  if FResetNotice = nil then
+  begin
+    FResetNotice := TLabel.Create(Self);
+    FResetNotice.Parent := Self;
+    FResetNotice.Align := alBottom;
+    FResetNotice.AutoSize := False;
+    FResetNotice.Height := MulDiv(28, CurrentPPI, 96);
+    FResetNotice.Alignment := taCenter;
+    FResetNotice.Layout := tlCenter;
+    FResetNotice.Font.Name := PlayerUIFont;
+    FResetNotice.Font.Color := DP_COLOR_ACCENT;
+    FResetNoticeTimer := TTimer.Create(Self);
+    FResetNoticeTimer.Enabled := False;
+    FResetNoticeTimer.Interval := 2200;
+    FResetNoticeTimer.OnTimer := HideResetNotice;
+  end;
+  FResetNotice.Caption := Translate('Defaults restored');
+  FResetNotice.Visible := True;
+  FResetNoticeTimer.Enabled := False;
+  FResetNoticeTimer.Enabled := True;
+end;
+
+procedure TFrmEffects.HideResetNotice(Sender: TObject);
+begin
+  FResetNoticeTimer.Enabled := False;
+  FResetNotice.Visible := False;
+end;
+
+procedure TFrmEffects.PrepareEffectTabs;
+begin
+  for var I := 0 to PageControl1.PageCount - 1 do
+    PreparePlayerPageAppearance(PageControl1.Pages[I]);
+  for var I := 0 to PageControlAudio.PageCount - 1 do
+    PreparePlayerPageAppearance(PageControlAudio.Pages[I]);
+end;
+
+procedure TFrmEffects.CreateParams(var Params: TCreateParams);
+begin
+  inherited;
+  if Parent = nil then Params.ExStyle := Params.ExStyle or WS_EX_COMPOSITED;
 end;
 
 procedure TFrmEffects.LayoutEffects(Sender: TObject);
   function S(Value: Integer): Integer;
   begin Result := MulDiv(Value, CurrentPPI, 96); end;
+  procedure PlaceLabel(L: TLabel; X, Y, W: Integer; IsValue: Boolean = False);
+  begin
+    L.AutoSize := False;
+    if IsValue then L.BiDiMode := bdLeftToRight
+    else if PlayerIsArabic then L.Alignment := taRightJustify;
+    PlaceLocalized(L, X, Y, W, S(27));
+  end;
+  procedure SyncCard(Card: TModernCardPanel; Title, NameLabel, ValueLabel: TLabel;
+    Slider: TPlayerSlider; MinusButton, PlusButton: TPlayerTextButton; Y: Integer);
+  begin
+    Card.SetBounds(S(20), S(Y), Max(S(260), pnlSync.ClientWidth-S(40)), S(120));
+    Card.CardColor := DP_COLOR_SURFACE;
+    Card.BorderColor := DP_COLOR_BORDER;
+    Title.Font.Style := [fsBold];
+    PlaceLabel(Title, S(18), S(10), Card.ClientWidth-S(36));
+    PlaceLabel(NameLabel, S(18), S(42), Card.ClientWidth-S(140));
+    PlaceLabel(ValueLabel, Card.ClientWidth-S(120), S(42), S(100), True);
+    PlaceLocalized(Slider, S(18), S(72), Card.ClientWidth-S(163), S(32));
+    PlaceLocalized(MinusButton, Card.ClientWidth-S(132), S(72), S(52), S(30));
+    PlaceLocalized(PlusButton, Card.ClientWidth-S(73), S(72), S(52), S(30));
+  end;
   procedure Rows(Items: TList);
   begin
     for var I := 0 to Items.Count div 3 - 1 do
     begin
       var NameLabel := TLabel(Items[I * 3]);
-      var Slider := TTrackBar(Items[I * 3 + 1]);
+      var Slider := TPlayerSlider(Items[I * 3 + 1]);
       var ValueLabel := TLabel(Items[I * 3 + 2]);
       var RowY := S(66 + I * 42);
       NameLabel.AutoSize := False;
-      NameLabel.SetBounds(S(24), RowY + S(5), S(150), S(24));
-      Slider.SetBounds(S(186), RowY, Max(S(120), Slider.Parent.ClientWidth - S(304)), S(32));
+      if PlayerIsArabic then NameLabel.Alignment := taRightJustify;
+      PlaceLocalized(NameLabel, S(24), RowY + S(5), S(150), S(24));
+      PlaceLocalized(Slider, S(186), RowY, Max(S(120), Slider.Parent.ClientWidth - S(304)), S(32));
       ValueLabel.AutoSize := False;
-      ValueLabel.SetBounds(Slider.Left + Slider.Width + S(16), RowY + S(5), S(86), S(24));
+      ValueLabel.BiDiMode := bdLeftToRight;
+      PlaceLocalized(ValueLabel, S(202) + Slider.Width, RowY + S(5), S(86), S(24));
     end;
   end;
 begin
@@ -195,14 +324,24 @@ begin
   FLayoutBusy:=True;
   DisableAlign;
   try
-  pnlBottom.Height := S(56);
-  btnClose.SetBounds(pnlBottom.ClientWidth - S(124), S(12), S(108), S(32));
-  btnSave.SetBounds(btnClose.Left - S(120), S(12), S(108), S(32));
-  pnlAudioTop.Height := S(56);
+  if pnlBottom.Height <> S(56) then pnlBottom.Height := S(56);
+  PlaceLocalized(btnClose, pnlBottom.ClientWidth - S(124), S(12), S(108), S(32));
+  PlaceLocalized(btnSave, pnlBottom.ClientWidth - S(244), S(12), S(108), S(32));
+  if pnlAudioTop.Height <> S(56) then pnlAudioTop.Height := S(56);
   PageControl1.TabHeight := S(36);
   PageControlAudio.TabHeight := S(30);
-  cboPresets.SetBounds(S(204), S(12), Max(S(130), pnlAudioTop.ClientWidth - S(350)), S(30));
-  btnResetEQ.SetBounds(pnlAudioTop.ClientWidth - S(130), S(12), S(114), S(30));
+  if PlayerIsArabic then
+  begin
+    PlaceLocalized(chkEnableEQ, S(16), S(12), S(64), S(30));
+    PlaceLocalized(chk2Pass, S(86), S(12), S(105), S(30));
+    lblPreset.AutoSize := False;
+    lblPreset.Alignment := taRightJustify;
+    PlaceLocalized(lblPreset, S(197), S(16), S(80), S(24));
+    PlaceLocalized(cboPresets, S(286), S(12), Max(S(120), pnlAudioTop.ClientWidth - S(430)), S(30));
+  end
+  else
+    cboPresets.SetBounds(S(204), S(12), Max(S(130), pnlAudioTop.ClientWidth - S(350)), S(30));
+  PlaceLocalized(btnResetEQ, pnlAudioTop.ClientWidth - S(130), S(12), S(114), S(30));
   var Labels: array[0..10] of TLabel;
   Labels[0] := lblPreamp;
   Labels[1] := lblBand0; Labels[2] := lblBand1; Labels[3] := lblBand2;
@@ -215,8 +354,14 @@ begin
     var ValueLabel := lblPreampVal;
     if I > 0 then begin Slider := FBands[I - 1]; ValueLabel := FBandValues[I - 1]; end;
     var Center := S(16) + I * CellWidth + CellWidth div 2;
+    if PlayerIsArabic then Center := pnlBands.ClientWidth - Center;
     var BandHeight:=Min(pnlBands.ClientHeight,S(260));
     Slider.SetBounds(Center - S(18), S(40), S(36), Max(S(70), BandHeight - S(86)));
+    if PlayerIsArabic then
+    begin
+      ValueLabel.BiDiMode := bdLeftToRight;
+      if I > 0 then Labels[I].BiDiMode := bdLeftToRight;
+    end;
     ValueLabel.Parent.SetBounds(Center - S(23), S(10), S(46), S(22));
     Labels[I].AutoSize := False;
     Labels[I].Alignment := taCenter;
@@ -225,6 +370,25 @@ begin
   Rows(FCompressorControls);
   Rows(FSpatializerControls);
   Rows(FWidenerControls);
+  PlaceLocalized(chkEnableAdjust, S(24), S(12), S(230), S(30));
+  var VideoLabels := TArray<TLabel>.Create(lblContrast, lblBrightness, lblHue, lblSaturation, lblGamma);
+  var VideoValues := TArray<TLabel>.Create(lblContrastVal, lblBrightnessVal, lblHueVal, lblSaturationVal, lblGammaVal);
+  var VideoSliders := TArray<TPlayerSlider>.Create(tbContrast, tbBrightness, tbHue, tbSaturation, tbGamma);
+  var VideoWidth := Max(S(90), pnlVideoAdjust.ClientWidth-S(300));
+  for var I := 0 to High(VideoLabels) do
+  begin
+    var Y := S(54 + I*40);
+    PlaceLabel(VideoLabels[I], S(24), Y+S(3), S(142));
+    PlaceLocalized(VideoSliders[I], S(178), Y, VideoWidth, S(32));
+    PlaceLabel(VideoValues[I], S(194)+VideoWidth, Y+S(3), S(76), True);
+  end;
+  PlaceLocalized(btnResetVideo, S(24), S(258), S(120), S(32));
+  SyncCard(grpAudioSync, lblAudioSyncTitle, lblAudioDelay, lblAudioDelayVal,
+    tbAudioDelay, btnAudioDelayMinus, btnAudioDelayPlus, 16);
+  SyncCard(grpSubSync, lblSubSyncTitle, lblSubDelay, lblSubDelayVal,
+    tbSubDelay, btnSubDelayMinus, btnSubDelayPlus, 148);
+  for var Check in [chkEnableCompressor, chkEnableSpatializer, chkEnableWidener] do
+    PlaceLocalized(Check, S(24), S(10), Max(S(100), Check.Parent.ClientWidth - S(180)), S(30));
   finally
     EnableAlign; FLayoutBusy:=False;
 
@@ -234,10 +398,18 @@ procedure TFrmEffects.ResetPage(Sender: TObject);
   procedure ResetControls(Parent: TWinControl);
   begin
     for var I:=0 to Parent.ControlCount-1 do
-      if Parent.Controls[I] is TTrackBar then TTrackBar(Parent.Controls[I]).Position:=Parent.Controls[I].HelpContext
+      if Parent.Controls[I] is TPlayerSlider then TPlayerSlider(Parent.Controls[I]).Position:=Parent.Controls[I].HelpContext
       else if Parent.Controls[I] is TWinControl then ResetControls(TWinControl(Parent.Controls[I]));
   end;
-begin ResetControls(TButton(Sender).Parent); end;
+begin
+  ResetControls(TControl(Sender).Parent);
+  if TControl(Sender).Parent = pnlSync then
+  begin
+    tbAudioDelayChange(nil);
+    tbSubDelayChange(nil);
+  end;
+  ShowResetNotice;
+end;
 
 procedure TFrmEffects.AddResetActions;
 begin
@@ -248,18 +420,30 @@ begin
       var HasSlider:=False; var HasReset:=False;
       for var J:=0 to Page.ControlCount-1 do
       begin
-        HasSlider:=HasSlider or (Page.Controls[J] is TTrackBar);
-        if Page.Controls[J] is TButton then HasReset:=HasReset or (Pos('Reset',TButton(Page.Controls[J]).Caption)>0);
+        HasSlider:=HasSlider or (Page.Controls[J] is TPlayerSlider);
+        if Page.Controls[J] is TPlayerTextButton then HasReset:=HasReset or (Pos('Reset',TPlayerTextButton(Page.Controls[J]).Caption)>0);
       end;
       if HasSlider and not HasReset then
       begin
-        var Button:=TButton.Create(Self);
+        var Button:=TPlayerTextButton.Create(Self);
         Button.Parent:=Page; Button.Caption:='Reset';
-        Button.SetBounds(Page.ClientWidth-MulDiv(116,CurrentPPI,96),MulDiv(10,CurrentPPI,96),MulDiv(100,CurrentPPI,96),MulDiv(30,CurrentPPI,96));
-        Button.Anchors:=[akTop,akRight];
+        Button.TabStop := True;
+        var W := MulDiv(120, CurrentPPI, 96);
+        PlaceLocalized(Button, Page.ClientWidth - W - MulDiv(16, CurrentPPI, 96),
+          MulDiv(10, CurrentPPI, 96), W, MulDiv(30, CurrentPPI, 96));
+        if PlayerIsArabic then Button.Anchors := [akTop, akLeft]
+        else Button.Anchors := [akTop, akRight];
         Button.OnClick:=ResetPage;
       end;
     end;
+  var SyncReset := TPlayerTextButton.Create(Self);
+  SyncReset.Parent := pnlSync;
+  SyncReset.Caption := 'Reset';
+  SyncReset.TabStop := True;
+  PlaceLocalized(SyncReset, MulDiv(20, CurrentPPI, 96), MulDiv(280, CurrentPPI, 96),
+    MulDiv(120, CurrentPPI, 96), MulDiv(32, CurrentPPI, 96));
+  if PlayerIsArabic then SyncReset.Anchors := [akTop, akRight];
+  SyncReset.OnClick := ResetPage;
 end;
 
 procedure TFrmEffects.FormCreate(Sender: TObject);
@@ -331,10 +515,10 @@ end;
 procedure TFrmEffects.BuildAudioSubTabs;
 
   function AddParamRow(AParent: TWinControl; AList: TList; const AName: string;
-    ATop, AMin, AMax, ADef: Integer; const AUnit: string): TTrackBar;
+    ATop, AMin, AMax, ADef: Integer; const AUnit: string): TPlayerSlider;
   var
     LblName, LblVal: TLabel;
-    TB: TTrackBar;
+    TB: TPlayerSlider;
   begin
     LblName := TLabel.Create(Self);
     LblName.Parent := AParent;
@@ -346,7 +530,7 @@ procedure TFrmEffects.BuildAudioSubTabs;
     LblName.Font.Size := 9;
     AList.Add(LblName);
 
-    TB := TTrackBar.Create(Self);
+    TB := TPlayerSlider.Create(Self);
     TB.Parent := AParent;
     TB.Left := 160;
     TB.Top := ATop;
@@ -356,8 +540,6 @@ procedure TFrmEffects.BuildAudioSubTabs;
     TB.Max := AMax;
     TB.HelpContext:=ADef;
     TB.Position := ADef;
-    TB.TickStyle := tsNone;
-    TB.ThumbLength := 14;
     TB.OnChange := OnGenericSliderChange;
     AList.Add(TB);
 
@@ -407,12 +589,12 @@ end;
 
 procedure TFrmEffects.OnGenericSliderChange(Sender: TObject);
 var
-  TB: TTrackBar;
+  TB: TPlayerSlider;
   Lbl: TLabel;
   UnitStr: string;
 begin
-  if not (Sender is TTrackBar) then Exit;
-  TB := TTrackBar(Sender);
+  if not (Sender is TPlayerSlider) then Exit;
+  TB := TPlayerSlider(Sender);
   Lbl := TLabel(TB.Tag);
   if Assigned(Lbl) then
   begin
@@ -478,7 +660,6 @@ var
 begin
   tbPreamp.Enabled := chkEnableEQ.Checked;
   cboPresets.Enabled := chkEnableEQ.Checked;
-  btnResetEQ.Enabled := chkEnableEQ.Checked;
   for I := 0 to 9 do
     if Assigned(FBands[I]) then
       FBands[I].Enabled := chkEnableEQ.Checked;
@@ -571,17 +752,17 @@ end;
 
 procedure TFrmEffects.tbBandChange(Sender: TObject);
 var
-  TB: TTrackBar;
+  TB: TPlayerSlider;
   BandIdx: Integer;
 begin
-  if Sender is TTrackBar then
+  if Sender is TPlayerSlider then
   begin
-    var Index := TTrackBar(Sender).Tag;
+    var Index := TPlayerSlider(Sender).Tag;
     if (Index >= 0) and (Index <= 9) and Assigned(FBandValues[Index]) then
-      FBandValues[Index].Caption := Format('%d dB', [TTrackBar(Sender).Position]);
+      FBandValues[Index].Caption := Format('%d dB', [TPlayerSlider(Sender).Position]);
   end;
-  if FUpdatingUI or (FEqualizer = nil) or not (Sender is TTrackBar) then Exit;
-  TB := TTrackBar(Sender);
+  if FUpdatingUI or (FEqualizer = nil) or not (Sender is TPlayerSlider) then Exit;
+  TB := TPlayerSlider(Sender);
   BandIdx := TB.Tag;
   if (BandIdx >= 0) and (BandIdx <= 9) then
   begin
@@ -611,12 +792,15 @@ begin
     FUpdatingUI := False;
   end;
   ApplyEqualizer;
+  if Sender <> nil then ShowResetNotice;
 end;
 
 // ==================== VIDEO ADJUSTMENTS ====================
 
 procedure TFrmEffects.chkEnableAdjustClick(Sender: TObject);
 begin
+  for var Slider in [tbContrast, tbBrightness, tbHue, tbSaturation, tbGamma] do
+    Slider.Enabled := chkEnableAdjust.Checked;
   ApplyVideoAdjustments;
 end;
 
@@ -671,6 +855,7 @@ begin
     FUpdatingUI := False;
   end;
   ApplyVideoAdjustments;
+  if Sender <> nil then ShowResetNotice;
 end;
 
 // ==================== SYNCHRONIZATION ====================
@@ -730,7 +915,7 @@ var Ini: TAppSettings;
   begin
     for var I := 0 to List.Count div 3 - 1 do
     begin
-      var Slider := TTrackBar(List[I * 3 + 1]);
+      var Slider := TPlayerSlider(List[I * 3 + 1]);
       Slider.Position := Ini.ReadInteger('AudioEffects', Prefix + IntToStr(I), Slider.Position);
       OnGenericSliderChange(Slider);
     end;
@@ -746,13 +931,15 @@ begin
     chkEnableWidener.Checked := Ini.ReadBool('AudioEffects', 'Widener', False);
     chk2Pass.Checked := Ini.ReadBool('AudioEffects', 'TwoPass', False);
     for var I := 0 to ComponentCount - 1 do
-      if Components[I] is TTrackBar then
+      if Components[I] is TPlayerSlider then
       begin
-        var Slider := TTrackBar(Components[I]);
+        var Slider := TPlayerSlider(Components[I]);
         if Slider.Name <> '' then Slider.Position := Ini.ReadInteger('EffectsValues', Slider.Name, Slider.Position);
       end;
-    chkEnableEQ.Checked := Ini.ReadBool('AudioEffects', 'Equalizer', False);
+    chkEnableEQ.Checked := Ini.ReadBool('AudioEffects', 'Equalizer', True);
+    chkEnableEQClick(nil);
     chkEnableAdjust.Checked := Ini.ReadBool('AudioEffects', 'VideoAdjust', False);
+    chkEnableAdjustClick(nil);
     if FEqualizer <> nil then
     begin
       libvlc_audio_equalizer_set_preamp(FEqualizer, tbPreamp.Position);
@@ -766,7 +953,7 @@ var Ini: TAppSettings; Before, After: string; RestartFilters: Boolean;
   procedure SaveRows(List: TList; const Prefix: string);
   begin
     for var I := 0 to List.Count div 3 - 1 do
-      Ini.WriteInteger('AudioEffects', Prefix + IntToStr(I), TTrackBar(List[I * 3 + 1]).Position);
+      Ini.WriteInteger('AudioEffects', Prefix + IntToStr(I), TPlayerSlider(List[I * 3 + 1]).Position);
   end;
 begin
   Ini := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
@@ -785,8 +972,8 @@ begin
     Ini.WriteBool('AudioEffects', 'Equalizer', chkEnableEQ.Checked);
     Ini.WriteBool('AudioEffects', 'VideoAdjust', chkEnableAdjust.Checked);
     for var I := 0 to ComponentCount - 1 do
-      if (Components[I] is TTrackBar) and (Components[I].Name <> '') then
-        Ini.WriteInteger('EffectsValues', Components[I].Name, TTrackBar(Components[I]).Position);
+      if (Components[I] is TPlayerSlider) and (Components[I].Name <> '') then
+        Ini.WriteInteger('EffectsValues', Components[I].Name, TPlayerSlider(Components[I]).Position);
     After := Ini.Snapshot;
   finally Ini.Free; end;
   if Assigned(FrmMain) then

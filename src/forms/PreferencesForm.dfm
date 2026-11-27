@@ -99,7 +99,7 @@ object FrmPreferences: TFrmPreferences
               'Light'
               'Dark')
           end
-          object chkSingleInstance: TCheckBox
+          object chkSingleInstance: TPlayerCheckBox
             Left = 18
             Top = 24
             Width = 320
@@ -109,7 +109,7 @@ object FrmPreferences: TFrmPreferences
             State = cbChecked
             TabOrder = 0
           end
-          object chkRememberSize: TCheckBox
+          object chkRememberSize: TPlayerCheckBox
             Left = 18
             Top = 46
             Width = 320
@@ -119,7 +119,7 @@ object FrmPreferences: TFrmPreferences
             State = cbChecked
             TabOrder = 1
           end
-          object chkStartFullscreen: TCheckBox
+          object chkStartFullscreen: TPlayerCheckBox
             Left = 18
             Top = 68
             Width = 320
@@ -127,7 +127,7 @@ object FrmPreferences: TFrmPreferences
             Caption = 'Start video in Fullscreen mode'
             TabOrder = 2
           end
-          object chkBossKeyHide: TCheckBox
+          object chkBossKeyHide: TPlayerCheckBox
             Left = 18
             Top = 90
             Width = 320
@@ -137,7 +137,7 @@ object FrmPreferences: TFrmPreferences
             State = cbChecked
             TabOrder = 3
           end
-          object chkCinemaMode: TCheckBox
+          object chkCinemaMode: TPlayerCheckBox
             Left = 18
             Top = 112
             Width = 320
@@ -145,7 +145,7 @@ object FrmPreferences: TFrmPreferences
             Caption = 'Cinema Mode (Frameless / Hide title & menu)'
             TabOrder = 4
           end
-          object chkShowMenuBar: TCheckBox
+          object chkShowMenuBar: TPlayerCheckBox
             Left = 18
             Top = 134
             Width = 220
@@ -155,7 +155,7 @@ object FrmPreferences: TFrmPreferences
             State = cbChecked
             TabOrder = 5
           end
-          object chkShowTitleBar: TCheckBox
+          object chkShowTitleBar: TPlayerCheckBox
             Left = 260
             Top = 134
             Width = 220
@@ -187,7 +187,7 @@ object FrmPreferences: TFrmPreferences
             Height = 15
             Caption = 'OSD Font Size:'
           end
-          object chkShowOSD: TCheckBox
+          object chkShowOSD: TPlayerCheckBox
             Left = 18
             Top = 26
             Width = 350
@@ -197,7 +197,7 @@ object FrmPreferences: TFrmPreferences
             State = cbChecked
             TabOrder = 0
           end
-          object chkShowFilename: TCheckBox
+          object chkShowFilename: TPlayerCheckBox
             Left = 18
             Top = 52
             Width = 350
@@ -287,7 +287,7 @@ object FrmPreferences: TFrmPreferences
               'Play / Pause (Toggle)'
               'Aspect Ratio (Cycle)')
           end
-          object chkWheelVolume: TCheckBox
+          object chkWheelVolume: TPlayerCheckBox
             Left = 18
             Top = 86
             Width = 350
@@ -328,7 +328,7 @@ object FrmPreferences: TFrmPreferences
     BevelOuter = bvNone
     Color = 2105376
     TabOrder = 2
-    object btnReset: TButton
+    object btnReset: TPlayerTextButton
       Left = 14
       Top = 10
       Width = 140
@@ -337,7 +337,7 @@ object FrmPreferences: TFrmPreferences
       TabOrder = 0
       OnClick = btnResetClick
     end
-    object btnSave: TButton
+    object btnSave: TPlayerTextButton
       Left = 560
       Top = 10
       Width = 100
@@ -347,7 +347,7 @@ object FrmPreferences: TFrmPreferences
       TabOrder = 1
       OnClick = btnSaveClick
     end
-    object btnCancel: TButton
+    object btnCancel: TPlayerTextButton
       Left = 670
       Top = 10
       Width = 95
@@ -357,7 +357,7 @@ object FrmPreferences: TFrmPreferences
       TabOrder = 2
       OnClick = btnCancelClick
     end
-    object btnApply: TButton
+    object btnApply: TPlayerTextButton
       Left = 450
       Top = 10
       Width = 100

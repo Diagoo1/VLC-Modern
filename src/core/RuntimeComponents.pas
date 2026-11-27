@@ -13,7 +13,7 @@ implementation
 
 uses System.Classes, System.SysUtils, System.IOUtils, System.Zip, System.JSON,
   System.Hash, System.RegularExpressions, System.Net.HttpClient, Winapi.Windows,
-  Vcl.Controls, Vcl.StdCtrls, Vcl.ComCtrls, CurvedControls, PlayerDialogs, LibVLC, PlayerPaths;
+  Vcl.Controls, Vcl.StdCtrls, Vcl.ComCtrls, CurvedControls, PlayerDialogs, PlayerLanguage, LibVLC, PlayerPaths;
 
 const
   ReleaseAPI = 'https://api.github.com/repos/Diagoo1/VLC-Modern/releases/tags/components-v1';
@@ -116,9 +116,9 @@ end;
 
 function RevisionText(const Stamp: string): string;
 begin
-  if not TFile.Exists(Stamp) then Exit('local build');
+  if not TFile.Exists(Stamp) then Exit(Translate('local build'));
   var Digest := Trim(TFile.ReadAllText(Stamp));
-  if not TRegEx.IsMatch(Digest, '^sha256:[0-9a-fA-F]{64}$') then Exit('local build');
+  if not TRegEx.IsMatch(Digest, '^sha256:[0-9a-fA-F]{64}$') then Exit(Translate('local build'));
   Result := Copy(Digest, 8, 8);
 end;
 
@@ -159,7 +159,7 @@ begin
     '.ffmpeg-release-digest');
   if MatchesRevision(Stamp, Digest) and
      ((Plugins and PlaybackPluginsInstalled) or
-      (not Plugins and TFile.Exists(ComponentPath('tools\ffmpeg.exe')))) then Exit('Up to date');
+      (not Plugins and TFile.Exists(ComponentPath('tools\ffmpeg.exe')))) then Exit(Translate('Up to date'));
   if Plugins and TDirectory.Exists(Target) then
   begin
     if MatchesRevision(TPath.Combine(Target, '.release-digest'), Digest) then
@@ -224,7 +224,7 @@ begin
       if TDirectory.Exists(Target) then
         raise Exception.Create('A plugin update is already staged. Restart the player first.');
       TDirectory.Move(Path, Target);
-      Result := 'Ready after restart';
+      Result := Translate('Ready after restart');
     end
     else
     begin
@@ -234,7 +234,7 @@ begin
         if not MoveFileEx(PChar(FileName), PChar(TPath.Combine(Target, TPath.GetFileName(FileName))),
           MOVEFILE_REPLACE_EXISTING or MOVEFILE_WRITE_THROUGH) then RaiseLastOSError;
       TFile.WriteAllText(TPath.Combine(Target, '.ffmpeg-release-digest'), Digest);
-      Result := 'Installed';
+      Result := Translate('Installed');
     end;
   finally
     TDirectory.Delete(Stage, True);
@@ -250,7 +250,7 @@ var Stage, Archive, Target: string; Output: TFileStream; Zip: TZipFile;
     Response: IHTTPResponse; Meter: TDownloadMeter;
 begin
   Target := AppPath('tools\node');
-  if TFile.Exists(TPath.Combine(Target, 'node.exe')) then Exit('Already installed');
+  if TFile.Exists(TPath.Combine(Target, 'node.exe')) then Exit(Translate('Already installed'));
   Stage := AppPath('.node-' + TGUID.NewGuid.ToString);
   TDirectory.CreateDirectory(Stage);
   try
@@ -278,17 +278,17 @@ begin
     finally Zip.Free; end;
     TDirectory.CreateDirectory(TPath.GetDirectoryName(Target));
     TDirectory.Move(TPath.Combine(Stage, Root), Target);
-    Result := 'Installed';
+    Result := Translate('Installed');
   finally TDirectory.Delete(Stage, True); end;
 end;
 
 type
   TComponentsDialog = class(TForm)
   private
-    Plugins, Encoder, JavaScript: TCheckBox;
+    Plugins, Encoder, JavaScript: TPlayerCheckBox;
     Status, PluginInfo, EncoderInfo, JavaScriptInfo: TLabel;
-    ProgressBar: TProgressBar;
-    SyncButton, CloseButton: TButton;
+    ProgressBar: TPlayerProgress;
+    SyncButton, CloseButton: TPlayerTextButton;
     Busy: Boolean;
     procedure RefreshVersions;
     procedure PostProgress(const Component, Message: string; Percent: Integer);
@@ -299,25 +299,40 @@ type
   end;
 
 constructor TComponentsDialog.Create(AOwner: TComponent);
-  function AddLabel(const Text: string; X, Y: Integer): TLabel;
+  function AddLabel(const Text: string; X, Y: Integer; Host: TWinControl = nil): TLabel;
   begin
+    if Host = nil then Host := Self;
     Result := TLabel.Create(Self);
-    Result.Parent := Self;
-    Result.SetBounds(X, Y, 600, 22);
+    Result.Parent := Host;
+    if PlayerIsArabic then
+    begin
+      Result.AutoSize := False;
+      Result.Alignment := taRightJustify;
+      Result.SetBounds(X, Y, Host.ClientWidth - X - 24, 22);
+    end
+    else Result.SetBounds(X, Y, Host.ClientWidth - X - 24, 22);
     Result.Caption := Text;
   end;
-  function AddChoice(const Text, Description: string; Y: Integer; Checked: Boolean): TCheckBox;
+  function AddChoice(const Text, Description: string; Y: Integer;
+    Checked: Boolean; out VersionLabel: TLabel): TPlayerCheckBox;
   begin
-    Result := TCheckBox.Create(Self);
-    Result.Parent := Self;
-    Result.SetBounds(24, Y, 560, 25);
+    var Card := TModernCardPanel.Create(Self);
+    Card.Parent := Self;
+    Card.SetBounds(24, Y - 6, 600, 79);
+    Card.CardColor := DP_COLOR_SURFACE;
+    Card.BorderColor := DP_COLOR_BORDER;
+    Card.CornerRadius := 10;
+    Result := TPlayerCheckBox.Create(Self);
+    Result.Parent := Card;
+    Result.SetBounds(12, 6, 576, 25);
     Result.Caption := Text;
     Result.Checked := Checked;
-    AddLabel(Description, 45, Y + 29);
+    AddLabel(Description, 24, 32, Card);
+    VersionLabel := AddLabel('', 24, 53, Card);
   end;
-  function AddButton(const Text: string; X: Integer): TButton;
+  function AddButton(const Text: string; X: Integer): TPlayerTextButton;
   begin
-    Result := TButton.Create(Self);
+    Result := TPlayerTextButton.Create(Self);
     Result.Parent := Self;
     Result.SetBounds(X, 406, 145, 34);
     Result.Caption := Text;
@@ -332,20 +347,17 @@ begin
   AddLabel('Select components to install or synchronize from VLC Modern on GitHub.', 24, 22);
   Plugins := AddChoice('LibVLC playback plugins',
     'Adds the complete LibVLC playback and streaming plugin set.',
-    62, not HasFullPlaybackPlugins);
+    62, not HasFullPlaybackPlugins, PluginInfo);
   Encoder := AddChoice('FFmpeg (64-bit Windows)',
     'Enables precise MP4 clipping with frame-accurate start positions.',
-    151, False);
+    151, False, EncoderInfo);
   JavaScript := AddChoice('YouTube JavaScript runtime (Node.js)',
     'Optional for YouTube. Downloaded here and used without a system installation.',
-    233, False);
+    233, False, JavaScriptInfo);
   JavaScript.Enabled := TOSVersion.Architecture = arIntelX64;
   Encoder.Enabled := TOSVersion.Architecture = arIntelX64;
-  PluginInfo := AddLabel('', 45, 111);
-  EncoderInfo := AddLabel('', 45, 200);
-  JavaScriptInfo := AddLabel('', 45, 282);
   JavaScriptInfo.Font.Color := DP_COLOR_MUTED;
-  ProgressBar := TProgressBar.Create(Self);
+  ProgressBar := TPlayerProgress.Create(Self);
   ProgressBar.Parent := Self;
   ProgressBar.SetBounds(24, 325, 600, 9);
   ProgressBar.Max := 100;
@@ -359,7 +371,7 @@ begin
   CloseButton.Cancel := True;
   CloseButton.ModalResult := mrCancel;
   OnCloseQuery := CanCloseDialog;
-  ApplyPlayerAppearance(Self);
+  ApplyPlayerAppearance(Self, True);
   PluginInfo.Font.Color := DP_COLOR_MUTED;
   EncoderInfo.Font.Color := DP_COLOR_MUTED;
   RefreshVersions;
@@ -374,13 +386,13 @@ begin
     if Match.Success then Engine := Engine + ' ' + Match.Value;
   end;
   if HasFullPlaybackPlugins then
-    PluginInfo.Caption := Engine + '  |  Installed  |  Revision ' +
+    PluginInfo.Caption := Engine + '  |  ' + Translate('Installed') + '  |  ' + Translate('Revision') + ' ' +
       RevisionText(ComponentPath('plugins\.release-digest'))
   else if PlaybackPluginsInstalled then
-    PluginInfo.Caption := Engine + '  |  Starter plugins installed. Full pack available.'
-  else PluginInfo.Caption := Engine + '  |  Not installed';
+    PluginInfo.Caption := Engine + '  |  ' + Translate('Starter plugins installed. Full pack available.')
+  else PluginInfo.Caption := Engine + '  |  ' + Translate('Not installed');
   if TDirectory.Exists(AppPath('plugins.pending')) then
-    PluginInfo.Caption := PluginInfo.Caption + '  |  Restart required';
+    PluginInfo.Caption := PluginInfo.Caption + '  |  ' + Translate('Restart required');
   if TFile.Exists(ComponentPath('tools\ffmpeg.exe')) then
   begin
     var Version := 'FFmpeg';
@@ -391,13 +403,13 @@ begin
       var Match := TRegEx.Match(TFile.ReadAllText(Notice), '^FFmpeg [0-9]+(?:\.[0-9]+)+');
       if Match.Success then Version := Match.Value;
     end;
-    EncoderInfo.Caption := Version + '  |  Installed  |  Revision ' +
+    EncoderInfo.Caption := Version + '  |  ' + Translate('Installed') + '  |  ' + Translate('Revision') + ' ' +
       RevisionText(TPath.Combine(EncoderDirectory, '.ffmpeg-release-digest'));
   end
-  else EncoderInfo.Caption := 'FFmpeg  |  Not installed';
+  else EncoderInfo.Caption := 'FFmpeg  |  ' + Translate('Not installed');
   if TFile.Exists(ComponentPath('tools\node\node.exe')) then
-    JavaScriptInfo.Caption := 'Node.js  |  Installed'
-  else JavaScriptInfo.Caption := 'Node.js  |  Optional';
+    JavaScriptInfo.Caption := 'Node.js  |  ' + Translate('Installed')
+  else JavaScriptInfo.Caption := 'Node.js  |  ' + Translate('Optional');
 end;
 
 procedure TComponentsDialog.PostProgress(const Component, Message: string; Percent: Integer);
@@ -405,7 +417,7 @@ begin
   TThread.Queue(nil, TThreadProcedure(
     procedure
     begin
-      Status.Caption := Component + '  |  ' + Message + '  ' + IntToStr(Percent) + '%';
+      Status.Caption := Translate(Component) + '  |  ' + Translate(Message) + '  ' + IntToStr(Percent) + '%';
       ProgressBar.Position := Percent;
     end));
 end;
@@ -422,7 +434,7 @@ begin
   var WantJavaScript := JavaScript.Checked and JavaScript.Enabled;
   if not WantPlugins and not WantEncoder and not WantJavaScript then
   begin
-    Status.Caption := 'Select at least one component.';
+    Status.Caption := Translate('Select at least one component.');
     Exit;
   end;
   Busy := True;
@@ -432,7 +444,7 @@ begin
   SyncButton.Enabled := False;
   CloseButton.Enabled := False;
   ProgressBar.Position := 0;
-  Status.Caption := 'Checking GitHub for component updates...';
+  Status.Caption := Translate('Checking GitHub for component updates...');
   TThread.CreateAnonymousThread(
     procedure
     var Client: THTTPClient; Response: IHTTPResponse; Catalog: TJSONValue;
@@ -475,7 +487,7 @@ begin
               begin PostProgress('Node.js', Message, Percent); end);
           end;
         except
-          on E: Exception do ResultText := E.Message;
+          on E: Exception do ResultText := LocalizeExceptionText(E);
         end;
       finally Client.Free; end;
       TThread.Queue(nil, TThreadProcedure(

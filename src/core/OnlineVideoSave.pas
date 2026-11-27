@@ -1,4 +1,4 @@
-unit OnlineVideoSave;
+﻿unit OnlineVideoSave;
 
 interface
 
@@ -17,7 +17,7 @@ implementation
 
 uses
   Winapi.Windows, System.SysUtils, System.Classes, System.Net.HttpClient, System.SyncObjs,
-  System.Math, System.Net.URLClient;
+  System.Math, System.Net.URLClient, PlayerLanguage;
 
 type
   TOnlineVideoSave = class(TInterfacedObject, IOnlineVideoSave)
@@ -181,7 +181,7 @@ begin
         if not MoveFileEx(PChar(TempName), PChar(Destination), MOVEFILE_WRITE_THROUGH) then
           RaiseLastOSError;
       except
-        on E: Exception do ErrorMessage := E.Message;
+        on E: Exception do ErrorMessage := LocalizeExceptionText(E);
       end;
       Cancelled := Task.IsCancelled;
       if FileExists(TempName) and not System.SysUtils.DeleteFile(TempName) then

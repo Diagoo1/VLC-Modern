@@ -2,8 +2,7 @@ unit JumpTimeForm;
 
 interface
 
-uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
+uses CurvedControls, Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls,
   Vcl.ComCtrls, Vcl.ExtCtrls;
 
@@ -17,8 +16,8 @@ type
     edtM: TEdit;
     edtS: TEdit;
     pnlBottom: TPanel;
-    btnJump: TButton;
-    btnCancel: TButton;
+    btnJump: TPlayerTextButton;
+    btnCancel: TPlayerTextButton;
     lblTotal: TLabel;
     procedure btnJumpClick(Sender: TObject);
     procedure btnCancelClick(Sender: TObject);
@@ -44,7 +43,7 @@ uses
 procedure TFrmJumpTime.AfterConstruction;
 begin
   inherited;
-  ApplyPlayerAppearance(Self);
+  ApplyPlayerAppearance(Self, True);
 end;
 procedure TFrmJumpTime.FormShow(Sender: TObject);
 var

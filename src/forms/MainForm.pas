@@ -1,8 +1,8 @@
-﻿unit MainForm;
+unit MainForm;
 
 interface
 
-uses SettingsStore,
+uses SettingsStore, PlayerLanguage, PlaylistSource,
   Winapi.Windows, Winapi.Messages, Winapi.UxTheme, System.SysUtils, System.Classes, System.Types, System.Math,
   System.UITypes, System.Generics.Collections, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Menus, Vcl.Themes, Vcl.FileCtrl,
@@ -16,7 +16,15 @@ const
   WM_USER_VIDEO_MOUSEMOVE  = WM_USER + 105;
 
 type
+  TStalkerPlaylistSource = record
+    Portal, MAC, Command: string;
+  end;
+
   TLoopMode = (lmOff, lmLoopAll, lmLoopOne);
+  TPlayerDockPanel = class(TPanel)
+  protected
+    procedure CreateParams(var Params: TCreateParams); override;
+  end;
   TShaderFilter = (sfInvert, sfSharpen, sfEdgeDetect, sfFilmGrain, sfDenoise, sfSepia, sfPosterize, sfAnaglyph);
 
   TFrmMain = class(TForm)
@@ -307,19 +315,19 @@ type
     pnlPlaylist: TPanel;
     pnlPlaylistHeader: TPanel;
     lblPlaylistTitle: TLabel;
-    btnHidePlaylist: TButton;
+    btnHidePlaylist: TPlayerTextButton;
     lstPlaylist: TListBox;
     pnlPlaylistBottom: TPanel;
 
-    pnlBottom: TPanel;
+    pnlBottom: TPlayerDockPanel;
     pnlProgressRow: TPanel;
-    tbProgress: TTrackBar;
+    tbProgress: TPlayerSlider;
     lblTime: TLabel;
 
     pnlControlsRow: TPanel;
     pnlTransport: TPanel;
     pnlVolume: TPanel;
-    tbVolume: TTrackBar;
+    tbVolume: TPlayerSlider;
     lblVolPct: TLabel;
     pnlRightControls: TPanel;
     cboAspect: TComboBox;
@@ -513,11 +521,18 @@ type
     FPlaylistPaths: TStringList;
     FPlatformCacheFiles: TStringList;
     FPlatformRequest: Cardinal;
-    FNativeRecentGeometry: Boolean;
+    FNativeVideoGeometry: Boolean;
     FOnlineVideoURL, FOnlineVideoAgent, FOnlineVideoTitle: string;
     FOnlineVideoSaveProgress: TVideoSaveProgress;
     FCloseAfterOnlineSave: Boolean;
     FPlaylistOptions: TObjectDictionary<string, TStringList>;
+    FStalkerSources: TDictionary<string, TStalkerPlaylistSource>;
+    FStalkerRequest: IPlaylistRequest;
+    FStalkerTimer: TTimer;
+    FStalkerPlaylistKey: string;
+    FStalkerRequestGeneration: Cardinal;
+    FStalkerRetryUsed: Boolean;
+    FStalkerPlaybackGeneration: Cardinal;
     FCurrentPlaylistIndex: Integer;
     FUpdatingTrackBar: Boolean;
     FIsFullscreen: Boolean;
@@ -675,7 +690,7 @@ type
     FOldPlaylistWndProc: TWndMethod;
     FOldRootWndProc: TWndMethod;
     FSuppressTransientOSD: Boolean;
-    FPreferencesWarmup:TTimer;
+    FInteractiveSizing: Boolean;
     FPreferencesOpenStarted: Int64;
     FPreferencesOpenProbe: TTimer;
     FPreferencesDirty:Boolean;
@@ -755,6 +770,8 @@ type
     procedure PopulateThemesMenu(AMenu: TMenuItem);
     procedure ApplyAspectRatio(const ARatio: string);
     procedure PlayMediaAtIndex(AIndex: Integer; AOptions: TStrings = nil);
+    procedure PollStalkerPlayback(Sender: TObject);
+    function RetryStalkerPlayback: Boolean;
     procedure SavePlaybackPosition;
     function FormatTime(AMilliseconds: Int64): string;
     procedure AddRecentMedia(const APath: string);
@@ -827,6 +844,9 @@ type
     procedure ReopenLastClosedFile;
     procedure DefaultHandler(var Message); override;
     procedure WMWindowPosChanging(var Msg:TWMWindowPosChanging); message WM_WINDOWPOSCHANGING;
+    procedure WMSystemCommand(var Msg: TWMSysCommand); message WM_SYSCOMMAND;
+    procedure ApplyResizeLayout;
+    procedure CMShowingChanged(var Msg: TMessage); message CM_SHOWINGCHANGED;
     procedure WMGetMinMaxInfo(var Msg:TWMGetMinMaxInfo); message WM_GETMINMAXINFO;
     procedure MeasurePreferencesOpen(Sender: TObject);
     procedure WarmPreferences(Sender:TObject);
@@ -842,7 +862,10 @@ type
     function LoadSecondarySubtitleFile(const Path: string): Boolean;
     procedure SeekTo(TimeMs: Int64);
     procedure PlayFile(const AFilePath: string; AOptions: TStrings = nil;
-      const SourceURL: string = ''; NativeGeometry: Boolean = False);
+      const SourceURL: string = ''; NativeGeometry: Boolean = False;
+      const MediaName: string = '');
+    procedure WatchPlaylistStream(const URL, MediaName: string; Options: TStrings);
+    procedure WatchStalkerChannel(const Portal, MAC, Command, MediaName: string);
     procedure ApplyInterfaceCustomization;
     procedure ResetInterfaceDefaults;
     function GetMenuBarVisible: Boolean;
@@ -871,6 +894,12 @@ uses
   EffectsForm, MediaInfoForm, JumpTimeForm, PreferencesForm, BookmarksForm, OpenMediaForm, ConvertForm, IPTVForm, MessagesForm, CustomizeForm, AboutForm, System.IniFiles, System.StrUtils, PlayerDialogs, VideoInput, PlayerMenu, Vcl.Clipbrd, Vcl.Imaging.pngimage, Winapi.Dwmapi, WatermarkOSD, InstanceBroker, DualSubtitles, System.IOUtils, ThumbnailSheet, GifMaker, RuntimeComponents, PlayerPaths, OnlineVideoSave, System.Net.URLClient, System.Hash, Winapi.CommCtrl;
 
 {$R *.dfm}
+
+procedure TPlayerDockPanel.CreateParams(var Params: TCreateParams);
+begin
+  inherited;
+  Params.Style := Params.Style or WS_CLIPCHILDREN or WS_CLIPSIBLINGS;
+end;
 
 procedure TFrmMain.WMCopyData(var Msg: TWMCopyData);
 var Sources: TStringList; Text: string; First: Integer;
@@ -1186,7 +1215,7 @@ begin
     btnMenuIPTV := TModernVectorButton.Create(Self);
     btnMenuIPTV.Parent := pnlMenuBar;
     btnMenuIPTV.Caption := 'Live TV';
-    btnMenuIPTV.Hint := 'IPTV & Live Stream Studio (F8)';
+    btnMenuIPTV.Hint := 'F8';
     btnMenuIPTV.ShowHint := True;
     btnMenuIPTV.Width := 58;
     btnMenuIPTV.Height := 22;
@@ -1196,6 +1225,7 @@ begin
   end;
 
   // Enforce strict vertical order: Title Bar at Top=0, Menu Bar directly below at Top=36
+  LocalizeControls(pnlMenuBar);
   modernTitleBar.Top := 0;
   pnlMenuBar.Top := 36;
 
@@ -1484,15 +1514,18 @@ begin
     cardPlaylist := TModernCardPanel.Create(Self);
     cardPlaylist.Parent := pnlPlaylist;
     cardPlaylist.CornerRadius := 16;
-    cardPlaylist.FlushRight := True;
+    cardPlaylist.FlushRight := not PlayerIsArabic;
+    cardPlaylist.FlushLeft := PlayerIsArabic;
     cardPlaylist.CardColor := DP_COLOR_SURFACE;
     cardPlaylist.BorderColor := DP_COLOR_BORDER;
 
     lblPlaylistHeading := TLabel.Create(Self);
     lblPlaylistHeading.Parent := cardPlaylist;
-    lblPlaylistHeading.Caption := 'PLAYLIST';
+    lblPlaylistHeading.Caption := Translate('Playlist');
+    if not PlayerIsArabic then lblPlaylistHeading.Caption := UpperCase(lblPlaylistHeading.Caption);
     lblPlaylistHeading.Transparent := True;
-    lblPlaylistHeading.Font.Name := 'Segoe UI';
+    lblPlaylistHeading.Font.Name := PlayerUIFont;
+    if PlayerIsArabic then lblPlaylistHeading.Alignment := taRightJustify;
     lblPlaylistHeading.Font.Size := 11;
     lblPlaylistHeading.Font.Style := [fsBold];
     lblPlaylistHeading.Font.Color := DP_COLOR_TEXT;
@@ -1575,54 +1608,116 @@ var
   begin
     Result := MulDiv(Value, 96, CurrentPPI);
   end;
+  type
+    TDeferItem = record
+      Ctrl: TControl;
+      X, Y, W, H: Integer;
+    end;
+  var
+    Deferred: array of TDeferItem;
+    DeferCount: Integer;
+    DeferHandle: HDWP;
   procedure Place(Control: TControl; X, Y, W, H: Integer);
+  var
+    PX, PY, PW, PH: Integer;
   begin
-    Control.SetBounds(MulDiv(X, CurrentPPI, 96), MulDiv(Y, CurrentPPI, 96),
-      MulDiv(W, CurrentPPI, 96), MulDiv(H, CurrentPPI, 96));
+    PX := MulDiv(X, CurrentPPI, 96);
+    PY := MulDiv(Y, CurrentPPI, 96);
+    PW := MulDiv(W, CurrentPPI, 96);
+    PH := MulDiv(H, CurrentPPI, 96);
+    if (Control.Left = PX) and (Control.Top = PY) and
+       (Control.Width = PW) and (Control.Height = PH) then
+      Exit;
+    if FInteractiveSizing and (Control is TWinControl) and TWinControl(Control).HandleAllocated then
+    begin
+      if DeferCount >= Length(Deferred) then
+        SetLength(Deferred, Max(32, Length(Deferred) * 2));
+      Deferred[DeferCount].Ctrl := Control;
+      Deferred[DeferCount].X := PX;
+      Deferred[DeferCount].Y := PY;
+      Deferred[DeferCount].W := PW;
+      Deferred[DeferCount].H := PH;
+      Inc(DeferCount);
+    end
+    else
+      Control.SetBounds(PX, PY, PW, PH);
+  end;
+  procedure PlaceMirrored(Control: TControl; X, Y, W, H: Integer);
+  begin
+    if not PlayerIsArabic then
+      Place(Control, X, Y, W, H)
+    else
+      PlaceLocalized(Control, MulDiv(X, CurrentPPI, 96), MulDiv(Y, CurrentPPI, 96),
+        MulDiv(W, CurrentPPI, 96), MulDiv(H, CurrentPPI, 96));
+  end;
+  procedure PlaceMenu(Control: TControl; X, Y, W, H: Integer);
+  begin
+    if PlayerIsArabic then X := Logical(pnlMenuBar.ClientWidth) - X - W;
+    Place(Control, X, Y, W, H);
   end;
 begin
   if not FUIReady or FClosing then Exit;
+  DeferCount := 0;
+  try
   // Leave a real client edge owned by the form. Child video/playlist HWNDs
   // must not cover the resize hit-test area of the custom window frame.
-  pnlRoot.Margins.Left := MulDiv(6, CurrentPPI, 96);
-  pnlRoot.Margins.Right := MulDiv(6, CurrentPPI, 96);
-  pnlRoot.Margins.Top := 0;
-  pnlRoot.Margins.Bottom := 0;
-  pnlRoot.AlignWithMargins := not FIsFullscreen;
-  pnlBottom.Margins.Left := MulDiv(6, CurrentPPI, 96);
-  pnlBottom.Margins.Right := MulDiv(6, CurrentPPI, 96);
-  pnlBottom.Margins.Top := 0;
-  pnlBottom.Margins.Bottom := MulDiv(6, CurrentPPI, 96);
-  pnlBottom.AlignWithMargins := not FIsFullscreen;
+  var EdgeMargin := MulDiv(6, CurrentPPI, 96);
+  if pnlRoot.Margins.Left <> EdgeMargin then pnlRoot.Margins.Left := EdgeMargin;
+  if pnlRoot.Margins.Right <> EdgeMargin then pnlRoot.Margins.Right := EdgeMargin;
+  if pnlRoot.Margins.Top <> 0 then pnlRoot.Margins.Top := 0;
+  if pnlRoot.Margins.Bottom <> 0 then pnlRoot.Margins.Bottom := 0;
+  if pnlRoot.AlignWithMargins <> (not FIsFullscreen) then pnlRoot.AlignWithMargins := not FIsFullscreen;
+  if pnlBottom.Margins.Left <> EdgeMargin then pnlBottom.Margins.Left := EdgeMargin;
+  if pnlBottom.Margins.Right <> EdgeMargin then pnlBottom.Margins.Right := EdgeMargin;
+  if pnlBottom.Margins.Top <> 0 then pnlBottom.Margins.Top := 0;
+  if pnlBottom.Margins.Bottom <> EdgeMargin then pnlBottom.Margins.Bottom := EdgeMargin;
+  if pnlBottom.AlignWithMargins <> (not FIsFullscreen) then pnlBottom.AlignWithMargins := not FIsFullscreen;
+  var DockH := MulDiv(94, CurrentPPI, 96);
   if FIsFullscreen then
   begin
-    pnlBottom.Align := alNone;
-    pnlBottom.SetBounds(0, ClientHeight - MulDiv(94, CurrentPPI, 96), ClientWidth, MulDiv(94, CurrentPPI, 96));
+    if pnlBottom.Align <> alNone then pnlBottom.Align := alNone;
+    pnlBottom.SetBounds(0, ClientHeight - DockH, ClientWidth, DockH);
     pnlVideoContainer.SetBounds(0, 0, ClientWidth, ClientHeight);
   end
   else
   begin
-    pnlBottom.Align := alBottom;
-    pnlBottom.Height := MulDiv(94, CurrentPPI, 96);
+    if pnlBottom.Align <> alBottom then pnlBottom.Align := alBottom;
+    if pnlBottom.Height <> DockH then pnlBottom.Height := DockH;
   end;
   // Resize the existing host HWND; the playlist reserves its own space.
-  pnlPlaylist.Align := alNone;
+  if pnlPlaylist.Align <> alNone then pnlPlaylist.Align := alNone;
   if not FPlaylistAnimating then
-    pnlPlaylist.SetBounds(pnlPlaylist.Parent.ClientWidth - MulDiv(280, CurrentPPI, 96),
-      0, MulDiv(280, CurrentPPI, 96), pnlPlaylist.Parent.ClientHeight);
+  begin
+    var PlaylistWidth := MulDiv(280, CurrentPPI, 96);
+    var PlaylistLeft := pnlPlaylist.Parent.ClientWidth - PlaylistWidth;
+    if PlayerIsArabic then PlaylistLeft := 0;
+    pnlPlaylist.SetBounds(PlaylistLeft, 0, PlaylistWidth, pnlPlaylist.Parent.ClientHeight);
+  end;
   if pnlPlaylist.Visible then pnlPlaylist.BringToFront;
-  pnlVideoContainer.Align := alNone;
-  if pnlPlaylist.Visible then
-    pnlVideoContainer.SetBounds(0, 0, Max(1, pnlPlaylist.Left), pnlRoot.ClientHeight)
+  if not FIsFullscreen and not pnlPlaylist.Visible and not FPlaylistAnimating then
+    pnlVideoContainer.Align := alClient
   else
-    pnlVideoContainer.SetBounds(0, 0, pnlRoot.ClientWidth, pnlRoot.ClientHeight);
+    pnlVideoContainer.Align := alNone;
+  // Keep the video output HWND at a stable size until the slide finishes.
+  if not FPlaylistAnimating then
+  begin
+    if pnlPlaylist.Visible and PlayerIsArabic then
+    begin
+      var VideoLeft := Max(0, pnlPlaylist.Left + pnlPlaylist.Width);
+      pnlVideoContainer.SetBounds(VideoLeft, 0, Max(1, pnlRoot.ClientWidth - VideoLeft), pnlRoot.ClientHeight);
+    end
+    else if pnlPlaylist.Visible then
+      pnlVideoContainer.SetBounds(0, 0, Max(1, pnlPlaylist.Left), pnlRoot.ClientHeight)
+    else if pnlVideoContainer.Align = alNone then
+      pnlVideoContainer.SetBounds(0, 0, pnlRoot.ClientWidth, pnlRoot.ClientHeight);
+  end;
   if modernTitleBar <> nil then
   begin
     modernTitleBar.Top := 0;
     modernTitleBar.Height := MulDiv(36, CurrentPPI, 96);
-    Place(btnTitleClose, Logical(modernTitleBar.Width) - 36, 5, 30, 26);
-    Place(btnTitleMax, Logical(modernTitleBar.Width) - 70, 5, 30, 26);
-    Place(btnTitleMin, Logical(modernTitleBar.Width) - 104, 5, 30, 26);
+    PlaceMirrored(btnTitleClose, Logical(modernTitleBar.Width) - 36, 5, 30, 26);
+    PlaceMirrored(btnTitleMax, Logical(modernTitleBar.Width) - 70, 5, 30, 26);
+    PlaceMirrored(btnTitleMin, Logical(modernTitleBar.Width) - 104, 5, 30, 26);
   end;
 
   if pnlMenuBar <> nil then
@@ -1630,15 +1725,21 @@ begin
     pnlMenuBar.Top := MulDiv(36, CurrentPPI, 96);
     pnlMenuBar.Height := MulDiv(26, CurrentPPI, 96);
     CurX := 12;
-    Place(btnMenuMedia, CurX, 2, 54, 22); Inc(CurX, 58);
-    Place(btnMenuPlayback, CurX, 2, 66, 22); Inc(CurX, 70);
-    Place(btnMenuAudio, CurX, 2, 50, 22); Inc(CurX, 54);
-    Place(btnMenuVideo, CurX, 2, 50, 22); Inc(CurX, 54);
-    Place(btnMenuSubtitle, CurX, 2, 62, 22); Inc(CurX, 66);
-    Place(btnMenuTools, CurX, 2, 50, 22); Inc(CurX, 54);
-    Place(btnMenuView, CurX, 2, 48, 22); Inc(CurX, 52);
-    if btnMenuIPTV <> nil then begin Place(btnMenuIPTV, CurX, 2, 58, 22); Inc(CurX, 62); end;
-    Place(btnMenuHelp, CurX, 2, 48, 22);
+    PlaceMenu(btnMenuMedia, CurX, 2, 54, 22); Inc(CurX, 58);
+    PlaceMenu(btnMenuPlayback, CurX, 2, 66, 22); Inc(CurX, 70);
+    PlaceMenu(btnMenuAudio, CurX, 2, 50, 22); Inc(CurX, 54);
+    PlaceMenu(btnMenuVideo, CurX, 2, 50, 22); Inc(CurX, 54);
+    PlaceMenu(btnMenuSubtitle, CurX, 2, 62, 22); Inc(CurX, 66);
+    PlaceMenu(btnMenuTools, CurX, 2, 50, 22); Inc(CurX, 54);
+    PlaceMenu(btnMenuView, CurX, 2, 48, 22); Inc(CurX, 52);
+    if btnMenuIPTV <> nil then
+    begin
+      var LiveTVWidth := 58;
+      if PlayerIsArabic then LiveTVWidth := 86;
+      PlaceMenu(btnMenuIPTV, CurX, 2, LiveTVWidth, 22);
+      Inc(CurX, LiveTVWidth + 4);
+    end;
+    PlaceMenu(btnMenuHelp, CurX, 2, 48, 22);
   end;
 
   if cardBottomDock <> nil then
@@ -1666,16 +1767,19 @@ begin
       cardBottomDock.CornerRadius := 14;
       Place(cardBottomDock, 10, 6, Logical(pnlBottom.ClientWidth) - 20, Logical(pnlBottom.ClientHeight) - 12);
     end;
-    DockW := Logical(cardBottomDock.Width);
+    if FIsFullscreen then
+      DockW := Logical(cardBottomDock.Width)
+    else
+      DockW := Logical(pnlBottom.ClientWidth) - 20;
 
     // Top Seek Row
-    Place(modernSeekBar, 14, 8, DockW - 160, 24);
-    Place(lblTimeDisplay, DockW - 140, 10, 126, 20);
+    PlaceMirrored(modernSeekBar, 14, 8, DockW - 160, 24);
+    PlaceMirrored(lblTimeDisplay, DockW - 140, 10, 126, 20);
 
     // Left Volume Group
-    Place(btnMute, 14, 36, 36, 36);
-    Place(modernVolumeSlider, 54, 42, 80, 24);
-    Place(lblVolPctDisplay, 138, 46, 36, 18);
+    PlaceMirrored(btnMute, 14, 36, 36, 36);
+    PlaceMirrored(modernVolumeSlider, 54, 42, 80, 24);
+    PlaceMirrored(lblVolPctDisplay, 138, 46, 36, 18);
 
     // Center Transport Group
     CenterX := DockW div 2;
@@ -1688,24 +1792,24 @@ begin
     Place(btnStop, StartX + 220, 36, 36, 36);
 
     // Right Features Group
-    Place(btnFullscreen, DockW - 46, 36, 36, 36);
-    Place(btnPlaylistToggle, DockW - 88, 36, 36, 36);
-    Place(btnEqualizer, DockW - 130, 36, 36, 36);
-    Place(btnSpeed, DockW - 180, 38, 44, 32);
+    PlaceMirrored(btnFullscreen, DockW - 46, 36, 36, 36);
+    PlaceMirrored(btnPlaylistToggle, DockW - 88, 36, 36, 36);
+    PlaceMirrored(btnEqualizer, DockW - 130, 36, 36, 36);
+    PlaceMirrored(btnSpeed, DockW - 180, 38, 44, 32);
   end;
 
   if (cardPlaylist <> nil) and pnlPlaylist.Visible then
   begin
     Place(cardPlaylist, 0, 0, Logical(pnlPlaylist.ClientWidth), Logical(pnlPlaylist.ClientHeight));
-    Place(lblPlaylistHeading, 16, 12, 120, 20);
-    Place(btnClosePlaylist, Logical(cardPlaylist.Width) - 34, 10, 24, 24);
-    Place(lstPlaylist, 10, 42, Logical(cardPlaylist.Width) - 18, Logical(cardPlaylist.Height) - 88);
+    PlaceMirrored(lblPlaylistHeading, 16, 12, 120, 20);
+    PlaceMirrored(btnClosePlaylist, Logical(cardPlaylist.Width) - 34, 10, 24, 24);
+    PlaceMirrored(lstPlaylist, 10, 42, Logical(cardPlaylist.Width) - 18, Logical(cardPlaylist.Height) - 88);
 
-    Place(btnAddMedia, 10, Logical(cardPlaylist.Height) - 38, 44, 30);
-    Place(btnRemoveMedia, 60, Logical(cardPlaylist.Height) - 38, 44, 30);
-    Place(btnClearPlaylist, 110, Logical(cardPlaylist.Height) - 38, 44, 30);
-    Place(btnRepeat, 160, Logical(cardPlaylist.Height) - 38, 44, 30);
-    Place(btnShuffle, 210, Logical(cardPlaylist.Height) - 38, 44, 30);
+    PlaceMirrored(btnAddMedia, 10, Logical(cardPlaylist.Height) - 38, 44, 30);
+    PlaceMirrored(btnRemoveMedia, 60, Logical(cardPlaylist.Height) - 38, 44, 30);
+    PlaceMirrored(btnClearPlaylist, 110, Logical(cardPlaylist.Height) - 38, 44, 30);
+    PlaceMirrored(btnRepeat, 160, Logical(cardPlaylist.Height) - 38, 44, 30);
+    PlaceMirrored(btnShuffle, 210, Logical(cardPlaylist.Height) - 38, 44, 30);
   end;
 
   if Assigned(cardAudioMode) and cardAudioMode.Visible then
@@ -1719,6 +1823,41 @@ begin
     lblAudioArtist.Width:=cardAudioMode.Width-40;
     lblAudioAlbum.Width:=cardAudioMode.Width-40;
     pbVisualizer.Width:=cardAudioMode.Width-40;
+  end;
+  finally
+    if DeferCount > 0 then
+    begin
+      // DeferWindowPos requires all HWNDs in a single HDWP to share the same parent.
+      for var PIdx := 0 to DeferCount - 1 do
+      begin
+        var CurParent := Deferred[PIdx].Ctrl.Parent;
+        if CurParent = nil then Continue;
+        var AlreadyDone := False;
+        for var K := 0 to PIdx - 1 do
+          if Deferred[K].Ctrl.Parent = CurParent then
+          begin
+            AlreadyDone := True;
+            Break;
+          end;
+        if AlreadyDone then Continue;
+        var GroupCount := 0;
+        for var K := PIdx to DeferCount - 1 do
+          if Deferred[K].Ctrl.Parent = CurParent then Inc(GroupCount);
+        DeferHandle := BeginDeferWindowPos(GroupCount);
+        if DeferHandle <> 0 then
+        begin
+          for var K := PIdx to DeferCount - 1 do
+            if Deferred[K].Ctrl.Parent = CurParent then
+              DeferHandle := DeferWindowPos(DeferHandle, TWinControl(Deferred[K].Ctrl).Handle, 0,
+                Deferred[K].X, Deferred[K].Y, Deferred[K].W, Deferred[K].H,
+                SWP_NOZORDER or SWP_NOACTIVATE);
+          if DeferHandle <> 0 then
+            EndDeferWindowPos(DeferHandle);
+        end;
+      end;
+      for var I := 0 to DeferCount - 1 do
+        Deferred[I].Ctrl.SetBounds(Deferred[I].X, Deferred[I].Y, Deferred[I].W, Deferred[I].H);
+    end;
   end;
 end;
 
@@ -1741,7 +1880,8 @@ begin
     end;
     if MnuIdx = 4 then UpdateSubtitleTracksMenu(mnuSubTrack);
     Pt := Btn.ClientToScreen(Point(0, Btn.Height + 2));
-    ShowPlayerMenu(Self, MainMenu1.Items[MnuIdx], Pt);
+    if PlayerIsArabic then Inc(Pt.X, Btn.Width);
+    ShowPlayerMenu(Self, MainMenu1.Items[MnuIdx], Pt, 0, nil, PlayerIsArabic);
   end;
 end;
 
@@ -1798,6 +1938,7 @@ begin
     if not FSeekGestureActive then FSeekGestureStart:=PreviousTime;
     PreviousTime:=FSeekGestureStart;
     FSeekGestureActive:=(Sender is TModernSeekBar) and TModernSeekBar(Sender).IsDragging;
+    if FSeekGestureActive then Exit;
     SeekTo(TargetTime);
     ShowOSD(Format('%s%d s   %s   (%d%%)', [IfThen(TargetTime>=PreviousTime,'+',''),
       (TargetTime-PreviousTime) div 1000,FormatTime(TargetTime),Pct]));
@@ -1809,16 +1950,18 @@ end;
 procedure TFrmMain.OnSeekBarHover(Sender: TObject; Pos: Single; ScreenPt: TPoint);
 var
   TargetMs, TotalLen: Int64;
-  ClientPt: TPoint;
-  CardW, CardH, HalfW: Integer;
+  CardW, CardH: Integer;
   ThumbLoaded: Boolean;
 begin
-  if (cardSeekPreview = nil) or (FMediaPlayer = nil) then Exit;
+  if FClosing or not IsWindowVisible(Handle) or IsIconic(Handle) or
+     (cardSeekPreview = nil) or (FMediaPlayer = nil) then Exit;
   TotalLen := libvlc_media_player_get_length(FMediaPlayer);
   if TotalLen <= 0 then Exit;
 
   TargetMs := Round(Pos * TotalLen);
-  lblSeekPreviewTime.Caption := FormatTime(TargetMs);
+  var TimeCaption := FormatTime(TargetMs);
+  if lblSeekPreviewTime.Caption <> TimeCaption then
+    lblSeekPreviewTime.Caption := TimeCaption;
 
   if not FIsAudioOnly and FileExists(FCurrentFile) then
   begin
@@ -1842,15 +1985,21 @@ begin
     lblSeekPreviewTime.SetBounds(0, 5, 92, 22);
   end;
 
-  cardSeekPreview.Width := CardW;
-  cardSeekPreview.Height := CardH;
-  ClientPt := ScreenToClient(ScreenPt);
-  HalfW := CardW div 2;
-  var PreviewOrigin := ClientToScreen(Point(EnsureRange(ClientPt.X - HalfW, 10, ClientWidth - CardW - 10), 0));
-  var DockTop := pnlBottom.ClientToScreen(Point(0, 0)).Y;
-  var PreviewTop := Max(ClientToScreen(Point(0, 10)).Y, DockTop - CardH - 12);
+  var ClientOrigin := ClientToScreen(Point(0, 0));
+  var Available := Rect(ClientOrigin.X + 10, ClientOrigin.Y + 10,
+    ClientOrigin.X + ClientWidth - 10, ClientOrigin.Y + ClientHeight - 10);
+  if (Available.Width < CardW) or (Available.Height < CardH) then
+  begin
+    OnSeekBarLeave(nil);
+    Exit;
+  end;
+  var PreviewLeft := EnsureRange(ScreenPt.X - CardW div 2, Available.Left, Available.Right - CardW);
+  var DockTop := cardBottomDock.ClientToScreen(Point(0, 0)).Y;
+  var PreviewTop := EnsureRange(DockTop - CardH - 12, Available.Top, Available.Bottom - CardH);
   cardSeekPreview.Visible := True;
-  FPreviewWindow.Present(Rect(PreviewOrigin.X, PreviewTop, PreviewOrigin.X + CardW, PreviewTop + CardH));
+  var PreviewBounds := Rect(PreviewLeft, PreviewTop, PreviewLeft + CardW, PreviewTop + CardH);
+  if FPreviewWindow.Visible then FPreviewWindow.Arrange(PreviewBounds)
+  else FPreviewWindow.Present(PreviewBounds);
 end;
 
 procedure TFrmMain.OnSeekBarLeave(Sender: TObject);
@@ -2379,10 +2528,17 @@ begin
   if not pnlPlaylist.Visible then
   begin
     FPlaylistAnimating := True;
-    pnlPlaylist.Left := pnlPlaylist.Parent.ClientWidth;
+    if PlayerIsArabic then pnlPlaylist.Left := -pnlPlaylist.Width
+    else pnlPlaylist.Left := pnlPlaylist.Parent.ClientWidth;
     pnlPlaylist.Visible := True;
+    RepositionModernControls;
   end;
-  FPlaylistStartWidth := pnlPlaylist.Parent.ClientWidth - pnlPlaylist.Left;
+  if PlayerIsArabic then FPlaylistStartWidth := pnlPlaylist.Left + pnlPlaylist.Width
+  else FPlaylistStartWidth := pnlPlaylist.Parent.ClientWidth - pnlPlaylist.Left;
+  // The sliding panel covers the video while opening. Expand before closing
+  // so the disappearing panel reveals video instead of an empty strip.
+  if not Visible then
+    pnlVideoContainer.SetBounds(0, 0, pnlRoot.ClientWidth, pnlRoot.ClientHeight);
   FPlaylistStartTick := GetTickCount64;
   FPlaylistAnimating := True;
   FPlaylistTimer.Enabled := True;
@@ -2396,11 +2552,11 @@ begin
   Progress := Min(1.0, (GetTickCount64 - FPlaylistStartTick) / 180.0);
   Eased := 1 - Power(1 - Progress, 3);
   if FPlaylistTarget then TargetWidth := MulDiv(280, CurrentPPI, 96) else TargetWidth := 0;
-  pnlPlaylist.Left := pnlPlaylist.Parent.ClientWidth -
-    Round(FPlaylistStartWidth + (TargetWidth - FPlaylistStartWidth) * Eased);
-  pnlVideoContainer.Width := Max(1, pnlPlaylist.Left);
-  if FIsFullscreen then RepositionModernControls;
-  pnlPlaylist.BringToFront;
+  var OccupiedWidth := Round(FPlaylistStartWidth + (TargetWidth - FPlaylistStartWidth) * Eased);
+  if PlayerIsArabic then
+    pnlPlaylist.Left := OccupiedWidth - pnlPlaylist.Width
+  else
+    pnlPlaylist.Left := pnlPlaylist.Parent.ClientWidth - OccupiedWidth;
   if Progress >= 1 then
   begin
     FPlaylistTimer.Enabled := False;
@@ -2516,6 +2672,7 @@ var
   ItemText: string;
   TextRect: TRect;
   IsCurrent: Boolean;
+  TextFlags: Cardinal;
 begin
   ListBox := Control as TListBox;
   IsCurrent := (Index = FCurrentPlaylistIndex);
@@ -2567,7 +2724,9 @@ begin
     begin
       Brush := TGPSolidBrush.Create(MakeColor(255, 0, $AF, $A5));
       try
-        G.FillEllipse(Brush, Rect.Left + 12, Rect.Top + (Rect.Height - 8) div 2, 8, 8);
+        var DotX := Rect.Left + 12;
+        if PlayerIsArabic then DotX := Rect.Right - 20;
+        G.FillEllipse(Brush, DotX, Rect.Top + (Rect.Height - 8) div 2, 8, 8);
       finally
         Brush.Free;
       end;
@@ -2578,7 +2737,7 @@ begin
   end;
 
   ListBox.Canvas.Brush.Style := bsClear;
-  ListBox.Canvas.Font.Name := 'Segoe UI';
+  ListBox.Canvas.Font.Name := PlayerUIFont;
   ListBox.Canvas.Font.Size := 9;
   if IsCurrent then
   begin
@@ -2592,11 +2751,21 @@ begin
   end;
 
   TextRect := Rect;
-  TextRect.Left := Rect.Left + 28;
-  TextRect.Right := Rect.Right - 8;
+  TextFlags := DT_VCENTER or DT_SINGLELINE or DT_END_ELLIPSIS or DT_NOPREFIX;
+  if PlayerIsArabic then
+  begin
+    Inc(TextRect.Left, 8);
+    Dec(TextRect.Right, 28);
+    TextFlags := TextFlags or DT_RIGHT or DT_RTLREADING;
+  end
+  else
+  begin
+    Inc(TextRect.Left, 28);
+    Dec(TextRect.Right, 8);
+  end;
   ItemText := ListBox.Items[Index];
   DrawTextW(ListBox.Canvas.Handle, PWideChar(ItemText), Length(ItemText), TextRect,
-    DT_LEFT or DT_VCENTER or DT_SINGLELINE or DT_END_ELLIPSIS);
+    TextFlags);
 end;
 
 procedure UsePlayerColors(Control: TControl);
@@ -2641,6 +2810,11 @@ begin
     pnlRoot.WindowProc := RootDropWndProc;
   end;
   FPlaylistPaths := TStringList.Create;
+  FStalkerSources := TDictionary<string, TStalkerPlaylistSource>.Create;
+  FStalkerTimer := TTimer.Create(Self);
+  FStalkerTimer.Enabled := False;
+  FStalkerTimer.Interval := 80;
+  FStalkerTimer.OnTimer := PollStalkerPlayback;
   FImports := TQueue<IMediaImport>.Create;
   FManualSubtitles := TStringList.Create;
   FGeneratedSubtitles := TStringList.Create;
@@ -2678,9 +2852,16 @@ begin
   except
   end;
   LoadSplashScreen;
+  DoubleBuffered := True;
   pnlRoot.ParentBackground := False;
+  pnlRoot.DoubleBuffered := True;
+  if Assigned(pnlMenuBar) then pnlMenuBar.DoubleBuffered := True;
   pnlVideoContainer.ParentBackground := False;
+  pnlVideoContainer.DoubleBuffered := True;
   pnlVideo.ParentBackground := False;
+  pnlVideo.DoubleBuffered := True;
+  if Assigned(pnlBottom) then pnlBottom.DoubleBuffered := True;
+  if Assigned(pnlPlaylist) then pnlPlaylist.DoubleBuffered := True;
   pnlPlaylist.Visible := False;
   FPlaylistTarget := False;
   btnPlaylistToggle.IsActive := False;
@@ -2696,7 +2877,7 @@ begin
   try
     ApplyPendingComponents;
   except
-    on E: Exception do PlayerMessage('Could not activate playback plugins: ' + E.Message);
+    on E: Exception do PlayerMessage('Could not activate playback plugins: ' + LocalizeExceptionText(E));
   end;
   // Setup LibVLC
   PluginsDir := PlaybackPluginsPath;
@@ -2708,15 +2889,12 @@ begin
     Exit;
   end;
 
-  if PlaybackPluginsInstalled and not EnsurePlaybackEngine then
-    ShowOSD('Playback could not start. Check Settings > Playback Components.');
   FPendingVolume := FSettings.StartupVolume;
   modernVolumeSlider.Volume := FSettings.StartupVolume;
   tbVolume.Position := FSettings.StartupVolume;
 
   PopulateThemesMenu(mnuThemes);
   PopulateThemesMenu(popThemes);
-  InitEQPresetsMenu;
 
   if FSettings.RememberWindow then
   begin
@@ -2803,6 +2981,12 @@ begin
     if Assigned(FTaskbarMgr) and not FTaskbarMgr.ButtonsAdded then
       FTaskbarMgr.InitButtons(Handle);
 
+    TThread.ForceQueue(nil,
+      procedure
+      begin
+        if not GAppClosing then InitEQPresetsMenu;
+      end);
+
     // Attach HWND safely after window is fully rendered
     if (FMediaPlayer <> nil) and pnlVideo.HandleAllocated then
     begin
@@ -2812,17 +2996,15 @@ begin
       end;
     end;
 
-    if FPlaylistPaths.Count > 0 then
-      PlayMediaAtIndex(0);
-    if FSettings.StartFullscreen then mnuFullscreenClick(nil);
+    if (FPlaylistPaths.Count > 0) or FSettings.StartFullscreen then
+      TThread.ForceQueue(nil,
+        procedure
+        begin
+          if GAppClosing or not IsWindowVisible(Handle) then Exit;
+          if (FCurrentMedia = nil) and (FPlaylistPaths.Count > 0) then PlayMediaAtIndex(0);
+          if FSettings.StartFullscreen and not FIsFullscreen then mnuFullscreenClick(nil);
+        end);
 
-    if not Assigned(FPreferencesWarmup) then
-    begin
-      FPreferencesWarmup := TTimer.Create(Self);
-      FPreferencesWarmup.Interval := 100;
-      FPreferencesWarmup.OnTimer := WarmPreferences;
-      FPreferencesWarmup.Enabled := True;
-    end;
   end;
 end;
 
@@ -2891,11 +3073,24 @@ begin
   if Assigned(tmrUpdate) then tmrUpdate.Enabled := False;
   if Assigned(tmrOSD) then tmrOSD.Enabled := False;
   if Assigned(FPlaylistTimer) then FPlaylistTimer.Enabled := False;
-  if Assigned(FPreferencesWarmup) then FPreferencesWarmup.Enabled := False;
   if Assigned(FVisualTimer) then FVisualTimer.Enabled := False;
   if Assigned(tmrClickPause) then tmrClickPause.Enabled := False;
   if Assigned(FFullscreenMouseTimer) then FFullscreenMouseTimer.Enabled := False;
+  if Assigned(tmrFullscreenHide) then tmrFullscreenHide.Enabled := False;
   OnResize := nil;
+
+  // Hide the host and floating controls before teardown can repaint them.
+  var DisableTransitions: BOOL := True;
+  DwmSetWindowAttribute(Handle, DWMWA_TRANSITIONS_FORCEDISABLED, @DisableTransitions, SizeOf(DisableTransitions));
+  if Assigned(FrmEffects) then FrmEffects.Hide;
+  if Assigned(FDockWindow) then FDockWindow.Dismiss;
+  OnSeekBarLeave(nil);
+  ClosePlayerMenus;
+  DismissPlayerHint;
+  CloseAllOSDWindows;
+  ShowWindow(Handle, SW_HIDE);
+  // Commit the hidden window before releasing the video surface.
+  DwmFlush;
 
   // 2. Detach video input and save playback / window state
   DetachVideoInput;
@@ -2940,8 +3135,6 @@ begin
   end;
 
   FreeAndNil(FSeekDecoder);
-  HidePlaybackOSD;
-  ShowWindow(Handle, SW_HIDE);
   // 4. Detach drop file WindowProcs
   DragAcceptFiles(Handle, False);
   if Assigned(pnlVideo) then
@@ -2981,20 +3174,16 @@ begin
     end;
   end;
 
-  ClosePlayerMenus;
-  CloseAllOSDWindows;
 
   // 6. Safely release secondary dialogs while main form handle is still alive
-  if Assigned(FrmEffects) then
-  begin
-    FrmEffects.Parent := nil;
-    FreeAndNil(FrmEffects);
-  end;
+  // Destroy Effects in place. Detaching it would recreate a top-level window.
+  FreeAndNil(FrmEffects);
   FreeAndNil(FrmConvert);
   FreeAndNil(FrmMediaInfo);
   FreeAndNil(FrmBookmarks);
   FreeAndNil(FrmJumpTime);
   FreeAndNil(FrmPreferences);
+  FreeAndNil(FrmIPTV);
   FreeAndNil(FrmOpenMedia);
 
   CanClose := True;
@@ -3031,7 +3220,28 @@ begin
       end;
     end;
   end;
+  if Message.Msg = WM_ENTERSIZEMOVE then
+  begin
+    // Compose the whole window hierarchy only while the user drags a frame
+    // edge. This is the proven flicker fix used by PlayerChrome dialogs:
+    // permanent compositing is intentionally avoided.
+    FInteractiveSizing := True;
+    if HandleAllocated then
+      SetWindowLong(Handle, GWL_EXSTYLE,
+        GetWindowLong(Handle, GWL_EXSTYLE) or WS_EX_COMPOSITED);
+  end
+  else if Message.Msg = WM_SIZING then FInteractiveSizing := True;
   inherited WndProc(Message);
+  if Message.Msg = WM_EXITSIZEMOVE then
+  begin
+    FInteractiveSizing := False;
+    if HandleAllocated then
+    begin
+      SetWindowLong(Handle, GWL_EXSTYLE,
+        GetWindowLong(Handle, GWL_EXSTYLE) and not WS_EX_COMPOSITED);
+      RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_ALLCHILDREN or RDW_UPDATENOW);
+    end;
+  end;
 end;
 
 procedure TFrmMain.FormDestroy(Sender: TObject);
@@ -3081,6 +3291,7 @@ begin
   FreeAndNil(FrmBookmarks);
   FreeAndNil(FrmJumpTime);
   FreeAndNil(FrmPreferences);
+  FreeAndNil(FrmIPTV);
   FreeAndNil(FrmOpenMedia);
 
   if FMediaPlayer <> nil then
@@ -3127,6 +3338,9 @@ begin
     FreeAndNil(FGeneratedSubtitles);
   end;
   FreeAndNil(FPlaylistPaths);
+  FStalkerTimer.Enabled := False;
+  FStalkerRequest := nil;
+  FreeAndNil(FStalkerSources);
   FreeAndNil(FPlaylistOptions);
   if Assigned(FPlatformCacheFiles) then
   begin
@@ -3245,7 +3459,10 @@ begin
           DrawY := (H - DrawH) / 2;
 
           G.SetSmoothingMode(SmoothingModeAntiAlias);
-          G.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+          if FInteractiveSizing then
+            G.SetInterpolationMode(InterpolationModeBilinear)
+          else
+            G.SetInterpolationMode(InterpolationModeHighQualityBicubic);
           G.SetPixelOffsetMode(PixelOffsetModeHighQuality);
           G.DrawImage(FSplashBitmap, DrawX, DrawY, DrawW, DrawH);
         end;
@@ -3289,13 +3506,15 @@ begin
       Msg.Result := 1;
       Exit;
     end
-    else if Msg.Msg = WM_PAINT then
+    else if (Msg.Msg = WM_PAINT) or (Msg.Msg = WM_PRINTCLIENT) then
     begin
-      PaintDC := BeginPaint(pnlVideo.Handle, PS);
+      PaintDC := HDC(Msg.WParam);
+      if (Msg.Msg = WM_PAINT) and (PaintDC = 0) then
+        PaintDC := BeginPaint(pnlVideo.Handle, PS);
       try
-        PaintVideoSplashScreen(PaintDC, pnlVideo.ClientRect);
+        if PaintDC <> 0 then PaintVideoSplashScreen(PaintDC, pnlVideo.ClientRect);
       finally
-        EndPaint(pnlVideo.Handle, PS);
+        if (Msg.Msg = WM_PAINT) and (Msg.WParam = 0) then EndPaint(pnlVideo.Handle, PS);
       end;
       Msg.Result := 0;
       Exit;
@@ -3712,7 +3931,6 @@ const
 var
   CurCrop: string;
   I, NextIdx: Integer;
-  Store: TAppSettings;
 begin
   if FMediaPlayer = nil then Exit;
   CurCrop := FSettings.Crop;
@@ -3727,12 +3945,6 @@ begin
     end;
   end;
   FSettings.Crop := Crops[NextIdx];
-  Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
-  try
-    Store.WriteString('Video', 'Crop', FSettings.Crop);
-  finally
-    Store.Free;
-  end;
   if Crops[NextIdx] = 'Default' then
     libvlc_video_set_crop_geometry(FMediaPlayer, nil)
   else
@@ -3805,7 +4017,7 @@ procedure TFrmMain.ShowOSD(const AText: string);
 begin
   if (AText = '') or FClosing or not FSettings.ShowOSD or FSuppressTransientOSD then Exit;
   if not FSettings.ShowSpeedOSD and StartsText('Speed:', AText) then Exit;
-  ShowVideoTextOSD(pnlVideo, AText);
+  ShowVideoTextOSD(pnlVideo, LocalizeMessageText(AText));
   if Assigned(lblOSD) then lblOSD.Visible := False;
 end;
 
@@ -3828,7 +4040,6 @@ procedure TFrmMain.ReloadPlayerPreferences;
 begin
   FSettings := TPlayerSettings.Load(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
   FPreferencesDirty:=FPreferencesStamp<>PreferencesStamp;
-  if FPreferencesDirty and (FPreferencesWarmup<>nil) then FPreferencesWarmup.Enabled:=True;
   ConfigureTextOSD(FSettings.OSDDuration, FSettings.OSDFontSize);
   FVideoPreferencesApplied := False;
   FAudioPreferencesApplied := False;
@@ -3929,7 +4140,7 @@ begin
 end;
 
 procedure TFrmMain.PlayFile(const AFilePath: string; AOptions: TStrings;
-  const SourceURL: string; NativeGeometry: Boolean);
+  const SourceURL: string; NativeGeometry: Boolean; const MediaName: string);
 var
   Utf8Path: UTF8String;
   Ini: TAppSettings;
@@ -4002,7 +4213,7 @@ begin
           end;
         end
         else
-          ShowOSD('yt-dlp: ' + ErrorMsg);
+          if PlayerIsArabic then ShowOSD(ErrorMsg) else ShowOSD('yt-dlp: ' + ErrorMsg);
       end);
     Exit;
   end;
@@ -4017,6 +4228,9 @@ begin
   SavePlaybackPosition;
   AttachVideoInput(Handle, pnlVideo.Handle);
 
+  var NewSource := not SameText(FCurrentFile, AFilePath);
+  var ReopeningStopped := (FCurrentFile <> '') and
+    (libvlc_media_player_get_state(FMediaPlayer) in [libvlc_Stopped, libvlc_Ended]);
   if FCurrentMedia <> nil then
   begin
     try
@@ -4047,15 +4261,32 @@ begin
   FAudioPreferencesApplied := False;
   FPlaybackFailed := False;
   FVideoPreferencesApplied := False;
-  if not SameText(FCurrentFile, AFilePath) then FPrimarySubtitlePath := '';
+  FSeekGestureActive := False;
+  if NewSource then FPrimarySubtitlePath := '';
+  // Reopening a stopped source starts a new video session, even for the same path.
+  if NewSource or ReopeningStopped then
+  begin
+    FNativeVideoGeometry := NativeGeometry or (FCurrentFile <> '');
+    if (FPanScanZoom <> 1.0) or (FPanScanX <> 0) or (FPanScanY <> 0) then
+    begin
+      FPanScanZoom := 1.0;
+      FPanScanX := 0;
+      FPanScanY := 0;
+      pnlVideo.Align := alClient;
+    end;
+  end
+  else if NativeGeometry then
+    FNativeVideoGeometry := True;
   FCurrentFile := AFilePath;
-  FNativeRecentGeometry := NativeGeometry;
   FOnlineVideoURL := '';
   FOnlineVideoAgent := '';
   FOnlineVideoTitle := '';
   var DisplayPath := AFilePath;
   if SourceURL <> '' then DisplayPath := SourceURL;
-  AddRecentMedia(DisplayPath);
+  var DisplayName := ExtractFileName(AFilePath);
+  if MediaName <> '' then DisplayName := MediaName;
+  if MediaName = '' then AddRecentMedia(DisplayPath);
+  if MediaName <> '' then DisplayPath := MediaName;
   GlobalLog('Playback started: ' + DisplayPath);
   FATime := -1;
   FBTime := -1;
@@ -4096,6 +4327,9 @@ begin
           libvlc_media_add_option(FCurrentMedia, PAnsiChar(Utf8Option));
         end;
       libvlc_media_player_set_media(FMediaPlayer, FCurrentMedia);
+      libvlc_video_set_aspect_ratio(FMediaPlayer, nil);
+      libvlc_video_set_crop_geometry(FMediaPlayer, nil);
+      libvlc_video_set_scale(FMediaPlayer, 0);
       if FSettings.AudioDeviceID <> '' then
       begin
         var DeviceID := UTF8Encode(FSettings.AudioDeviceID);
@@ -4131,9 +4365,9 @@ begin
         btnPlay.Hint := 'Pause (Space)';
       end;
       if Assigned(modernTitleBar) then
-        modernTitleBar.TitleText := 'VLC Modern - ' + ExtractFileName(AFilePath);
-      Caption := 'VLC Modern - ' + ExtractFileName(AFilePath);
-      if FSettings.ShowFilename then ShowOSD('Playing: ' + ExtractFileName(AFilePath));
+        modernTitleBar.TitleText := 'VLC Modern - ' + DisplayName;
+      Caption := 'VLC Modern - ' + DisplayName;
+      if FSettings.ShowFilename then ShowOSD('Playing: ' + DisplayName);
 
       // Resume playback check
       if not AFilePath.Contains('://') then
@@ -4166,14 +4400,27 @@ begin
       end;
     except
       on E: Exception do
-        ShowOSD('Playback error: ' + E.Message);
+        ShowOSD('Playback error: ' + LocalizeExceptionText(E));
     end;
   end
   else
   begin
     FPlaybackFailed := True;
-    ShowOSD('Error loading: ' + ExtractFileName(AFilePath));
+    ShowOSD('Error loading: ' + DisplayName);
   end;
+end;
+
+procedure TFrmMain.WatchPlaylistStream(const URL, MediaName: string; Options: TStrings);
+begin
+  var Index := FPlaylistPaths.IndexOf(URL);
+  if Index < 0 then
+  begin
+    Index := FPlaylistPaths.Add(URL);
+    lstPlaylist.Items.Add(MediaName);
+  end
+  else
+    lstPlaylist.Items[Index] := MediaName;
+  PlayMediaAtIndex(Index, Options);
 end;
 
 procedure TFrmMain.PlayMediaAtIndex(AIndex: Integer; AOptions: TStrings);
@@ -4182,8 +4429,79 @@ begin
   begin
     FCurrentPlaylistIndex := AIndex;
     lstPlaylist.ItemIndex := AIndex;
-    PlayFile(FPlaylistPaths[AIndex], AOptions);
+    var Path := FPlaylistPaths[AIndex];
+    var MediaName := lstPlaylist.Items[AIndex];
+    var Source: TStalkerPlaylistSource;
+    if FStalkerSources.TryGetValue(Path, Source) then
+    begin
+      FStalkerRetryUsed := False;
+      Inc(FPlatformRequest);
+      FStalkerRequestGeneration := FPlatformRequest;
+      FStalkerPlaylistKey := Path;
+      FStalkerRequest := DownloadStalker(Source.Portal, Source.MAC, Source.Command);
+      FStalkerTimer.Enabled := True;
+      Exit;
+    end;
+    if MediaName = ExtractFileName(Path) then MediaName := '';
+    PlayFile(Path, AOptions, '', False, MediaName);
   end;
+end;
+
+procedure TFrmMain.WatchStalkerChannel(const Portal, MAC, Command, MediaName: string);
+begin
+  if (Portal = '') or (MAC = '') or (Command = '') then Exit;
+  for var Entry in FStalkerSources do
+    if SameText(Entry.Value.Portal, Portal) and SameText(Entry.Value.MAC, MAC) and
+       (Entry.Value.Command = Command) then
+    begin
+      PlayMediaAtIndex(FPlaylistPaths.IndexOf(Entry.Key));
+      Exit;
+    end;
+  var Source: TStalkerPlaylistSource;
+  Source.Portal := Portal;
+  Source.MAC := MAC;
+  Source.Command := Command;
+  var Key := 'stalker-playlist:' + TGUID.NewGuid.ToString;
+  FStalkerSources.Add(Key, Source);
+  var Index := FPlaylistPaths.Add(Key);
+  lstPlaylist.Items.Add(MediaName);
+  PlayMediaAtIndex(Index);
+end;
+
+procedure TFrmMain.PollStalkerPlayback(Sender: TObject);
+begin
+  if (FStalkerRequest = nil) or not FStalkerRequest.Finished then Exit;
+  FStalkerTimer.Enabled := False;
+  var Request := FStalkerRequest;
+  FStalkerRequest := nil;
+  if FClosing or (FStalkerRequestGeneration <> FPlatformRequest) then Exit;
+  var Index := FPlaylistPaths.IndexOf(FStalkerPlaylistKey);
+  if (Index < 0) or (Index <> FCurrentPlaylistIndex) then Exit;
+  if Request.ErrorText <> '' then
+  begin
+    ShowOSD(Request.ErrorText);
+    Exit;
+  end;
+  var Options := TStringList.Create;
+  try
+    Options.Add(':network-caching=1500');
+    Options.Add(':http-user-agent=' + StalkerStreamUserAgent);
+    PlayFile(Request.Content, Options, '', False, lstPlaylist.Items[Index]);
+    FStalkerPlaybackGeneration := FPlatformRequest;
+  finally
+    Options.Free;
+  end;
+end;
+
+function TFrmMain.RetryStalkerPlayback: Boolean;
+begin
+  Result := not FStalkerRetryUsed and not FPlaybackStarted and
+    (FStalkerPlaybackGeneration <> 0) and (FStalkerPlaybackGeneration = FPlatformRequest) and
+    (FCurrentPlaylistIndex >= 0) and (FCurrentPlaylistIndex < FPlaylistPaths.Count) and
+    FStalkerSources.ContainsKey(FPlaylistPaths[FCurrentPlaylistIndex]);
+  if not Result then Exit;
+  PlayMediaAtIndex(FCurrentPlaylistIndex);
+  FStalkerRetryUsed := True;
 end;
 
 procedure TFrmMain.mnuOpenFileClick(Sender: TObject);
@@ -4485,26 +4803,26 @@ begin
 end;
 
 procedure TFrmMain.mnuIPTVClick(Sender: TObject);
-var
-  Dlg: TFrmIPTV;
 begin
-  Dlg := TFrmIPTV.Create(Self);
+  if FrmIPTV = nil then
+    FrmIPTV := TFrmIPTV.Create(Self);
   try
-    Dlg.ShowModal;
+    FrmIPTV.ShowModal;
   finally
-    Dlg.Free;
     if Enabled and not FClosing then Winapi.Windows.SetFocus(Handle);
   end;
 end;
 
 procedure TFrmMain.OnLiveTVSource(Sender: TObject);
-var Dialog: TFrmIPTV;
 begin
-  Dialog:=TFrmIPTV.Create(Self);
+  if FrmIPTV = nil then
+    FrmIPTV := TFrmIPTV.Create(Self);
   try
-    Dialog.SelectConnectionSource(TMenuItem(Sender).Tag);
-    Dialog.ShowModal;
-  finally Dialog.Free; end;
+    FrmIPTV.OpenConnectionSource(TMenuItem(Sender).Tag);
+    FrmIPTV.ShowModal;
+  finally
+    if Enabled and not FClosing then Winapi.Windows.SetFocus(Handle);
+  end;
 end;
 
 procedure TFrmMain.OnLiveTVMenu(Sender: TObject);
@@ -4527,7 +4845,10 @@ begin
     Item:=TMenuItem.Create(Menu); Item.Caption:='Open Live TV and IPTV...';
     Item.OnClick:=mnuIPTVClick; Menu.Items.Add(Item);
   end;
-  ShowPlayerMenu(Self,Menu.Items,btnMenuIPTV.ClientToScreen(Point(0,btnMenuIPTV.Height+4)));
+  var MenuAnchorX := 0;
+  if PlayerIsArabic then MenuAnchorX := btnMenuIPTV.Width;
+  ShowPlayerMenu(Self, Menu.Items, btnMenuIPTV.ClientToScreen(Point(MenuAnchorX,
+    btnMenuIPTV.Height + 4)), 0, nil, PlayerIsArabic);
 end;
 
 procedure TFrmMain.mnuOpenDiscClick(Sender: TObject);
@@ -4605,12 +4926,10 @@ end;
 procedure TFrmMain.WarmPreferences(Sender:TObject);
 begin
   if FClosing then Exit;
-  if FPreferencesWarmup<>nil then FPreferencesWarmup.Enabled:=False;
+  if Assigned(FrmPreferences) and FrmPreferences.Showing then Exit;
   if FrmPreferences=nil then FrmPreferences:=TFrmPreferences.Create(Self)
   else if FPreferencesDirty and not FrmPreferences.Showing then FrmPreferences.LoadPreferences;
   FPreferencesStamp:=PreferencesStamp; FPreferencesDirty:=False;
-  if (FPreferencesWarmup <> nil) and (Sender = FPreferencesWarmup) and FrmPreferences.PrepareNextPage then
-    FPreferencesWarmup.Enabled := True;
 end;
 
 procedure TFrmMain.MeasurePreferencesOpen(Sender: TObject);
@@ -4688,7 +5007,14 @@ procedure TFrmMain.mnuSavePlaylistClick(Sender: TObject);
 begin
   if SaveDialogPlaylist.Execute then
   begin
-    FPlaylistPaths.SaveToFile(SaveDialogPlaylist.FileName, TEncoding.UTF8);
+    var ExportPaths := TStringList.Create;
+    try
+      for var Path in FPlaylistPaths do
+        if not FStalkerSources.ContainsKey(Path) then ExportPaths.Add(Path);
+      ExportPaths.SaveToFile(SaveDialogPlaylist.FileName, TEncoding.UTF8);
+    finally
+      ExportPaths.Free;
+    end;
     ShowOSD('Playlist Saved: ' + ExtractFileName(SaveDialogPlaylist.FileName));
   end;
 end;
@@ -4730,7 +5056,19 @@ procedure TFrmMain.mnuPlayPauseClick(Sender: TObject);
 var
   NowTick: UInt64;
 begin
-  if not Enabled or not IsWindowEnabled(Handle) or (FMediaPlayer = nil) then Exit;
+  if not Enabled or not IsWindowEnabled(Handle) then Exit;
+  if (FCurrentPlaylistIndex >= 0) and (FCurrentPlaylistIndex < FPlaylistPaths.Count) and
+     FStalkerSources.ContainsKey(FPlaylistPaths[FCurrentPlaylistIndex]) then
+  begin
+    if FStalkerRequest <> nil then Exit;
+    if (FMediaPlayer = nil) or
+       (libvlc_media_player_get_state(FMediaPlayer) <> libvlc_Playing) then
+    begin
+      PlayMediaAtIndex(FCurrentPlaylistIndex);
+      Exit;
+    end;
+  end;
+  if FMediaPlayer = nil then Exit;
 
   NowTick := GetTickCount64;
   FLastPlayPauseTick := NowTick;
@@ -4759,6 +5097,32 @@ begin
       PlayMediaAtIndex(0)
     else
     begin
+      if libvlc_media_player_get_state(FMediaPlayer) in [libvlc_Stopped, libvlc_Ended] then
+      begin
+        FNativeVideoGeometry := True;
+        FVideoPreferencesApplied := False;
+        FAudioPreferencesApplied := False;
+        FPlaybackStarted := False;
+        FOpeningSkipped := False;
+        FEndingSkipped := False;
+        FPlaybackFailed := False;
+        libvlc_media_player_set_media(FMediaPlayer, nil);
+        libvlc_media_player_set_media(FMediaPlayer, FCurrentMedia);
+        libvlc_video_set_aspect_ratio(FMediaPlayer, nil);
+        libvlc_video_set_crop_geometry(FMediaPlayer, nil);
+        libvlc_video_set_scale(FMediaPlayer, 0);
+        if not FGPUShaderActive then
+          libvlc_media_player_set_hwnd(FMediaPlayer, Pointer(pnlVideo.Handle));
+        AttachVideoInput(Handle, pnlVideo.Handle);
+      end;
+      if (FCurrentPlaylistIndex >= 0) and (FCurrentPlaylistIndex < FPlaylistPaths.Count) and
+         (StartsText('http://', FPlaylistPaths[FCurrentPlaylistIndex]) or
+          StartsText('https://', FPlaylistPaths[FCurrentPlaylistIndex])) and
+         (libvlc_media_player_get_length(FMediaPlayer) <= 0) then
+      begin
+        PlayMediaAtIndex(FCurrentPlaylistIndex);
+        Exit;
+      end;
       libvlc_media_player_play(FMediaPlayer);
       if Assigned(btnPlay) then
       begin
@@ -4774,6 +5138,9 @@ end;
 
 procedure TFrmMain.mnuStopClick(Sender: TObject);
 begin
+  Inc(FPlatformRequest);
+  FStalkerTimer.Enabled := False;
+  FStalkerRequest := nil;
   HidePlaybackOSD;
   if FMediaPlayer = nil then Exit;
   OnSeekBarLeave(nil);
@@ -5361,15 +5728,27 @@ begin
     if WaitForSingleObject(FClipExportProcess, 0) = WAIT_TIMEOUT then Exit;
     var Status: DWORD;
     var Output := FVideoRecordPath + '.part.mp4';
-    var Saved := GetExitCodeProcess(FClipExportProcess, Status) and (Status = 0) and
-      MoveFileEx(PChar(Output), PChar(FVideoRecordPath), 0);
+    var Detail := '';
+    var Saved := False;
+    if not GetExitCodeProcess(FClipExportProcess, Status) then
+      Detail := LocalizeWindowsError(GetLastError)
+    else if Status <> 0 then
+      Detail := Format(Translate('FFmpeg could not save the clip (exit code %d).'), [Integer(Status)])
+    else
+    begin
+      Saved := MoveFileEx(PChar(Output), PChar(FVideoRecordPath), 0);
+      if not Saved then
+        Detail := Translate('Could not move the completed MP4 file:') + ' ' +
+          LocalizeWindowsError(GetLastError);
+    end;
     CloseHandle(FClipExportProcess);
     FClipExportProcess := 0;
     StopVideoRecording;
     if not Saved then
     begin
       System.SysUtils.DeleteFile(Output);
-      ShowOSD('Could not save precise MP4 clip');
+      if PlayerIsArabic and (Detail <> '') then ShowOSD(Detail)
+      else ShowOSD('Could not save precise MP4 clip');
     end;
     Exit;
   end;
@@ -6411,11 +6790,6 @@ var
 begin
   if FMediaPlayer = nil then Exit;
   FSettings.AspectRatio := ARatio;
-  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
-  try
-    Store.WriteString('Video', 'AspectRatio', ARatio);
-    Store.WriteBool('Video', 'AspectAuto', ARatio = 'Default');
-  finally Store.Free; end;
   if ARatio = 'Default' then
     libvlc_video_set_aspect_ratio(FMediaPlayer, nil)
   else
@@ -6447,8 +6821,6 @@ begin
   if not (Sender is TMenuItem) or (FMediaPlayer = nil) then Exit;
   CropStr := AnsiString(TMenuItem(Sender).Caption);
   FSettings.Crop := string(CropStr);
-  var Store := TAppSettings.Create(ExtractFilePath(ParamStr(0)) + 'VLCModern.ini');
-  try Store.WriteString('Video', 'Crop', string(CropStr)); finally Store.Free; end;
   if CropStr = 'Default' then
     libvlc_video_set_crop_geometry(FMediaPlayer, nil)
   else
@@ -6708,7 +7080,15 @@ begin
       FGPUShader.AttachToPlayer(FMediaPlayer);
       if State in [libvlc_Playing, libvlc_Paused] then
       begin
-        libvlc_media_player_play(FMediaPlayer);
+        if (FCurrentPlaylistIndex >= 0) and (FCurrentPlaylistIndex < FPlaylistPaths.Count) and
+         (StartsText('http://', FPlaylistPaths[FCurrentPlaylistIndex]) or
+          StartsText('https://', FPlaylistPaths[FCurrentPlaylistIndex])) and
+         (libvlc_media_player_get_length(FMediaPlayer) <= 0) then
+      begin
+        PlayMediaAtIndex(FCurrentPlaylistIndex);
+        Exit;
+      end;
+      libvlc_media_player_play(FMediaPlayer);
         if (Position > 0) and not FCurrentFile.Contains('://') then SeekTo(Position);
         if State = libvlc_Paused then libvlc_media_player_set_pause(FMediaPlayer, 1);
       end;
@@ -7607,13 +7987,13 @@ begin
   end;
   OwnerMain.LoadCustomHotkeys;
   RefreshList;
-  OwnerMain.ShowOSD('Hotkeys reset to defaults');
+  PlayerMessage('Defaults restored');
 end;
 
 procedure TFrmMain.ShowHotkeysReference;
 var
   Dlg: THotkeyManagerForm;
-  BtnAssign, BtnReset, BtnClose: TButton;
+  BtnAssign, BtnReset, BtnClose: TPlayerTextButton;
   LblInfo: TLabel;
   CurSC: TShortCut;
 begin
@@ -7666,7 +8046,7 @@ begin
     Dlg.HkBox.Hint := 'Press the key combination to record';
     Dlg.HkBox.ShowHint := True;
 
-    BtnAssign := TButton.Create(Dlg);
+    BtnAssign := TPlayerTextButton.Create(Dlg);
     BtnAssign.Parent := Dlg;
     BtnAssign.Left := 236;
     BtnAssign.Top := 410;
@@ -7674,7 +8054,7 @@ begin
     BtnAssign.Height := 28;
     BtnAssign.Caption := 'Assign Key';
 
-    BtnReset := TButton.Create(Dlg);
+    BtnReset := TPlayerTextButton.Create(Dlg);
     BtnReset.Parent := Dlg;
     BtnReset.Left := 354;
     BtnReset.Top := 410;
@@ -7682,7 +8062,7 @@ begin
     BtnReset.Height := 28;
     BtnReset.Caption := 'Reset Defaults';
 
-    BtnClose := TButton.Create(Dlg);
+    BtnClose := TPlayerTextButton.Create(Dlg);
     BtnClose.Parent := Dlg;
     BtnClose.Left := 424;
     BtnClose.Top := 454;
@@ -7703,7 +8083,7 @@ begin
     BtnAssign.OnClick := Dlg.OnAssignClick;
     BtnReset.OnClick := Dlg.OnResetClick;
 
-    ApplyPlayerAppearance(Dlg);
+    ApplyPlayerAppearance(Dlg, True);
     Dlg.Constraints.MinWidth := Dlg.Width;
     Dlg.Constraints.MaxWidth := Dlg.Width;
     Dlg.Constraints.MinHeight := Dlg.Height;
@@ -8465,6 +8845,22 @@ end;
 
 procedure TFrmMain.FormResize(Sender: TObject);
 begin
+  if WindowState = wsMinimized then Exit;
+  DisableAlign;
+  if Assigned(pnlRoot) then pnlRoot.DisableAlign;
+  if Assigned(pnlBottom) then pnlBottom.DisableAlign;
+  try
+    ApplyResizeLayout;
+  finally
+    if Assigned(pnlBottom) then pnlBottom.EnableAlign;
+    if Assigned(pnlRoot) then pnlRoot.EnableAlign;
+    EnableAlign;
+  end;
+end;
+
+procedure TFrmMain.ApplyResizeLayout;
+begin
+  if FClosing or (WindowState = wsMinimized) then Exit;
   if Assigned(btnTitleMax) then
     if WindowState = wsMaximized then btnTitleMax.IconKind := ikRestore
     else btnTitleMax.IconKind := ikMaximize;
@@ -8478,18 +8874,37 @@ end;
 procedure TFrmMain.CreateParams(var Params: TCreateParams);
 begin
   inherited CreateParams(Params);
-  Params.Style := Params.Style or WS_CAPTION or WS_THICKFRAME or WS_MINIMIZEBOX or WS_MAXIMIZEBOX;
+  Params.Style := Params.Style or WS_CAPTION or WS_THICKFRAME or WS_MINIMIZEBOX or
+    WS_MAXIMIZEBOX or WS_CLIPCHILDREN;
 end;
 
 procedure TFrmMain.CreateWnd;
-var Frame: Winapi.UxTheme.TMargins;
 begin
   inherited;
+  var DisableTransitions: BOOL := True;
+  DwmSetWindowAttribute(Handle, DWMWA_TRANSITIONS_FORCEDISABLED,
+    @DisableTransitions, SizeOf(DisableTransitions));
+  if not FShownOnce then
+  begin
+    var Cloaked: BOOL := True;
+    DwmSetWindowAttribute(Handle, DWMWA_CLOAK, @Cloaked, SizeOf(Cloaked));
+  end;
   if FIsFullscreen then Exit;
-  Frame.cxLeftWidth := 1; Frame.cxRightWidth := 1;
-  Frame.cyTopHeight := 1; Frame.cyBottomHeight := 1;
-  DwmExtendFrameIntoClientArea(Handle, Frame);
   EnableDwmRoundedCorners(Handle);
+end;
+
+procedure TFrmMain.CMShowingChanged(var Msg: TMessage);
+begin
+  var FirstShow := not FShownOnce;
+  inherited;
+  if FirstShow and FShownOnce and HandleAllocated and IsWindowVisible(Handle) then
+  begin
+    // Paint the shell and all children before the compositor exposes the first frame.
+    RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_ERASE or RDW_FRAME or
+      RDW_ALLCHILDREN or RDW_UPDATENOW);
+    var Cloaked: BOOL := False;
+    DwmSetWindowAttribute(Handle, DWMWA_CLOAK, @Cloaked, SizeOf(Cloaked));
+  end;
 end;
 
 procedure TFrmMain.WMNCCalcSize(var Msg: TWMNCCalcSize);
@@ -8543,10 +8958,42 @@ begin
   FDockDragging := False;
 end;
 
+procedure TFrmMain.WMSystemCommand(var Msg: TWMSysCommand);
+var
+  Cloaked: BOOL;
+  ComposeRestore: Boolean;
+begin
+  Cloaked := True;
+  ComposeRestore := (Msg.CmdType and $FFF0 = SC_RESTORE) and HandleAllocated and
+    IsIconic(Handle) and not FClosing;
+  if ComposeRestore then
+    ComposeRestore := Succeeded(DwmSetWindowAttribute(Handle, DWMWA_CLOAK,
+      @Cloaked, SizeOf(Cloaked)));
+  try
+    inherited;
+    if ComposeRestore and HandleAllocated and not IsIconic(Handle) then
+    begin
+      ApplyResizeLayout;
+      RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_ERASE or RDW_FRAME or
+        RDW_ALLCHILDREN or RDW_UPDATENOW);
+    end;
+  finally
+    if ComposeRestore and HandleAllocated then
+    begin
+      Cloaked := False;
+      DwmSetWindowAttribute(Handle, DWMWA_CLOAK, @Cloaked, SizeOf(Cloaked));
+    end;
+  end;
+end;
+
 procedure TFrmMain.WMWindowPosChanging(var Msg:TWMWindowPosChanging);
 begin
   inherited;
   if (Msg.WindowPos = nil) or FClosing then Exit;
+  if Assigned(FPreviewWindow) and FPreviewWindow.Visible and
+     (((Msg.WindowPos.flags and (SWP_NOMOVE or SWP_NOSIZE)) <> (SWP_NOMOVE or SWP_NOSIZE)) or
+      ((Msg.WindowPos.flags and SWP_HIDEWINDOW) <> 0)) then
+    OnSeekBarLeave(nil);
   if FIsFullscreen or (WindowState <> wsNormal) then
   begin
     HidePlaybackOSD;
@@ -8561,6 +9008,7 @@ begin
   X:=EnsureRange(X,Work.Left,Work.Right-W); Y:=EnsureRange(Y,Work.Top,Work.Bottom-H);
   if (X<>Left) or (Y<>Top) then Pos.flags:=Pos.flags and not SWP_NOMOVE;
   if (W<>Width) or (H<>Height) then Pos.flags:=Pos.flags and not SWP_NOSIZE;
+  // Do not set SWP_NOCOPYBITS during interactive sizing; it discards the composited frame every pixel.
   if (W <> Width) or (H <> Height) then HidePlaybackOSD
   else if (Pos.flags and SWP_NOMOVE = 0) and HandleAllocated and IsWindowVisible(Handle) then
     MovePlaybackOSD(Handle, X - Left, Y - Top);
@@ -8723,6 +9171,7 @@ begin
       FCurrentPlaylistIndex := -1;
     end
     else if Idx < FCurrentPlaylistIndex then Dec(FCurrentPlaylistIndex);
+    FStalkerSources.Remove(FPlaylistPaths[Idx]);
     FPlaylistPaths.Delete(Idx);
     lstPlaylist.Items.Delete(Idx);
   end;
@@ -8732,6 +9181,7 @@ procedure TFrmMain.btnClearPlaylistClick(Sender: TObject);
 begin
   mnuStopClick(nil);
   FPlaylistPaths.Clear;
+  FStalkerSources.Clear;
   lstPlaylist.Items.Clear;
   FCurrentPlaylistIndex := -1;
 end;
@@ -8787,10 +9237,13 @@ begin
       Exit;
     end;
     ProcessMediaImports;
+    // The old media may report Ended while the portal resolves its replacement.
+    if (FStalkerRequest <> nil) and (FStalkerRequestGeneration = FPlatformRequest) then Exit;
     State := libvlc_media_player_get_state(FMediaPlayer);
 
     if State = libvlc_Error then
     begin
+      if RetryStalkerPlayback then Exit;
       if not FPlaybackFailed then ShowOSD('Unable to open this file or stream. Check the source and connection.');
       FPlaybackFailed := True;
       Exit;
@@ -8799,6 +9252,7 @@ begin
     begin
       if not FPlaybackStarted then
       begin
+        if RetryStalkerPlayback then Exit;
         FPlaybackFailed := True;
         mnuStopClick(nil);
         ShowOSD('No playable media was received from this source.');
@@ -8847,7 +9301,7 @@ begin
           var Ratio := FSettings.AspectRatio;
           var CropMode := FSettings.Crop;
           var Zoom := FSettings.ZoomPercent;
-          if FNativeRecentGeometry then
+          if FNativeVideoGeometry then
           begin
             Ratio := 'Default';
             CropMode := 'Default';
@@ -9026,6 +9480,8 @@ begin
         FUpdatingTrackBar := True;
         try
           Pos := libvlc_media_player_get_position(FMediaPlayer);
+          if (FPendingSeek >= 0) and (TotalLen > 0) then
+            Pos := FPendingSeek / TotalLen;
           tbProgress.Position := Round(Pos * 1000.0);
           if Assigned(modernSeekBar) and not modernSeekBar.IsDragging then
           begin
@@ -10159,5 +10615,8 @@ begin
     end;
   end;
 end;
+
+initialization
+  RegisterClass(TPlayerDockPanel);
 
 end.

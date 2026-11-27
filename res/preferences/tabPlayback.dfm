@@ -52,7 +52,7 @@ object tabPlayback: TTabSheet
         'Quit Player'
         'Put Computer to Sleep')
     end
-    object chkSaveHistory: TCheckBox
+    object chkSaveHistory: TPlayerCheckBox
       Left = 18
       Top = 88
       Width = 350
@@ -62,7 +62,7 @@ object tabPlayback: TTabSheet
       State = cbChecked
       TabOrder = 2
     end
-    object chkAutoPlayNext: TCheckBox
+    object chkAutoPlayNext: TPlayerCheckBox
       Left = 18
       Top = 112
       Width = 350
@@ -132,7 +132,7 @@ object tabPlayback: TTabSheet
       Text = '60 Seconds (1 Min)'
       Items.Strings = ('30 Seconds' '60 Seconds (1 Min)' '300 Seconds (5 Min)')
     end
-    object chkScaletempo: TCheckBox
+    object chkScaletempo: TPlayerCheckBox
       Left = 18
       Top = 90
       Width = 480
@@ -142,7 +142,7 @@ object tabPlayback: TTabSheet
       State = cbChecked
       TabOrder = 3
     end
-    object chkShowSpeedOSD: TCheckBox
+    object chkShowSpeedOSD: TPlayerCheckBox
       Left = 18
       Top = 116
       Width = 480

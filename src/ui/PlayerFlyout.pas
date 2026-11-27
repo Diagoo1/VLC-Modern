@@ -31,12 +31,13 @@ type
 
 implementation
 
-uses System.Math, CurvedControls;
+uses System.Math, Winapi.Dwmapi, CurvedControls;
 
 constructor TPlayerFlyout.Create(AOwner: TComponent);
 begin
   inherited CreateNew(AOwner);
   BorderStyle := bsNone;
+  Position := poDesigned;
   PopupMode := pmExplicit;
   if AOwner is TCustomForm then PopupParent := TCustomForm(AOwner);
   Color := DP_COLOR_SURFACE;
@@ -58,6 +59,10 @@ procedure TPlayerFlyout.CreateWnd;
 begin
   inherited;
   EnableDwmRoundedCorners(Handle);
+  // The dock animates its own position; compositor show/hide effects are independent.
+  var DisableTransitions: BOOL := True;
+  DwmSetWindowAttribute(Handle, DWMWA_TRANSITIONS_FORCEDISABLED,
+    @DisableTransitions, SizeOf(DisableTransitions));
 end;
 
 procedure TPlayerFlyout.WMNCCalcSize(var Msg: TWMNCCalcSize);
@@ -93,10 +98,14 @@ begin
   RestingY := TargetY;
   StartY := Top;
   if not WasVisible then StartY := TargetY + 24;
+  HandleNeeded;
   SetBounds(Bounds.Left, TargetY, Bounds.Width, Bounds.Height);
-  if Animate and (not WasVisible or (StartY <> TargetY)) then Top := StartY;
+  var PresentY := TargetY;
+  if Animate then PresentY := StartY;
+  if PresentY <> TargetY then Top := PresentY;
   Visible := True;
-  SetWindowPos(Handle, HWND_TOP, Left, Top, Width, Height, SWP_NOACTIVATE or SWP_SHOWWINDOW);
+  SetWindowPos(Handle, HWND_TOP, Bounds.Left, PresentY, Bounds.Width, Bounds.Height,
+    SWP_NOACTIVATE or SWP_SHOWWINDOW);
   if Animate and (Top <> TargetY) then
   begin
     Started := GetTickCount64;

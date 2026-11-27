@@ -21,7 +21,7 @@ object FrmMessages: TFrmMessages
     BevelOuter = bvNone
     Color = 2105376
     TabOrder = 0
-    object btnCopy: TButton
+    object btnCopy: TPlayerTextButton
       Left = 14
       Top = 10
       Width = 90
@@ -30,7 +30,7 @@ object FrmMessages: TFrmMessages
       TabOrder = 0
       OnClick = btnCopyClick
     end
-    object btnClear: TButton
+    object btnClear: TPlayerTextButton
       Left = 112
       Top = 10
       Width = 85
@@ -39,7 +39,7 @@ object FrmMessages: TFrmMessages
       TabOrder = 1
       OnClick = btnClearClick
     end
-    object btnSave: TButton
+    object btnSave: TPlayerTextButton
       Left = 205
       Top = 10
       Width = 110
@@ -48,7 +48,7 @@ object FrmMessages: TFrmMessages
       TabOrder = 2
       OnClick = btnSaveClick
     end
-    object btnClose: TButton
+    object btnClose: TPlayerTextButton
       Left = 536
       Top = 10
       Width = 90

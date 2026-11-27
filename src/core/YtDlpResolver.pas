@@ -1,4 +1,4 @@
-unit YtDlpResolver;
+﻿unit YtDlpResolver;
 
 interface
 
@@ -21,7 +21,7 @@ type
 
 implementation
 
-uses PlayerPaths;
+uses PlayerPaths, PlayerLanguage;
 
 class function TYtDlpResolver.IsSupportedSiteUrl(const AUrl: string): Boolean;
 const
@@ -83,7 +83,15 @@ begin
   if Result <> '' then Exit;
 
   ToolsDir := PlayerDataPath('tools');
-  TDirectory.CreateDirectory(ToolsDir);
+  try
+    TDirectory.CreateDirectory(ToolsDir);
+  except
+    on E: Exception do
+    begin
+      ErrorMsg := Translate('Auto-download failed:') + ' ' + LocalizeExceptionText(E);
+      Exit;
+    end;
+  end;
   DestPath := TPath.Combine(ToolsDir, 'yt-dlp.exe');
   TmpPath := DestPath + '.downloading';
 
@@ -113,7 +121,7 @@ begin
       on E: Exception do
       begin
         if TFile.Exists(TmpPath) then TFile.Delete(TmpPath);
-        ErrorMsg := 'Auto-download failed: ' + E.Message;
+        ErrorMsg := Translate('Auto-download failed:') + ' ' + LocalizeExceptionText(E);
       end;
     end;
   finally
@@ -324,7 +332,10 @@ begin
           end;
         end
         else
-          ErrOut := 'Failed to launch yt-dlp.exe';
+        begin
+          var LaunchError := GetLastError;
+          ErrOut := Translate('Failed to launch yt-dlp.exe') + ' ' + LocalizeWindowsError(LaunchError);
+        end;
       finally
         if WritePipe <> 0 then CloseHandle(WritePipe);
         CloseHandle(ReadPipe);

@@ -21,7 +21,7 @@ object FrmCustomize: TFrmCustomize
     Height = 90
     Caption = ' Top Bar & Navigation '
     TabOrder = 0
-    object chkShowMenuBar: TCheckBox
+    object chkShowMenuBar: TPlayerCheckBox
       Left = 18
       Top = 26
       Width = 450
@@ -31,7 +31,7 @@ object FrmCustomize: TFrmCustomize
       State = cbChecked
       TabOrder = 0
     end
-    object chkShowLiveTVBtn: TCheckBox
+    object chkShowLiveTVBtn: TPlayerCheckBox
       Left = 18
       Top = 54
       Width = 450
@@ -49,7 +49,7 @@ object FrmCustomize: TFrmCustomize
     Height = 175
     Caption = ' Bottom Controls Dock '
     TabOrder = 1
-    object chkShowSeekBar: TCheckBox
+    object chkShowSeekBar: TPlayerCheckBox
       Left = 18
       Top = 26
       Width = 240
@@ -59,7 +59,7 @@ object FrmCustomize: TFrmCustomize
       State = cbChecked
       TabOrder = 0
     end
-    object chkShowTime: TCheckBox
+    object chkShowTime: TPlayerCheckBox
       Left = 280
       Top = 26
       Width = 230
@@ -69,7 +69,7 @@ object FrmCustomize: TFrmCustomize
       State = cbChecked
       TabOrder = 1
     end
-    object chkShowVolume: TCheckBox
+    object chkShowVolume: TPlayerCheckBox
       Left = 18
       Top = 54
       Width = 240
@@ -79,7 +79,7 @@ object FrmCustomize: TFrmCustomize
       State = cbChecked
       TabOrder = 2
     end
-    object chkShowSpeedBtn: TCheckBox
+    object chkShowSpeedBtn: TPlayerCheckBox
       Left = 280
       Top = 54
       Width = 230
@@ -89,7 +89,7 @@ object FrmCustomize: TFrmCustomize
       State = cbChecked
       TabOrder = 3
     end
-    object chkShowEqualizerBtn: TCheckBox
+    object chkShowEqualizerBtn: TPlayerCheckBox
       Left = 18
       Top = 82
       Width = 240
@@ -99,7 +99,7 @@ object FrmCustomize: TFrmCustomize
       State = cbChecked
       TabOrder = 4
     end
-    object chkShowPlaylistBtn: TCheckBox
+    object chkShowPlaylistBtn: TPlayerCheckBox
       Left = 280
       Top = 82
       Width = 230
@@ -109,7 +109,7 @@ object FrmCustomize: TFrmCustomize
       State = cbChecked
       TabOrder = 5
     end
-    object chkShowFullscreenBtn: TCheckBox
+    object chkShowFullscreenBtn: TPlayerCheckBox
       Left = 18
       Top = 110
       Width = 240
@@ -119,7 +119,7 @@ object FrmCustomize: TFrmCustomize
       State = cbChecked
       TabOrder = 6
     end
-    object chkShowAdvControls: TCheckBox
+    object chkShowAdvControls: TPlayerCheckBox
       Left = 280
       Top = 110
       Width = 230
@@ -212,7 +212,7 @@ object FrmCustomize: TFrmCustomize
     BevelOuter = bvNone
     Color = 2105376
     TabOrder = 3
-    object btnReset: TButton
+    object btnReset: TPlayerTextButton
       Left = 14
       Top = 10
       Width = 120
@@ -221,7 +221,7 @@ object FrmCustomize: TFrmCustomize
       TabOrder = 0
       OnClick = btnResetClick
     end
-    object btnOK: TButton
+    object btnOK: TPlayerTextButton
       Left = 345
       Top = 10
       Width = 95
@@ -231,7 +231,7 @@ object FrmCustomize: TFrmCustomize
       TabOrder = 1
       OnClick = btnOKClick
     end
-    object btnCancel: TButton
+    object btnCancel: TPlayerTextButton
       Left = 450
       Top = 10
       Width = 95
@@ -241,7 +241,7 @@ object FrmCustomize: TFrmCustomize
       TabOrder = 2
       OnClick = btnCancelClick
     end
-    object btnApply: TButton
+    object btnApply: TPlayerTextButton
       Left = 240
       Top = 10
       Width = 95

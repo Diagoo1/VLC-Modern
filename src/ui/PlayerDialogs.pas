@@ -2,16 +2,18 @@
 
 interface
 
-uses Vcl.Forms, Vcl.StdCtrls;
+uses Vcl.Forms, Vcl.StdCtrls, Vcl.ComCtrls;
 
 type
   TOverflowHintLabel = class(TLabel);
 
 procedure PlayerMessage(const Text: string);
-function PlayerInput(const Title, Prompt: string; var Value: string): Boolean;
+function PlayerInput(const Title, Prompt: string; var Value: string; LeftToRightValue: Boolean = False): Boolean;
 function PlayerResume(const Position: string; out Remember: Boolean): Boolean;
+procedure DismissPlayerHint;
 procedure InitializePlayerAppearance;
-procedure ApplyPlayerAppearance(Form: TForm);
+procedure ApplyPlayerAppearance(Form: TForm; MirrorChildren: Boolean = False);
+procedure PreparePlayerPageAppearance(Page: TTabSheet; Refresh: Boolean = False);
 function PlayerChooseSubtitle(const Items: TArray<string>): Integer;
 
 var
@@ -23,8 +25,8 @@ uses
   System.Classes, System.Types, System.UITypes, System.SysUtils, System.IOUtils, System.Math, Winapi.Windows, Winapi.Messages,
   Winapi.CommCtrl, Winapi.UxTheme, Winapi.Dwmapi,
   Vcl.Themes, Vcl.Styles, Vcl.AppEvnts,
-  System.Win.Registry, Vcl.Controls, Vcl.Graphics, Vcl.ExtCtrls, Vcl.ComCtrls, CurvedControls, PageTransitions,
-  Winapi.GDIPAPI, Winapi.GDIPOBJ, WatermarkOSD, PlayerFlyout, PlayerChrome, ComboMenus, DarkMemo, SettingsStore, CrashTrace;
+  System.Win.Registry, Vcl.Controls, Vcl.Graphics, Vcl.ExtCtrls, CurvedControls, PageTransitions,
+  Winapi.GDIPAPI, Winapi.GDIPOBJ, WatermarkOSD, PlayerFlyout, PlayerChrome, ComboMenus, DarkMemo, SettingsStore, CrashTrace, PlayerLanguage, PlayerMenu;
 
 type
   TPlayerHint = class(THintWindow)
@@ -91,7 +93,11 @@ begin
     end;
     if GetEnvironmentVariable('VLC_SETTINGS_TEST_ID')<>'' then
     begin
-      TFile.AppendAllText('build\tests\reports\smoke-results.txt','FAIL unhandled UI: '+E.ClassName+': '+E.Message+sLineBreak+E.StackTrace+sLineBreak+LatestCrashTrace);
+      try
+        TFile.AppendAllText('build\tests\reports\smoke-results.txt','FAIL unhandled UI: '+E.ClassName+': '+E.Message+sLineBreak+E.StackTrace+sLineBreak+LatestCrashTrace);
+      except
+        // The test must still report failure through its exit code.
+      end;
       System.ExitCode:=1; Application.Terminate; Exit;
     end;
     if Application.Terminated or GAppClosing or (Application.MainForm=nil) or
@@ -101,7 +107,7 @@ begin
       Application.Terminate;
       Exit;
     end;
-    PlayerMessage('The action could not be completed.'+#13#10+#13#10+E.Message);
+    PlayerMessage('The action could not be completed.'+#13#10+#13#10+LocalizeExceptionText(E));
   finally HandlingError:=False; end;
 end;
 procedure TWheelRouter.MessageReceived(var Msg: TMsg; var Handled: Boolean);
@@ -111,7 +117,18 @@ begin
   P := Point(SmallInt(LOWORD(Msg.lParam)),SmallInt(HIWORD(Msg.lParam)));
   C := FindVCLWindow(P);
   if (C=nil) or not C.Enabled then Exit;
-  if (C is TTrackBar) or (C is TModernVolumeSlider) then
+  var Child := C.ControlAtPos(C.ScreenToClient(P), False, True);
+  if (Child is TModernVolumeSlider) and Child.Enabled then
+  begin
+    TModernVolumeSlider(Child).HandleMouseWheel(SmallInt(HIWORD(Msg.wParam)));
+    Handled := True;
+  end
+  else if (Child is TModernSeekBar) and Child.Enabled then
+  begin
+    TModernSeekBar(Child).HandleMouseWheel(SmallInt(HIWORD(Msg.wParam)));
+    Handled := True;
+  end
+  else if C is TPlayerSlider then
   begin
     SendMessage(C.Handle,WM_MOUSEWHEEL,Msg.wParam,Msg.lParam);
     Handled := True;
@@ -195,6 +212,12 @@ begin
     begin
       BufferDC := CreateCompatibleDC(DC);
       Bitmap := CreateCompatibleBitmap(DC, R.Width, R.Height);
+      if (BufferDC = 0) or (Bitmap = 0) then
+      begin
+        if Bitmap <> 0 then DeleteObject(Bitmap);
+        if BufferDC <> 0 then DeleteDC(BufferDC);
+        Exit(Painter(Wnd, WM_PRINTCLIENT, WPARAM(DC), PRF_CLIENT, ID, Data));
+      end;
       Previous := SelectObject(BufferDC, Bitmap);
       try
         Painter(Wnd, WM_PRINTCLIENT, WPARAM(BufferDC), PRF_CLIENT, ID, Data);
@@ -221,140 +244,6 @@ begin
   Tracking.hwndTrack := Wnd;
   TrackMouseEvent(Tracking);
   InvalidateRect(Wnd, nil, False);
-end;
-
-function DarkButtonSubclass(hWnd: HWND; uMsg: UINT; wParam: WPARAM; lParam: LPARAM;
-  uIdSubclass: UINT_PTR; dwRefData: DWORD_PTR): LRESULT; stdcall;
-var
-  PS: TPaintStruct;
-  DC: HDC;
-  R, TextR: TRect;
-  G: TGPGraphics;
-  Path: TGPGraphicsPath;
-  Brush: TGPSolidBrush;
-  Pen: TGPPen;
-  FillColor: TColor;
-  Caption: array[0..255] of Char;
-  IsHovered, IsPressed, IsEnabled: Boolean;
-  Primary: Boolean;
-  Pt: TPoint;
-  D: Single;
-begin
-  if uMsg = WM_PAINT then Exit(BufferedPaint(hWnd, @DarkButtonSubclass, uIdSubclass, dwRefData));
-  case uMsg of
-    WM_PAINT, WM_PRINTCLIENT:
-      begin
-        if uMsg = WM_PRINTCLIENT then DC := HDC(wParam)
-        else DC := BeginPaint(hWnd, PS);
-        try
-          GetClientRect(hWnd, R);
-          // Paint the corners too; suppressing erase without this leaves stale pixels.
-          FillRect(DC, R, GDarkSurfaceBrush);
-          GetCursorPos(Pt);
-          Winapi.Windows.ScreenToClient(hWnd, Pt);
-          IsHovered := PtInRect(R, Pt);
-          IsPressed := (GetKeyState(VK_LBUTTON) < 0) and IsHovered;
-          IsEnabled := IsWindowEnabled(hWnd);
-          Primary := (FindControl(hWnd) is TButton) and
-            TButton(FindControl(hWnd)).Default and IsEnabled;
-
-          if not IsEnabled then
-            FillColor := DP_COLOR_SURFACE
-          else if IsPressed then
-            FillColor := DP_COLOR_BORDER
-          else if IsHovered then
-            FillColor := DP_COLOR_HOVER
-          else
-            FillColor := DP_COLOR_ELEVATED;
-          if Primary then
-          begin
-            if IsPressed then FillColor := DP_COLOR_ACCPRESS
-            else if IsHovered then FillColor := DP_COLOR_ACCHOVER
-            else FillColor := DP_COLOR_ACCENT;
-          end;
-
-          G := TGPGraphics.Create(DC);
-          try
-            G.SetSmoothingMode(SmoothingModeAntiAlias);
-            Path := TGPGraphicsPath.Create;
-            try
-              D := MulDiv(12, GetDpiForWindow(hWnd), 96);
-              Path.AddArc(1, 1, D, D, 180, 90);
-              Path.AddArc(R.Right - D - 1, 1, D, D, 270, 90);
-              Path.AddArc(R.Right - D - 1, R.Bottom - D - 1, D, D, 0, 90);
-              Path.AddArc(1, R.Bottom - D - 1, D, D, 90, 90);
-              Path.CloseFigure;
-
-              Brush := TGPSolidBrush.Create(MakeGDIColor(FillColor));
-              try
-                G.FillPath(Brush, Path);
-              finally
-                Brush.Free;
-              end;
-
-              Pen := TGPPen.Create(MakeGDIColor(DP_COLOR_BORDER), 1.0);
-              try
-                G.DrawPath(Pen, Path);
-              finally
-                Pen.Free;
-              end;
-            finally
-              Path.Free;
-            end;
-          finally
-            G.Free;
-          end;
-
-          GetWindowText(hWnd, Caption, 256);
-          SetBkMode(DC, TRANSPARENT);
-          if Primary and not IsPressed then
-            SetTextColor(DC, ColorToRGB(DP_COLOR_BG))
-          else if IsEnabled then
-            SetTextColor(DC, ColorToRGB(DP_COLOR_TEXT))
-          else
-            SetTextColor(DC, ColorToRGB(DP_COLOR_SCROLL));
-
-          SelectObject(DC, GetWindowFont(hWnd));
-          TextR := R;
-          DrawText(DC, Caption, -1, TextR, DT_CENTER or DT_VCENTER or DT_SINGLELINE);
-        finally
-          if uMsg <> WM_PRINTCLIENT then EndPaint(hWnd, PS);
-        end;
-        Exit(0);
-      end;
-    WM_MOUSEMOVE:
-      begin
-        BeginHover(hWnd);
-        Exit(0);
-      end;
-    WM_MOUSELEAVE:
-      begin RemoveProp(hWnd, 'PlayerTheme.Hover'); InvalidateRect(hWnd, nil, False); Exit(0); end;
-    WM_ERASEBKGND:
-      Exit(1);
-    WM_NCDESTROY:
-      RemoveWindowSubclass(hWnd, @DarkButtonSubclass, uIdSubclass);
-  end;
-  case uMsg of
-    WM_LBUTTONDOWN, WM_LBUTTONUP, WM_KEYDOWN, WM_KEYUP,
-    WM_SETFOCUS, WM_KILLFOCUS, WM_ENABLE, WM_UPDATEUISTATE, BM_SETSTYLE, BM_SETSTATE, BM_CLICK:
-      begin
-        // Button state changes can paint through the native BUTTON procedure.
-        // Keep the state handling, then repaint with the project palette.
-        if not IsWindowVisible(hWnd) or (GetProp(hWnd, 'PlayerTheme.ButtonState') <> 0) then
-          Exit(DefSubclassProc(hWnd, uMsg, wParam, lParam));
-        SetProp(hWnd, 'PlayerTheme.ButtonState', 1);
-        DefSubclassProc(hWnd, WM_SETREDRAW, 0, 0);
-        try
-          Result := DefSubclassProc(hWnd, uMsg, wParam, lParam);
-        finally
-          RemoveProp(hWnd, 'PlayerTheme.ButtonState');
-          DefSubclassProc(hWnd, WM_SETREDRAW, 1, 0);
-        end;
-        InvalidateRect(hWnd, nil, False);
-      end;
-  else
-    Result := DefSubclassProc(hWnd, uMsg, wParam, lParam);
-  end;
 end;
 
 function DarkCheckSubclass(hWnd: HWND; uMsg: UINT; wParam: WPARAM; lParam: LPARAM;
@@ -395,7 +284,10 @@ begin
         if Selected then Canvas.Pen.Color := DP_COLOR_ACCENT;
         SmoothShape(DC, R, MulDiv(7, GetDpiForWindow(hWnd), 96), Canvas.Brush.Color, Canvas.Pen.Color);
       end;
-      BoxR := Rect(Offset, (R.Bottom - Side) div 2, Offset + Side, (R.Bottom + Side) div 2);
+      var RTL := PlayerIsArabic;
+      var MarkX := Offset;
+      if RTL then MarkX := R.Right - Offset - Side;
+      BoxR := Rect(MarkX, (R.Bottom - Side) div 2, MarkX + Side, (R.Bottom + Side) div 2);
       Canvas.Brush.Color := DP_COLOR_ELEVATED;
       Canvas.Pen.Color := DP_COLOR_SCROLL;
       if GetFocus = hWnd then Canvas.Pen.Color := DP_COLOR_ACCENT;
@@ -432,8 +324,15 @@ begin
       SetBkMode(DC, TRANSPARENT);
       if IsWindowEnabled(hWnd) then SetTextColor(DC, ColorToRGB(DP_COLOR_TEXT))
       else SetTextColor(DC, ColorToRGB(DP_COLOR_SCROLL));
-      R.Left := Offset + Side + 8;
-      DrawText(DC, Caption, -1, R, DT_VCENTER or DT_SINGLELINE);
+      var TextFlags := DT_VCENTER or DT_SINGLELINE or DT_END_ELLIPSIS;
+      if RTL then
+      begin
+        Dec(R.Right, Offset + Side + 8);
+        Inc(R.Left, Offset);
+        TextFlags := TextFlags or DT_RIGHT or DT_RTLREADING;
+      end
+      else R.Left := Offset + Side + 8;
+      DrawText(DC, Caption, -1, R, TextFlags);
       Canvas.Handle := 0;
     finally
       Canvas.Free;
@@ -454,189 +353,51 @@ begin
   if uMsg = WM_NCDESTROY then RemoveWindowSubclass(hWnd, @DarkCheckSubclass, uIdSubclass);
 end;
 
-function DarkProgressSubclass(hWnd: HWND; Msg: UINT; W: WPARAM; L: LPARAM;
-  ID: UINT_PTR; Data: DWORD_PTR): LRESULT; stdcall;
-var R: TRect; C: TWinControl; Ratio: Single;
-begin
-  if Msg=WM_PAINT then Exit(BufferedPaint(hWnd,@DarkProgressSubclass,ID,Data));
-  if Msg=WM_PRINTCLIENT then
-  begin
-    GetClientRect(hWnd,R);
-    FillRect(HDC(W),R,GDarkSurfaceBrush);
-    InflateRect(R,-1,-1);
-    SmoothShape(HDC(W),R,4,DP_COLOR_BORDER,DP_COLOR_BORDER);
-    C:=FindControl(hWnd);
-    if (C is TProgressBar) and (TProgressBar(C).Max>TProgressBar(C).Min) then
-    begin
-      Ratio:=(TProgressBar(C).Position-TProgressBar(C).Min)/(TProgressBar(C).Max-TProgressBar(C).Min);
-      if Ratio>0 then
-      begin
-        R.Right:=R.Left+Max(6,Round(R.Width*Ratio));
-        SmoothShape(HDC(W),R,4,DP_COLOR_ACCENT,DP_COLOR_ACCENT);
-      end;
-    end;
-    Exit(0);
-  end;
-  if Msg=WM_ERASEBKGND then Exit(1);
-  if Msg=PBM_SETPOS then
-  begin
-    DefSubclassProc(hWnd,WM_SETREDRAW,0,0);
-    try Result:=DefSubclassProc(hWnd,Msg,W,L);
-    finally DefSubclassProc(hWnd,WM_SETREDRAW,1,0); end;
-    InvalidateRect(hWnd,nil,False);
-    Exit;
-  end;
-  if Msg=WM_NCDESTROY then RemoveWindowSubclass(hWnd,@DarkProgressSubclass,ID);
-  Result:=DefSubclassProc(hWnd,Msg,W,L);
-end;
-
-function DarkTrackBarSubclass(hWnd: HWND; uMsg: UINT; wParam: WPARAM; lParam: LPARAM;
-  uIdSubclass: UINT_PTR; dwRefData: DWORD_PTR): LRESULT; stdcall;
-const HoverProperty = 'VLCModernSliderHover';
-var PS: TPaintStruct; DC: HDC; R: TRect; TME: TTRACKMOUSEEVENT;
-    MinVal, MaxVal, PosVal, NewPos, Coordinate, Padding, Span, DPI: Integer;
-    Ratio, Zero: Single; Vertical: Boolean; Ctrl: TWinControl;
-begin
-  if uMsg = WM_PAINT then Exit(BufferedPaint(hWnd, @DarkTrackBarSubclass, uIdSubclass, dwRefData));
-  DPI := GetDpiForWindow(hWnd);
-  Padding := MulDiv(10, DPI, 96);
-  Vertical := (GetWindowLong(hWnd, GWL_STYLE) and TBS_VERT) <> 0;
-  case uMsg of
-    WM_MOUSEWHEEL:
-      begin
-        if not IsWindowEnabled(hWnd) then Exit(0);
-        var Delta := NativeInt(GetProp(hWnd, 'PlayerSlider.Wheel')) + SmallInt(HIWORD(wParam));
-        var Steps := Delta div WHEEL_DELTA;
-        SetProp(hWnd, 'PlayerSlider.Wheel', THandle(NativeInt(Delta mod WHEEL_DELTA)));
-        if Steps <> 0 then
-        begin
-          var Control := FindControl(hWnd);
-          if Control is TTrackBar then
-            TTrackBar(Control).Position := TTrackBar(Control).Position + Steps * TTrackBar(Control).LineSize;
-        end;
-        Exit(0);
-      end;
-    WM_MOUSEMOVE, WM_LBUTTONDOWN:
-      begin
-        if not IsWindowEnabled(hWnd) then Exit(0);
-        if GetProp(hWnd, HoverProperty) = 0 then
-        begin
-          SetProp(hWnd, HoverProperty, 1);
-          TME := Default(TTRACKMOUSEEVENT);
-          TME.cbSize := SizeOf(TME);
-          TME.dwFlags := TME_LEAVE;
-          TME.hwndTrack := hWnd;
-          TrackMouseEvent(TME);
-          InvalidateRect(hWnd, nil, False);
-        end;
-        if uMsg = WM_LBUTTONDOWN then begin SetFocus(hWnd); SetCapture(hWnd); end;
-        if GetCapture = hWnd then
-        begin
-          GetClientRect(hWnd, R);
-          Coordinate := SmallInt(LOWORD(lParam));
-          Span := R.Width - Padding * 2;
-          if Vertical then
-          begin Coordinate := SmallInt(HIWORD(lParam)); Span := R.Height - Padding * 2; end;
-          if Span > 0 then
-          begin
-            Ratio := (Coordinate - Padding) / Span;
-            if Vertical then Ratio := 1 - Ratio;
-            if Ratio < 0 then Ratio := 0;
-            if Ratio > 1 then Ratio := 1;
-            MinVal := SendMessage(hWnd, TBM_GETRANGEMIN, 0, 0);
-            MaxVal := SendMessage(hWnd, TBM_GETRANGEMAX, 0, 0);
-            PosVal := SendMessage(hWnd, TBM_GETPOS, 0, 0);
-            NewPos := Round(MinVal + Ratio * (MaxVal - MinVal));
-            if PosVal <> NewPos then
-            begin
-              Ctrl := FindControl(hWnd);
-              if Ctrl is TTrackBar then TTrackBar(Ctrl).Position := NewPos
-              else SendMessage(hWnd, TBM_SETPOS, 0, NewPos);
-              if Vertical then
-                SendMessage(GetParent(hWnd), WM_VSCROLL, MakeWParam(SB_THUMBTRACK, NewPos), hWnd)
-              else SendMessage(GetParent(hWnd), WM_HSCROLL, MakeWParam(SB_THUMBTRACK, NewPos), hWnd);
-              InvalidateRect(hWnd, nil, False);
-            end;
-          end;
-        end;
-        // Native hover/drag drawing must never run over our vector surface.
-        Exit(0);
-      end;
-    WM_LBUTTONUP:
-      begin
-        if GetCapture = hWnd then
-        begin
-          ReleaseCapture;
-          if Vertical then SendMessage(GetParent(hWnd), WM_VSCROLL, SB_ENDSCROLL, hWnd)
-          else SendMessage(GetParent(hWnd), WM_HSCROLL, SB_ENDSCROLL, hWnd);
-        end;
-        InvalidateRect(hWnd, nil, False);
-        Exit(0);
-      end;
-    WM_MOUSELEAVE:
-      begin RemoveProp(hWnd, HoverProperty); InvalidateRect(hWnd, nil, False); Exit(0); end;
-    WM_KEYDOWN:
-      begin
-        if not IsWindowEnabled(hWnd) then Exit(0);
-        MinVal := SendMessage(hWnd, TBM_GETRANGEMIN, 0, 0);
-        MaxVal := SendMessage(hWnd, TBM_GETRANGEMAX, 0, 0);
-        PosVal := SendMessage(hWnd, TBM_GETPOS, 0, 0);
-        NewPos := PosVal;
-        case wParam of
-          VK_UP, VK_RIGHT: Inc(NewPos, SendMessage(hWnd, TBM_GETLINESIZE, 0, 0));
-          VK_DOWN, VK_LEFT: Dec(NewPos, SendMessage(hWnd, TBM_GETLINESIZE, 0, 0));
-          VK_PRIOR: Inc(NewPos, SendMessage(hWnd, TBM_GETPAGESIZE, 0, 0));
-          VK_NEXT: Dec(NewPos, SendMessage(hWnd, TBM_GETPAGESIZE, 0, 0));
-          VK_HOME: if Vertical then NewPos := MaxVal else NewPos := MinVal;
-          VK_END: if Vertical then NewPos := MinVal else NewPos := MaxVal;
-        else Exit(DefSubclassProc(hWnd, uMsg, wParam, lParam)); end;
-        if NewPos < MinVal then NewPos := MinVal;
-        if NewPos > MaxVal then NewPos := MaxVal;
-        Ctrl := FindControl(hWnd);
-        if Ctrl is TTrackBar then TTrackBar(Ctrl).Position := NewPos;
-        if Vertical then SendMessage(GetParent(hWnd), WM_VSCROLL, MakeWParam(SB_THUMBTRACK, NewPos), hWnd)
-        else SendMessage(GetParent(hWnd), WM_HSCROLL, MakeWParam(SB_THUMBTRACK, NewPos), hWnd);
-        Exit(0);
-      end;
-    TBM_SETPOS:
-      begin
-        Result := DefSubclassProc(hWnd, uMsg, 0, lParam);
-        InvalidateRect(hWnd, nil, False);
-        Exit;
-      end;
-    WM_PAINT, WM_PRINTCLIENT:
-      begin
-        if uMsg = WM_PRINTCLIENT then DC := HDC(wParam) else DC := BeginPaint(hWnd, PS);
-        try
-          GetClientRect(hWnd, R);
-          FillRect(DC, R, GDarkSurfaceBrush);
-          MinVal := SendMessage(hWnd, TBM_GETRANGEMIN, 0, 0);
-          MaxVal := SendMessage(hWnd, TBM_GETRANGEMAX, 0, 0);
-          PosVal := SendMessage(hWnd, TBM_GETPOS, 0, 0);
-          Ratio := 0;
-          Zero := -1;
-          if MaxVal > MinVal then
-          begin
-            Ratio := (PosVal - MinVal) / (MaxVal - MinVal);
-            if (MinVal < 0) and (MaxVal > 0) then Zero := -MinVal / (MaxVal - MinVal);
-          end;
-          PaintMediaSlider(DC, R, Ratio, 0, Zero, Vertical,
-            (GetProp(hWnd, HoverProperty) <> 0) or (GetCapture = hWnd), IsWindowEnabled(hWnd), DPI);
-        finally if uMsg <> WM_PRINTCLIENT then EndPaint(hWnd, PS); end;
-        Exit(0);
-      end;
-    WM_ERASEBKGND: Exit(1);
-    WM_NCDESTROY:
-      begin RemoveProp(hWnd, HoverProperty); RemoveWindowSubclass(hWnd, @DarkTrackBarSubclass, uIdSubclass); end;
-  end;
-  Result := DefSubclassProc(hWnd, uMsg, wParam, lParam);
-end;
-
 function StableDialogSurface(Control:TControl):Boolean;
 var Host:TCustomForm;
 begin
   Host:=GetParentForm(Control,True);
   Result:=(Host<>nil) and (Host<>Application.MainForm);
+end;
+
+function PaintedTabRect(Page: TPageControl; Index: Integer): TRect;
+begin
+  Result := Page.TabRect(Index);
+  if PlayerIsArabic and (Page.TabPosition = tpTop) then
+    Result := Rect(Page.ClientWidth - Result.Right, Result.Top,
+      Page.ClientWidth - Result.Left, Result.Bottom);
+end;
+
+function HandlePaintedTabClick(Page: TPageControl; Msg: Cardinal; Coordinates: NativeInt): Boolean;
+begin
+  Result := False;
+  if (Page.TabPosition <> tpTop) or
+     ((Msg <> WM_LBUTTONDOWN) and (Msg <> WM_LBUTTONUP) and (Msg <> WM_LBUTTONDBLCLK)) then Exit;
+  var P := Point(SmallInt(LoWord(Coordinates)), SmallInt(HiWord(Coordinates)));
+  var InHeader := False;
+  for var I := 0 to Page.PageCount - 1 do
+  begin
+    if not Page.Pages[I].TabVisible then Continue;
+    var R := PaintedTabRect(Page, I);
+    InHeader := InHeader or ((P.Y >= R.Top) and (P.Y < R.Bottom));
+    InflateRect(R, -3, -3);
+    if PtInRect(R, P) then
+    begin
+      if (Msg = WM_LBUTTONDOWN) and Page.Pages[I].Enabled and (Page.ActivePageIndex <> I) then
+      begin
+        var Allow := True;
+        if Assigned(Page.OnChanging) then Page.OnChanging(Page, Allow);
+        if Allow then
+        begin
+          Page.ActivePageIndex := I;
+          if Assigned(Page.OnChange) then Page.OnChange(Page);
+          RedrawWindow(Page.Handle, nil, 0, RDW_INVALIDATE or RDW_ALLCHILDREN);
+        end;
+      end;
+      Exit(True);
+    end;
+  end;
+  Result := InHeader;
 end;
 
 function DarkTabSheetSubclass(hWnd: HWND; uMsg: UINT; wParam: WPARAM; lParam: LPARAM;
@@ -654,10 +415,27 @@ begin
   if ((uMsg = WM_MOUSEMOVE) or (uMsg = WM_MOUSELEAVE)) and
     (FindControl(hWnd) is TPageControl) then Exit(0);
   C:=FindControl(hWnd);
+  if (uMsg = WM_NCHITTEST) and PlayerIsArabic and (C is TPageControl) then
+  begin
+    Page := TPageControl(C);
+    if Page.TabPosition = tpTop then
+    begin
+      var P := Page.ScreenToClient(Point(SmallInt(LoWord(lParam)), SmallInt(HiWord(lParam))));
+      for I := 0 to Page.PageCount - 1 do
+        if Page.Pages[I].TabVisible and PtInRect(PaintedTabRect(Page, I), P) then Exit(HTCLIENT);
+    end;
+  end;
   if (C<>nil) and StableDialogSurface(C) then
   begin
     if uMsg=WM_ERASEBKGND then Exit(1);
-    if uMsg=WM_PAINT then Exit(BufferedPaint(hWnd,@DarkTabSheetSubclass,uIdSubclass,dwRefData));
+    if uMsg=WM_PAINT then
+    begin
+      // VCL can supply a destination DC when composing a parent. BeginPaint
+      // would validate the real window while leaving the destination empty.
+      if wParam <> 0 then
+        Exit(DarkTabSheetSubclass(hWnd, WM_PRINTCLIENT, wParam, PRF_CLIENT, uIdSubclass, dwRefData));
+      Exit(BufferedPaint(hWnd,@DarkTabSheetSubclass,uIdSubclass,dwRefData));
+    end;
   end;
   case uMsg of
     WM_PAINT, WM_PRINTCLIENT:
@@ -694,7 +472,20 @@ begin
             if TGroupBox(C).Caption <> '' then
             begin
               SmoothShape(DC, R, MulDiv(8, GetDpiForWindow(hWnd), 96), DP_COLOR_SURFACE, DP_COLOR_BORDER);
-              GroupCanvas.TextOut(12, 0, ' ' + TGroupBox(C).Caption + ' ');
+              var Heading := ' ' + TGroupBox(C).Caption + ' ';
+              if PlayerIsArabic then
+              begin
+                var HeadingRect := Rect(12, 0, R.Right - 12, GroupCanvas.TextHeight(Heading));
+                GroupCanvas.Brush.Style := bsClear;
+                var HeadingWidth := GroupCanvas.TextWidth(Heading);
+                var Background := Rect(Max(HeadingRect.Left, HeadingRect.Right - HeadingWidth), 0,
+                  HeadingRect.Right, HeadingRect.Bottom);
+                FillRect(DC, Background, GDarkSurfaceBrush);
+                SetBkMode(DC, TRANSPARENT);
+                DrawText(DC, PChar(Heading), Length(Heading), HeadingRect,
+                  DT_RIGHT or DT_RTLREADING or DT_SINGLELINE or DT_NOPREFIX or DT_END_ELLIPSIS);
+              end
+              else GroupCanvas.TextOut(12, 0, Heading);
             end;
             GroupCanvas.Handle := 0;
             TControlAccess(C).PaintChildren(DC);
@@ -717,7 +508,7 @@ begin
             for I := 0 to Page.PageCount - 1 do
             begin
               if not Page.Pages[I].TabVisible then Continue;
-              TabR := Page.TabRect(I);
+              TabR := PaintedTabRect(Page, I);
               PaintTab(DC, TabR, Page.Pages[I].Caption, Page.ActivePage = Page.Pages[I], Page.Parent is TCustomForm);
             end;
           finally if uMsg <> WM_PRINTCLIENT then EndPaint(hWnd, PS); end;
@@ -873,12 +664,17 @@ begin
             GetWindowText(hWnd,PChar(TextBuf),TextLength+1);
           end;
           SetLength(TextBuf,TextLength);
+          if (GetWindowLong(hWnd, GWL_STYLE) and $0003) = CBS_DROPDOWNLIST then TextBuf := Translate(TextBuf);
 
           SetBkMode(DC, TRANSPARENT);
           SetTextColor(DC, ColorToRGB(DP_COLOR_TEXT));
           SelectObject(DC, GetWindowFont(hWnd));
           TextR := Rect(R.Left + 10, R.Top, R.Right - 26, R.Bottom);
-          DrawText(DC, PChar(TextBuf), Length(TextBuf), TextR, DT_LEFT or DT_VCENTER or DT_SINGLELINE or DT_END_ELLIPSIS);
+          var Flags := DT_VCENTER or DT_SINGLELINE or DT_END_ELLIPSIS;
+          var ComboControl := FindControl(hWnd);
+          if PlayerIsArabic and Assigned(ComboControl) and (ComboControl.BiDiMode <> bdLeftToRight) then
+            Flags := Flags or DT_RIGHT or DT_RTLREADING;
+          DrawText(DC, PChar(TextBuf), Length(TextBuf), TextR, Flags);
         finally
           if uMsg <> WM_PRINTCLIENT then EndPaint(hWnd, PS);
         end;
@@ -980,7 +776,7 @@ begin
   else
     Text := '';
 
-  Canvas.Font.Name := 'Segoe UI';
+  Canvas.Font.Name := PlayerUIFont;
   Canvas.Font.Size := 9;
   TextR := Rect;
   Inc(TextR.Left, 8);
@@ -1026,10 +822,35 @@ end;
 procedure TPlayerPaintBinding.WindowProc(var Msg: TMessage);
 var PaintMsg: TMessage;
 begin
+  if (Msg.Msg = CM_SHOWINGCHANGED) and (FControl is TTabSheet) and
+     FControl.Showing and not (csDestroying in FControl.ComponentState) and
+     (FControl.FindComponent('PlayerPageReady') = nil) then
+    PreparePlayerPageAppearance(TTabSheet(FControl));
   if (csDestroying in FControl.ComponentState) and ((Msg.Msg=WM_PAINT) or (Msg.Msg=WM_PRINTCLIENT) or (Msg.Msg=WM_ERASEBKGND)) then
   begin
     if FControl.HandleAllocated then ValidateRect(FControl.Handle,nil);
     Msg.Result:=0; Exit;
+  end;
+  if (FControl is TPageControl) and HandlePaintedTabClick(TPageControl(FControl), Msg.Msg, Msg.LParam) then
+  begin
+    Msg.Result := 0;
+    Exit;
+  end;
+  if Msg.Msg = WM_NCHITTEST then
+  begin
+    if (FControl is TPageControl) and PlayerIsArabic then
+    begin
+      var Page := TPageControl(FControl);
+      var P := Page.ScreenToClient(Point(SmallInt(LoWord(Msg.LParam)), SmallInt(HiWord(Msg.LParam))));
+      for var I := 0 to Page.PageCount - 1 do
+        if Page.Pages[I].TabVisible and PtInRect(PaintedTabRect(Page, I), P) then
+        begin
+          Msg.Result := HTCLIENT;
+          Exit;
+        end;
+    end;
+    FOriginalProc(Msg);
+    Exit;
   end;
   if (Msg.Msg=CN_DRAWITEM) and (FControl is TCustomComboBox) and (Msg.LParam<>0) then
     PDrawItemStruct(Msg.LParam)^.itemState:=PDrawItemStruct(Msg.LParam)^.itemState and not ODS_FOCUS;
@@ -1050,14 +871,8 @@ begin
   end;
   if (Msg.Msg = WM_PAINT) or (Msg.Msg = WM_PRINTCLIENT) then
   begin
-    if FControl is TButton then
-      Msg.Result := DarkButtonSubclass(FControl.Handle, Msg.Msg, Msg.WParam, Msg.LParam, 0, 0)
-    else if (FControl is TCustomCheckBox) or (FControl is TRadioButton) then
+    if (FControl is TCustomCheckBox) or (FControl is TRadioButton) then
       Msg.Result := DarkCheckSubclass(FControl.Handle, Msg.Msg, Msg.WParam, Msg.LParam, 0, 0)
-    else if FControl is TProgressBar then
-      Msg.Result := DarkProgressSubclass(FControl.Handle, Msg.Msg, Msg.WParam, Msg.LParam, 0, 0)
-    else if FControl is TTrackBar then
-      Msg.Result := DarkTrackBarSubclass(FControl.Handle, Msg.Msg, Msg.WParam, Msg.LParam, 0, 0)
     else if FControl is TCustomComboBox then
       Msg.Result := DarkComboBoxSubclass(FControl.Handle, Msg.Msg, Msg.WParam, Msg.LParam, 0, 0)
     else if (FControl is TCustomGroupBox) or (FControl is TPageControl) or (FControl is TTabSheet) then
@@ -1073,6 +888,23 @@ begin
 end;
 
 procedure ThemeControl(Control: TControl); forward;
+
+procedure PreparePlayerPageAppearance(Page: TTabSheet; Refresh: Boolean);
+begin
+  if Page.FindComponent('PlayerPageReady') <> nil then
+  begin
+    if Refresh then ThemeControl(Page);
+    Exit;
+  end;
+  var Ready := TComponent.Create(Page);
+  Ready.Name := 'PlayerPageReady';
+  try
+    ThemeControl(Page);
+  except
+    Ready.Free;
+    raise;
+  end;
+end;
 type
   TPageAppearanceBinding=class(TComponent)
   private
@@ -1094,35 +926,65 @@ begin Page.OnChanging:=BeforeChange; Page.OnChange:=AfterChange; inherited; end;
 procedure TPageAppearanceBinding.Changing(Sender:TObject; var AllowChange:Boolean);
 begin
   if Assigned(BeforeChange) then BeforeChange(Sender,AllowChange);
-  if AllowChange and Page.Showing then SendMessage(Page.Handle,WM_SETREDRAW,0,0);
 end;
 procedure TPageAppearanceBinding.Changed(Sender:TObject);
 begin
   try
-    // Prepare deferred content while the page is still covered by the redraw transaction.
+    // Complete deferred content before scheduling the next paint.
     if Assigned(AfterChange) then AfterChange(Sender);
     if (Page.ActivePage<>nil) and (Page.ActivePage.FindComponent('PlayerPageReady')=nil) then
-    begin
-      ThemeControl(Page.ActivePage);
-      var Ready:=TComponent.Create(Page.ActivePage); Ready.Name:='PlayerPageReady';
-    end;
+      PreparePlayerPageAppearance(Page.ActivePage);
     var Host:=GetParentForm(Page,True);
     if (Host is TForm) and not (csDestroying in Host.ComponentState) then ApplyPlayerChrome(TForm(Host));
   finally
-    if Page.HandleAllocated then begin SendMessage(Page.Handle,WM_SETREDRAW,1,0); RedrawWindow(Page.Handle,nil,0,RDW_INVALIDATE or RDW_ALLCHILDREN or RDW_UPDATENOW); end;
+    if Page.Showing then
+      RedrawWindow(Page.Handle, nil, 0, RDW_INVALIDATE or RDW_ALLCHILDREN);
   end;
+end;
+
+type
+  TDialogEditFrame = class(TModernCardPanel)
+  private
+    FEdit: TEdit;
+  protected
+    procedure Resize; override;
+  public
+    procedure CenterEdit;
+  end;
+
+procedure TDialogEditFrame.CenterEdit;
+begin
+  if FEdit = nil then Exit;
+  var DC := GetDC(0);
+  var PreviousFont := SelectObject(DC, FEdit.Font.Handle);
+  var Metrics: TTextMetric;
+  try
+    if not GetTextMetrics(DC, Metrics) then Exit;
+  finally
+    SelectObject(DC, PreviousFont);
+    ReleaseDC(0, DC);
+  end;
+  var Height := Metrics.tmHeight + MulDiv(2, CurrentPPI, 96);
+  var Inset := MulDiv(7, CurrentPPI, 96);
+  FEdit.SetBounds(Inset, (ClientHeight - Height) div 2, ClientWidth - 2 * Inset, Height);
+end;
+
+procedure TDialogEditFrame.Resize;
+begin
+  inherited;
+  CenterEdit;
 end;
 
 procedure ThemeControl(Control: TControl);
 var
   Children: TArray<TControl>;
-  Frame: TModernCardPanel;
+  Frame: TDialogEditFrame;
   Edit: TEdit;
 begin
   if Control is TWinControl then
   begin
-    if ((Control is TButton) or (Control is TCustomCheckBox) or
-        (Control is TRadioButton) or (Control is TTrackBar) or (Control is TProgressBar) or
+    if ((Control is TCustomCheckBox) or
+        (Control is TRadioButton) or
         (Control is TCustomComboBox) or (Control is TCustomGroupBox) or
         (Control is TPageControl) or (Control is TTabSheet)) and
        (Control.FindComponent('PlayerPaintBinding') = nil) then
@@ -1133,7 +995,10 @@ begin
         GetWindowLong(TWinControl(Control).Handle,GWL_STYLE) or WS_CLIPCHILDREN);
     // Native children render themselves. Buffering every child causes VCL to
     // ask them to WM_PRINTCLIENT, which otherwise bypasses custom dark paint.
-    TControlAccess(Control).DoubleBuffered := Control is TCustomForm;
+    if Control is TCustomForm then
+      TControlAccess(Control).DoubleBuffered := True
+    else if not (Control is TCustomControl) then
+      TControlAccess(Control).DoubleBuffered := False;
     TControlAccess(Control).Font.Color := DP_COLOR_TEXT;
     TControlAccess(Control).Font.Quality := fqClearTypeNatural;
     TControlAccess(Control).Color := DP_COLOR_SURFACE;
@@ -1164,19 +1029,8 @@ begin
       SetWindowSubclass(TWinControl(Control).Handle, @DarkComboBoxSubclass, 5, 0);
     end;
 
-    if Control is TButton then
-    begin
-      if SameText(Control.Name, 'btnClose') then TButton(Control).Cancel := True;
-      SetWindowTheme(TButton(Control).Handle, '', '');
-      SetWindowSubclass(TButton(Control).Handle, @DarkButtonSubclass, 1, 0);
-    end;
-
-    if Control is TTrackBar then
-    begin
-      SetWindowSubclass(TTrackBar(Control).Handle, @DarkTrackBarSubclass, 2, 0);
-    end;
-    if Control is TProgressBar then
-      SetWindowSubclass(TWinControl(Control).Handle, @DarkProgressSubclass, 10, 0);
+    if (Control is TPlayerTextButton) and SameText(Control.Name, 'btnClose') then
+      TPlayerTextButton(Control).Cancel := True;
 
     if Control is TListBox then
       TListBox(Control).BorderStyle := bsNone;
@@ -1235,17 +1089,22 @@ begin
     for var I := 0 to High(Children) do Children[I] := TWinControl(Control).Controls[I];
     for var Child in Children do
     begin
-      if (Child is TTabSheet) and (TTabSheet(Child).PageControl<>nil) and
-        (TTabSheet(Child).PageControl.ActivePage<>Child) then Continue;
-      ThemeControl(Child);
-      if (Child is TTabSheet) and (Child.FindComponent('PlayerPageReady')=nil) then
-      begin var Ready:=TComponent.Create(Child); Ready.Name:='PlayerPageReady'; end;
+      if Child is TTabSheet then
+      begin
+        if Child.FindComponent('PlayerPaintBinding') = nil then
+          TPlayerPaintBinding.Create(Child);
+        if (TTabSheet(Child).PageControl = nil) or
+           (TTabSheet(Child).PageControl.ActivePage = Child) then
+          PreparePlayerPageAppearance(TTabSheet(Child));
+      end
+      else
+        ThemeControl(Child);
     end;
 
     if (Control is TEdit) and not (Control.Parent is TModernCardPanel) then
     begin
       Edit := TEdit(Control);
-      Frame := TModernCardPanel.Create(Edit.Owner);
+      Frame := TDialogEditFrame.Create(Edit.Owner);
       Frame.Parent := Edit.Parent;
       Frame.StyleElements := [];
       Frame.CardColor := DP_COLOR_ELEVATED;
@@ -1257,10 +1116,10 @@ begin
       Edit.Parent := Frame;
       Edit.BorderStyle := bsNone;
       Edit.AutoSize := False;
-      Edit.AlignWithMargins := True;
-      Edit.Margins.SetBounds(MulDiv(7, Edit.CurrentPPI, 96), MulDiv(3, Edit.CurrentPPI, 96),
-        MulDiv(7, Edit.CurrentPPI, 96), MulDiv(3, Edit.CurrentPPI, 96));
-      Edit.Align := alClient;
+      Edit.Align := alNone;
+      Edit.Anchors := [akLeft, akTop];
+      Frame.FEdit := Edit;
+      Frame.CenterEdit;
     end;
   end
   else if Control is TLabel then
@@ -1279,19 +1138,18 @@ begin
   W := TWinControl(Control);
   if (Control is TTabSheet) and (TTabSheet(Control).PageControl<>nil) and
     (TTabSheet(Control).PageControl.ActivePage<>Control) then Exit;
+  if StableDialogSurface(Control) and
+    ((Control is TPanel) or (Control is TTabSheet) or (Control is TPageControl) or
+     (Control is TCustomGroupBox)) then
+    SetWindowLong(W.Handle, GWL_STYLE, GetWindowLong(W.Handle, GWL_STYLE) or WS_CLIPCHILDREN);
   Ready:=False;
-  if Control is TButton then Ready:=GetWindowSubclass(W.Handle,@DarkButtonSubclass,1,Existing)
-  else if (Control is TCustomCheckBox) or (Control is TRadioButton) then Ready:=GetWindowSubclass(W.Handle,@DarkCheckSubclass,9,Existing)
-  else if Control is TTrackBar then Ready:=GetWindowSubclass(W.Handle,@DarkTrackBarSubclass,2,Existing)
+  if (Control is TCustomCheckBox) or (Control is TRadioButton) then Ready:=GetWindowSubclass(W.Handle,@DarkCheckSubclass,9,Existing)
   else if Control is TPageControl then Ready:=GetWindowSubclass(W.Handle,@DarkTabSheetSubclass,4,Existing);
-  if not Ready and ((Control is TButton) or (Control is TCustomCheckBox) or
-     (Control is TRadioButton) or (Control is TTrackBar) or (Control is TPageControl)) then
+  if not Ready and ((Control is TCustomCheckBox) or
+     (Control is TRadioButton) or (Control is TPageControl)) then
     SetWindowTheme(W.Handle, '', '');
-  if Control is TButton then SetWindowSubclass(W.Handle, @DarkButtonSubclass, 1, 0)
-  else if (Control is TCustomCheckBox) or (Control is TRadioButton) then
+  if (Control is TCustomCheckBox) or (Control is TRadioButton) then
     SetWindowSubclass(W.Handle, @DarkCheckSubclass, 9, 0)
-  else if Control is TProgressBar then SetWindowSubclass(W.Handle, @DarkProgressSubclass, 10, 0)
-  else if Control is TTrackBar then SetWindowSubclass(W.Handle, @DarkTrackBarSubclass, 2, 0)
   else if Control is TCustomComboBox then SetWindowSubclass(W.Handle, @DarkComboBoxSubclass, 5, 0)
   else if (Control is TPanel) or (Control is TTabSheet) or
     (Control is TPageControl) or (Control is TCustomGroupBox) then
@@ -1341,7 +1199,7 @@ begin
   ApplyPlayerChrome(Form);
 end;
 
-procedure ApplyPlayerAppearance(Form: TForm);
+procedure ApplyPlayerAppearance(Form: TForm; MirrorChildren: Boolean);
 var
   DarkMode: Integer;
 begin
@@ -1354,9 +1212,12 @@ begin
 
   Form.StyleElements := [];
   Form.Color := DP_COLOR_SURFACE;
-  Form.Font.Name := 'Segoe UI';
+  Form.Font.Name := PlayerUIFont;
   Form.Font.Quality := fqClearTypeNatural;
   Form.Font.Color := DP_COLOR_TEXT;
+  if MirrorChildren and PlayerIsArabic and (Form.FindComponent('PlayerAppearanceBinding') = nil) then
+    Form.FlipChildren(True);
+  LocalizeControls(Form);
   ThemeControl(Form);
   StyleDarkMemos(Form);
   if Form.FindComponent('PlayerAppearanceBinding') = nil then
@@ -1376,7 +1237,7 @@ function CreateHintFont(PPI: Integer): HFONT;
 begin
   Result := CreateFont(-MulDiv(13, PPI, 96), 0, 0, 0, FW_NORMAL, 0, 0, 0,
     DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_NATURAL_QUALITY,
-    DEFAULT_PITCH or FF_DONTCARE, 'Segoe UI');
+    DEFAULT_PITCH or FF_DONTCARE, PChar(PlayerUIFont));
 end;
 
 function TPlayerHint.MeasureCard(const Text: string; PPI: Integer): TRect;
@@ -1390,7 +1251,9 @@ begin
   Previous := SelectObject(DC, Font);
   try
     Result := Rect(0, 0, MulDiv(320, PPI, 96), 0);
-    DrawText(DC, PChar(Text), Length(Text), Result, DT_CALCRECT or DT_NOPREFIX or DT_WORDBREAK);
+    var Flags := DT_NOPREFIX or DT_WORDBREAK;
+    if PlayerIsArabic then Flags := Flags or DT_RTLREADING;
+    DrawText(DC, PChar(Text), Length(Text), Result, Flags or DT_CALCRECT);
     Inc(Result.Right, MulDiv(24, PPI, 96));
     Inc(Result.Bottom, MulDiv(12, PPI, 96));
   finally
@@ -1470,10 +1333,12 @@ begin
         TextBounds := Rect(MulDiv(10, PPI, 96), 0,
           Size.cx - MulDiv(10, PPI, 96), Size.cy);
         Measured := TextBounds;
-        DrawText(DC, PChar(Text), Length(Text), Measured, DT_CALCRECT or DT_NOPREFIX or DT_WORDBREAK);
+        var Flags := DT_NOPREFIX or DT_WORDBREAK;
+        if PlayerIsArabic then Flags := Flags or DT_RTLREADING;
+        DrawText(DC, PChar(Text), Length(Text), Measured, Flags or DT_CALCRECT);
         TextBounds.Top := Max(2, (Size.cy - Measured.Height) div 2);
         TextBounds.Bottom := Min(Size.cy - 2, TextBounds.Top + Measured.Height);
-        DrawText(DC, PChar(Text), Length(Text), TextBounds, DT_CENTER or DT_NOPREFIX or DT_WORDBREAK);
+        DrawText(DC, PChar(Text), Length(Text), TextBounds, Flags or DT_CENTER);
         GdiFlush;
         // GDI text may clear alpha. Restore it only within the opaque interior.
         for var Y := TextBounds.Top to TextBounds.Bottom - 1 do
@@ -1509,7 +1374,7 @@ constructor TPlayerHintTracker.Create(AOwner: TComponent);
 begin
   inherited;
   FPopup := TPlayerHint.Create(Self);
-  FPopup.Font.Name := 'Segoe UI';
+  FPopup.Font.Name := PlayerUIFont;
   Interval := 25;
   OnTimer := Track;
 end;
@@ -1525,7 +1390,7 @@ var
 begin
   Hit := nil;
   Wnd := 0;
-  if not GAppClosing and (GetAsyncKeyState(VK_LBUTTON) >= 0) and
+  if not GAppClosing and (PlayerMenuWindow = nil) and (GetAsyncKeyState(VK_LBUTTON) >= 0) and
     (GetAsyncKeyState(VK_RBUTTON) >= 0) and GetCursorPos(Cursor) then
   begin
     Wnd := WindowFromPoint(Cursor);
@@ -1557,6 +1422,7 @@ begin
   var PPI := Hit.CurrentPPI;
   Gap := MulDiv(6, PPI, 96);
   HintText := GetShortHint(Hit.Hint);
+  if not (Hit is TOverflowHintLabel) then HintText := LocalizeMessageText(HintText);
   R := FPopup.MeasureCard(HintText, PPI);
   if Hit is TOverflowHintLabel then
     Anchor := Point(Cursor.X + Gap, Cursor.Y + 2 * Gap)
@@ -1622,6 +1488,14 @@ begin
   GDarkElevatedBrush := CreateSolidBrush(ColorToRGB(DP_COLOR_ELEVATED));
 end;
 
+procedure DismissPlayerHint;
+begin
+  var Tracker := TPlayerHintTracker(Application.FindComponent('PlayerHintTracker'));
+  if not Assigned(Tracker) then Exit;
+  Tracker.Enabled := False;
+  Tracker.FPopup.ReleaseHandle;
+end;
+
 procedure InitializePlayerAppearance;
 begin
   LoadPlayerPalette;
@@ -1639,88 +1513,150 @@ procedure PlayerMessage(const Text: string);
 var
   Dialog: TForm;
   Body: TLabel;
-  Button: TButton;
-  Scale: Integer;
+  Button: TPlayerTextButton;
+  Scale, ContentHeight: Integer;
 begin
   Dialog := TForm.CreateNew(Application);
   try
     Dialog.Caption := 'VLC Modern';
     Dialog.BorderStyle := bsDialog;
     Dialog.Position := poMainFormCenter;
-    Dialog.Font.Name := 'Segoe UI';
+    Dialog.Font.Name := PlayerUIFont;
     Dialog.Font.Size := 10;
     Dialog.Color := DP_COLOR_SURFACE;
     Scale := Dialog.CurrentPPI;
     if Length(Text)>500 then Dialog.ClientWidth:=Min(Screen.WorkAreaWidth-MulDiv(80,Scale,96),MulDiv(620,Scale,96))
-    else Dialog.ClientWidth := MulDiv(380, Scale, 96);
+    else Dialog.ClientWidth := MulDiv(460, Scale, 96);
     Dialog.ClientHeight := MulDiv(200, Scale, 96);
 
+    var Card := TModernCardPanel.Create(Dialog);
+    Card.Parent := Dialog;
+    Card.CardColor := DP_COLOR_ELEVATED;
+    Card.BorderColor := DP_COLOR_BORDER;
+    Card.CornerRadius := 12;
+
+    var Badge := TModernCardPanel.Create(Dialog);
+    Badge.Parent := Card;
+    Badge.CardColor := DP_COLOR_ACCSOFT;
+    Badge.BorderColor := DP_COLOR_ACCSOFT;
+    Badge.CornerRadius := 18;
+    var Mark := TLabel.Create(Dialog);
+    Mark.Parent := Badge;
+    Mark.Align := alClient;
+    Mark.Layout := tlCenter;
+    Mark.Alignment := taCenter;
+    Mark.Caption := 'i';
+    Mark.Font.Style := [fsBold];
+    Mark.Font.Color := DP_COLOR_ACCENT;
+
     Body := TLabel.Create(Dialog);
-    Body.Parent := Dialog;
+    Body.Parent := Card;
     Body.AutoSize := False;
     Body.Left := MulDiv(24, Scale, 96);
-    Body.Top := MulDiv(24, Scale, 96);
-    Body.Width := Dialog.ClientWidth - MulDiv(48, Scale, 96);
+    Body.Top := MulDiv(20, Scale, 96);
+    Body.Width := Dialog.ClientWidth - MulDiv(120, Scale, 96);
     Body.Height := MulDiv(100, Scale, 96);
     Body.WordWrap := True;
     Body.Font.Color := DP_COLOR_TEXT;
-    Body.Caption := Text;
+    Body.Caption := LocalizeMessageText(Text);
     Dialog.Canvas.Font.Assign(Body.Font);
     var TextBounds:=Rect(0,0,Body.Width,0);
-    DrawText(Dialog.Canvas.Handle,PChar(Text),Length(Text),TextBounds,DT_CALCRECT or DT_WORDBREAK or DT_NOPREFIX);
-    Body.Height:=Max(MulDiv(36,Scale,96),TextBounds.Height+MulDiv(8,Scale,96));
-    Dialog.ClientHeight:=Body.Top+Body.Height+MulDiv(78,Scale,96);
+    var MeasureFlags := DT_CALCRECT or DT_WORDBREAK or DT_NOPREFIX;
+    if PlayerIsArabic then
+    begin
+      Body.Alignment := taRightJustify;
+      MeasureFlags := MeasureFlags or DT_RTLREADING;
+    end;
+    DrawText(Dialog.Canvas.Handle, PChar(Body.Caption), Length(Body.Caption), TextBounds, MeasureFlags);
+    Body.Height := Max(MulDiv(36, Scale, 96), TextBounds.Height + MulDiv(8, Scale, 96));
+    var MaxBodyHeight := Max(MulDiv(72, Scale, 96), Screen.WorkAreaHeight - MulDiv(160, Scale, 96));
+    if Body.Height > MaxBodyHeight then
+    begin
+      var Scroll := TScrollBox.Create(Dialog);
+      Scroll.Parent := Card;
+      Scroll.BorderStyle := bsNone;
+      Scroll.AutoScroll := True;
+      Scroll.HorzScrollBar.Visible := False;
+      Scroll.SetBounds(Body.Left, Body.Top, Body.Width, MaxBodyHeight);
+      Body.Parent := Scroll;
+      Body.SetBounds(0, 0, Max(0, Scroll.ClientWidth - GetSystemMetrics(SM_CXVSCROLL)), Body.Height);
+      TextBounds := Rect(0, 0, Body.Width, 0);
+      DrawText(Dialog.Canvas.Handle, PChar(Body.Caption), Length(Body.Caption), TextBounds, MeasureFlags);
+      Body.Height := TextBounds.Height + MulDiv(8, Scale, 96);
+      ContentHeight := Scroll.Top + Scroll.Height;
+    end
+    else ContentHeight := Body.Top + Body.Height;
 
-    Button := TButton.Create(Dialog);
+
+    Card.SetBounds(MulDiv(20, Scale, 96), MulDiv(18, Scale, 96),
+      Dialog.ClientWidth - MulDiv(40, Scale, 96), ContentHeight + MulDiv(18, Scale, 96));
+    Badge.SetBounds(MulDiv(14, Scale, 96), MulDiv(18, Scale, 96),
+      MulDiv(36, Scale, 96), MulDiv(36, Scale, 96));
+    if PlayerIsArabic then
+      Badge.Left := Card.ClientWidth - Badge.Left - Badge.Width;
+    var Content: TControl := Body;
+    if Body.Parent <> Card then Content := Body.Parent;
+    if PlayerIsArabic then Content.Left := MulDiv(16, Scale, 96)
+    else Content.Left := MulDiv(62, Scale, 96);
+    Dialog.ClientHeight := Card.Top + Card.Height + MulDiv(72, Scale, 96);
+
+    Button := TPlayerTextButton.Create(Dialog);
     Button.Parent := Dialog;
     Button.Caption := 'OK';
     Button.Default := True;
     Button.ModalResult := mrOk;
-    Button.Width := MulDiv(88, Scale, 96);
-    Button.Height := MulDiv(30, Scale, 96);
+    Button.Width := MulDiv(112, Scale, 96);
+    Button.Height := MulDiv(38, Scale, 96);
     Button.Left := Dialog.ClientWidth - Button.Width - MulDiv(24, Scale, 96);
     Button.Top := Dialog.ClientHeight - Button.Height - MulDiv(18, Scale, 96);
 
-    ApplyPlayerAppearance(Dialog);
+    ApplyPlayerAppearance(Dialog, True);
+    Button.Top := Dialog.ClientHeight - Button.Height - MulDiv(16, Scale, 96);
+    Mark.Font.Color := DP_COLOR_ACCENT;
     Dialog.ShowModal;
   finally
     Dialog.Free;
   end;
 end;
 
-function PlayerInput(const Title, Prompt: string; var Value: string): Boolean;
-var Dialog: TForm; Body: TLabel; Edit: TEdit; Accept, Cancel: TButton; D: Integer;
+function PlayerInput(const Title, Prompt: string; var Value: string; LeftToRightValue: Boolean): Boolean;
+var Dialog: TForm; Body: TLabel; Edit: TEdit; Accept, Cancel: TPlayerTextButton; D: Integer;
 begin
   Dialog := TForm.CreateNew(Application);
   try
     Dialog.Caption := Title;
     Dialog.BorderStyle := bsDialog;
     Dialog.Position := poMainFormCenter;
+    Dialog.Font.Name := PlayerUIFont;
     Dialog.Font.Size := 10;
     D := Dialog.CurrentPPI;
     Dialog.ClientWidth := MulDiv(420, D, 96);
     Dialog.ClientHeight := MulDiv(184, D, 96);
     Body := TLabel.Create(Dialog);
     Body.Parent := Dialog;
-    Body.Caption := Prompt;
-    Body.SetBounds(MulDiv(24, D, 96), MulDiv(24, D, 96), MulDiv(372, D, 96), MulDiv(24, D, 96));
+    Body.Caption := LocalizeMessageText(Prompt);
+    Body.AutoSize := False;
+    Body.WordWrap := True;
+    if PlayerIsArabic then Body.Alignment := taRightJustify;
+    Body.SetBounds(MulDiv(24, D, 96), MulDiv(24, D, 96), MulDiv(372, D, 96), MulDiv(34, D, 96));
     Edit := TEdit.Create(Dialog);
     Edit.Parent := Dialog;
     Edit.SetBounds(MulDiv(24, D, 96), MulDiv(60, D, 96), MulDiv(372, D, 96), MulDiv(30, D, 96));
     Edit.Text := Value;
-    Accept := TButton.Create(Dialog);
+    Accept := TPlayerTextButton.Create(Dialog);
     Accept.Parent := Dialog;
     Accept.Caption := 'Add';
     Accept.Default := True;
     Accept.ModalResult := mrOk;
     Accept.SetBounds(MulDiv(192, D, 96), MulDiv(128, D, 96), MulDiv(96, D, 96), MulDiv(32, D, 96));
-    Cancel := TButton.Create(Dialog);
+    Cancel := TPlayerTextButton.Create(Dialog);
     Cancel.Parent := Dialog;
     Cancel.Caption := 'Cancel';
     Cancel.Cancel := True;
     Cancel.ModalResult := mrCancel;
     Cancel.SetBounds(MulDiv(300, D, 96), MulDiv(128, D, 96), MulDiv(96, D, 96), MulDiv(32, D, 96));
-    ApplyPlayerAppearance(Dialog);
+    ApplyPlayerAppearance(Dialog, True);
+    if LeftToRightValue then Edit.BiDiMode := bdLeftToRight;
     Dialog.ActiveControl := Edit;
     Result := Dialog.ShowModal = mrOk;
     if Result then Value := Edit.Text;
@@ -1728,7 +1664,7 @@ begin
 end;
 
 function PlayerChooseSubtitle(const Items: TArray<string>): Integer;
-var Dialog: TForm; Body: TLabel; Choices: TComboBox; Accept, Cancel: TButton; D: Integer;
+var Dialog: TForm; Body: TLabel; Choices: TComboBox; Accept, Cancel: TPlayerTextButton; D: Integer;
 begin
   Dialog := TForm.CreateNew(Application);
   try
@@ -1749,19 +1685,19 @@ begin
     Choices.SetBounds(MulDiv(24, D, 96), MulDiv(60, D, 96), MulDiv(572, D, 96), MulDiv(30, D, 96));
     Choices.Items.AddStrings(Items);
     Choices.ItemIndex := 0;
-    Accept := TButton.Create(Dialog);
+    Accept := TPlayerTextButton.Create(Dialog);
     Accept.Parent := Dialog;
     Accept.Caption := 'Download';
     Accept.Default := True;
     Accept.ModalResult := mrOk;
     Accept.SetBounds(MulDiv(392, D, 96), MulDiv(128, D, 96), MulDiv(96, D, 96), MulDiv(32, D, 96));
-    Cancel := TButton.Create(Dialog);
+    Cancel := TPlayerTextButton.Create(Dialog);
     Cancel.Parent := Dialog;
     Cancel.Caption := 'Cancel';
     Cancel.Cancel := True;
     Cancel.ModalResult := mrCancel;
     Cancel.SetBounds(MulDiv(500, D, 96), MulDiv(128, D, 96), MulDiv(96, D, 96), MulDiv(32, D, 96));
-    ApplyPlayerAppearance(Dialog);
+    ApplyPlayerAppearance(Dialog, True);
     Dialog.ActiveControl := Choices;
     Result := -1;
     if Dialog.ShowModal = mrOk then Result := Choices.ItemIndex;
@@ -1769,7 +1705,7 @@ begin
 end;
 
 function PlayerResume(const Position: string; out Remember: Boolean): Boolean;
-var Dialog: TForm; Text: TLabel; Check: TCheckBox; Resume, Restart: TButton; D: Integer;
+var Dialog: TForm; Text: TLabel; Check: TPlayerCheckBox; Resume, Restart: TPlayerTextButton; D: Integer;
 begin
   Remember:=False;
   Dialog:=TForm.CreateNew(Application);
@@ -1785,19 +1721,19 @@ begin
     Text.WordWrap:=True;
     Text.Caption:='Continue from '+Position+' or start from the beginning?';
     Text.SetBounds(MulDiv(24,D,96),MulDiv(54,D,96),MulDiv(392,D,96),MulDiv(56,D,96));
-    Check:=TCheckBox.Create(Dialog);
+    Check:=TPlayerCheckBox.Create(Dialog);
     Check.Parent:=Dialog;
     Check.Caption:='Always use this choice';
     Check.SetBounds(MulDiv(24,D,96),MulDiv(122,D,96),MulDiv(360,D,96),MulDiv(24,D,96));
-    Resume:=TButton.Create(Dialog);
+    Resume:=TPlayerTextButton.Create(Dialog);
     Resume.Parent:=Dialog;
     Resume.Caption:='Resume'; Resume.Default:=True; Resume.ModalResult:=mrYes;
     Resume.SetBounds(MulDiv(178,D,96),MulDiv(170,D,96),MulDiv(112,D,96),MulDiv(32,D,96));
-    Restart:=TButton.Create(Dialog);
+    Restart:=TPlayerTextButton.Create(Dialog);
     Restart.Parent:=Dialog;
     Restart.Caption:='Start over'; Restart.ModalResult:=mrNo; Restart.Cancel:=True;
     Restart.SetBounds(MulDiv(302,D,96),MulDiv(170,D,96),MulDiv(112,D,96),MulDiv(32,D,96));
-    ApplyPlayerAppearance(Dialog);
+    ApplyPlayerAppearance(Dialog, True);
     Result:=Dialog.ShowModal=mrYes;
     Remember:=Check.Checked;
   finally Dialog.Free; end;

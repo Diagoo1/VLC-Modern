@@ -30,7 +30,7 @@ object tabVideo: TTabSheet
         'DirectX Video Acceleration (DXVA2)'
         'Disabled (CPU Software Decoding)')
     end
-    object chkZeroCopy: TCheckBox
+    object chkZeroCopy: TPlayerCheckBox
       Left = 18
       Top = 82
       Width = 400
@@ -94,7 +94,7 @@ object tabVideo: TTabSheet
         'On - Bob'
         'On - Linear')
     end
-    object chkAspectAuto: TCheckBox
+    object chkAspectAuto: TPlayerCheckBox
       Left = 18
       Top = 84
       Width = 350

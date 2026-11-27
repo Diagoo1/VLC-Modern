@@ -8,7 +8,7 @@ object tabAssociations: TTabSheet
     Height = 190
     Caption = ' Windows 11 File Type Associations '
     TabOrder = 0
-    object chkAssocVideo: TCheckBox
+    object chkAssocVideo: TPlayerCheckBox
       Left = 18
       Top = 26
       Width = 480
@@ -18,7 +18,7 @@ object tabAssociations: TTabSheet
       State = cbChecked
       TabOrder = 0
     end
-    object chkAssocAudio: TCheckBox
+    object chkAssocAudio: TPlayerCheckBox
       Left = 18
       Top = 52
       Width = 480
@@ -28,7 +28,7 @@ object tabAssociations: TTabSheet
       State = cbChecked
       TabOrder = 1
     end
-    object chkAssocPlaylists: TCheckBox
+    object chkAssocPlaylists: TPlayerCheckBox
       Left = 18
       Top = 78
       Width = 480
@@ -38,7 +38,7 @@ object tabAssociations: TTabSheet
       State = cbChecked
       TabOrder = 2
     end
-    object btnRegisterAssoc: TButton
+    object btnRegisterAssoc: TPlayerTextButton
       Left = 18
       Top = 120
       Width = 240

@@ -2,8 +2,7 @@ unit BookmarksForm;
 
 interface
 
-uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
+uses CurvedControls, Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls;
 
 type
@@ -15,10 +14,10 @@ type
   TFrmBookmarks = class(TForm)
     lstBookmarks: TListBox;
     pnlButtons: TPanel;
-    btnAdd: TButton;
-    btnJump: TButton;
-    btnDelete: TButton;
-    btnClose: TButton;
+    btnAdd: TPlayerTextButton;
+    btnJump: TPlayerTextButton;
+    btnDelete: TPlayerTextButton;
+    btnClose: TPlayerTextButton;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure btnAddClick(Sender: TObject);
@@ -47,7 +46,7 @@ uses PlayerDialogs;
 procedure TFrmBookmarks.AfterConstruction;
 begin
   inherited;
-  ApplyPlayerAppearance(Self);
+  ApplyPlayerAppearance(Self, True);
 end;
 procedure TFrmBookmarks.FormCreate(Sender: TObject);
 begin

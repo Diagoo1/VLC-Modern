@@ -2,8 +2,7 @@ unit ConvertForm;
 
 interface
 
-uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
+uses CurvedControls, Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls,
   LibVLC;
 
@@ -11,18 +10,18 @@ type
   TFrmConvert = class(TForm)
     lblSource: TLabel;
     edtSource: TEdit;
-    btnBrowseSource: TButton;
+    btnBrowseSource: TPlayerTextButton;
     lblProfile: TLabel;
     cboProfile: TComboBox;
     lblDestination: TLabel;
     edtDestination: TEdit;
-    btnBrowseDest: TButton;
+    btnBrowseDest: TPlayerTextButton;
     pnlProgress: TPanel;
-    pbConvert: TProgressBar;
+    pbConvert: TPlayerProgress;
     lblStatus: TLabel;
     pnlBottom: TPanel;
-    btnStart: TButton;
-    btnClose: TButton;
+    btnStart: TPlayerTextButton;
+    btnClose: TPlayerTextButton;
     OpenDialogSource: TOpenDialog;
     SaveDialogDest: TSaveDialog;
     tmrMonitor: TTimer;
@@ -65,7 +64,7 @@ var
 
 implementation
 
-uses PlayerDialogs, CurvedControls;
+uses PlayerDialogs, PlayerLanguage;
 
 {$R *.dfm}
 
@@ -86,21 +85,21 @@ procedure TFrmConvert.LayoutConvert(Sender: TObject);
   procedure Place(Control: TControl; X,Y,W,H: Integer);
   begin
     if (Control is TEdit) and (Control.Parent is TModernCardPanel) then Control:=Control.Parent;
-    Control.SetBounds(S(X),S(Y),W,S(H));
+    PlaceLocalized(Control, S(X), S(Y), W, S(H));
   end;
 begin
   pnlBottom.Height:=S(56);
-  btnClose.SetBounds(ClientWidth-S(128),S(12),S(104),S(32));
-  btnStart.SetBounds(btnClose.Left-S(116),S(12),S(104),S(32));
-  btnStart.Caption:='Convert';
+  PlaceLocalized(btnClose, pnlBottom.ClientWidth-S(128),S(12),S(104),S(32));
+  PlaceLocalized(btnStart, pnlBottom.ClientWidth-S(244),S(12),S(104),S(32));
+  btnStart.Caption := Translate('Convert');
   Place(lblSource,24,60,S(240),24);
   Place(edtSource,24,88,ClientWidth-S(172),32);
-  btnBrowseSource.SetBounds(ClientWidth-S(132),S(88),S(108),S(32));
+  PlaceLocalized(btnBrowseSource, ClientWidth-S(132),S(88),S(108),S(32));
   Place(lblProfile,24,140,S(240),24);
   Place(cboProfile,24,168,ClientWidth-S(48),32);
   Place(lblDestination,24,220,S(240),24);
   Place(edtDestination,24,248,ClientWidth-S(172),32);
-  btnBrowseDest.SetBounds(ClientWidth-S(132),S(248),S(108),S(32));
+  PlaceLocalized(btnBrowseDest, ClientWidth-S(132),S(248),S(108),S(32));
   pnlProgress.SetBounds(S(24),S(304),ClientWidth-S(48),S(64));
   pbConvert.SetBounds(0,0,pnlProgress.ClientWidth,S(12));
   lblStatus.SetBounds(0,S(28),pnlProgress.ClientWidth,S(24));

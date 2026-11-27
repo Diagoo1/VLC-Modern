@@ -10,17 +10,17 @@ uses SettingsStore,
 type
   TFrmCustomize = class(TForm)
     grpTopBar: TGroupBox;
-    chkShowMenuBar: TCheckBox;
-    chkShowLiveTVBtn: TCheckBox;
+    chkShowMenuBar: TPlayerCheckBox;
+    chkShowLiveTVBtn: TPlayerCheckBox;
     grpBottomDock: TGroupBox;
-    chkShowSeekBar: TCheckBox;
-    chkShowTime: TCheckBox;
-    chkShowVolume: TCheckBox;
-    chkShowSpeedBtn: TCheckBox;
-    chkShowEqualizerBtn: TCheckBox;
-    chkShowPlaylistBtn: TCheckBox;
-    chkShowFullscreenBtn: TCheckBox;
-    chkShowAdvControls: TCheckBox;
+    chkShowSeekBar: TPlayerCheckBox;
+    chkShowTime: TPlayerCheckBox;
+    chkShowVolume: TPlayerCheckBox;
+    chkShowSpeedBtn: TPlayerCheckBox;
+    chkShowEqualizerBtn: TPlayerCheckBox;
+    chkShowPlaylistBtn: TPlayerCheckBox;
+    chkShowFullscreenBtn: TPlayerCheckBox;
+    chkShowAdvControls: TPlayerCheckBox;
     lblDockHeight: TLabel;
     cboDockHeight: TComboBox;
     grpThemeAccent: TGroupBox;
@@ -29,10 +29,10 @@ type
     lblCornerRadius: TLabel;
     cboCornerRadius: TComboBox;
     pnlBottom: TPanel;
-    btnReset: TButton;
-    btnApply: TButton;
-    btnOK: TButton;
-    btnCancel: TButton;
+    btnReset: TPlayerTextButton;
+    btnApply: TPlayerTextButton;
+    btnOK: TPlayerTextButton;
+    btnCancel: TPlayerTextButton;
 
     procedure FormCreate(Sender: TObject);
     procedure btnResetClick(Sender: TObject);
@@ -40,6 +40,8 @@ type
     procedure btnOKClick(Sender: TObject);
     procedure btnCancelClick(Sender: TObject);
   private
+    FDesignWidth: Integer;
+    procedure LayoutCustomize(Sender: TObject);
     function GetIniPath: string;
     procedure LoadSettings;
     procedure SaveSettings;
@@ -52,14 +54,40 @@ var
 
 implementation
 
-uses PlayerDialogs, MainForm;
+uses PlayerDialogs, MainForm, PlayerLanguage;
 
 {$R *.dfm}
 
 procedure TFrmCustomize.AfterConstruction;
 begin
   inherited;
-  ApplyPlayerAppearance(Self);
+  BorderStyle := bsSizeable;
+  Constraints.MinWidth := Width;
+  Constraints.MinHeight := Height;
+  ApplyPlayerAppearance(Self, True);
+  FDesignWidth := ClientWidth;
+  for var Group in [grpTopBar, grpBottomDock, grpThemeAccent] do
+    Group.Anchors := [akLeft, akTop, akRight];
+  btnReset.Anchors := [akLeft, akTop];
+  if PlayerIsArabic then btnReset.Anchors := [akRight, akTop];
+  OnResize := LayoutCustomize;
+  LayoutCustomize(nil);
+end;
+
+procedure TFrmCustomize.LayoutCustomize(Sender: TObject);
+begin
+  var Extra := (ClientWidth - FDesignWidth) div 2;
+  var W := MulDiv(220, CurrentPPI, 96) + Extra;
+  cboAccentColor.Width := W;
+  cboCornerRadius.Width := W;
+  if PlayerIsArabic then
+  begin
+    cboAccentColor.Left := grpThemeAccent.ClientWidth - W - MulDiv(20, CurrentPPI, 96);
+    cboCornerRadius.Left := grpThemeAccent.ClientWidth div 2 - W - MulDiv(12, CurrentPPI, 96);
+    btnReset.Caption := Translate('Reset settings');
+  end
+  else
+    cboCornerRadius.Left := grpThemeAccent.ClientWidth div 2 + MulDiv(12, CurrentPPI, 96);
 end;
 
 function TFrmCustomize.GetIniPath: string;
@@ -158,6 +186,7 @@ begin
   cboDockHeight.ItemIndex := 1;
   cboAccentColor.ItemIndex := 0;
   cboCornerRadius.ItemIndex := 0;
+  PlayerMessage('Default settings restored. Select Apply or OK to save.');
 end;
 
 end.

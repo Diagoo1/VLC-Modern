@@ -1,9 +1,9 @@
-unit PreferencesForm;
+﻿unit PreferencesForm;
 
 interface
 
 uses SettingsStore,
-  Winapi.Windows, Winapi.Messages, Winapi.ShlObj, System.SysUtils, System.Classes, System.IniFiles, System.Math,
+  Winapi.Windows, Winapi.Messages, Winapi.ShlObj, Winapi.Dwmapi, System.IOUtils, System.SysUtils, System.Classes, System.IniFiles, System.Math,
   System.Generics.Collections, System.Win.Registry, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls, CurvedControls, AdvancedSettings, SettingsNavigation;
 
@@ -15,26 +15,26 @@ type
     pnlMain: TPanel;
     PageControlPages: TPageControl;
     pnlBottom: TPanel;
-    btnReset: TButton;
-    btnApply: TButton;
-    btnSave: TButton;
-    btnCancel: TButton;
+    btnReset: TPlayerTextButton;
+    btnApply: TPlayerTextButton;
+    btnSave: TPlayerTextButton;
+    btnCancel: TPlayerTextButton;
 
     // Tab 0: General
     tabGeneral: TTabSheet;
     grpStartup: TGroupBox;
-    chkSingleInstance: TCheckBox;
+    chkSingleInstance: TPlayerCheckBox;
     lblTheme: TLabel;
     cboTheme: TComboBox;
-    chkRememberSize: TCheckBox;
-    chkStartFullscreen: TCheckBox;
-    chkBossKeyHide: TCheckBox;
-    chkCinemaMode: TCheckBox;
-    chkShowMenuBar: TCheckBox;
-    chkShowTitleBar: TCheckBox;
+    chkRememberSize: TPlayerCheckBox;
+    chkStartFullscreen: TPlayerCheckBox;
+    chkBossKeyHide: TPlayerCheckBox;
+    chkCinemaMode: TPlayerCheckBox;
+    chkShowMenuBar: TPlayerCheckBox;
+    chkShowTitleBar: TPlayerCheckBox;
     grpOSD: TGroupBox;
-    chkShowOSD: TCheckBox;
-    chkShowFilename: TCheckBox;
+    chkShowOSD: TPlayerCheckBox;
+    chkShowFilename: TPlayerCheckBox;
     lblOsdDuration: TLabel;
     cboOsdDuration: TComboBox;
     lblOsdSize: TLabel;
@@ -44,7 +44,7 @@ type
     cboSingleClick: TComboBox;
     lblDblClick: TLabel;
     cboDblClick: TComboBox;
-    chkWheelVolume: TCheckBox;
+    chkWheelVolume: TPlayerCheckBox;
 
     // Tab 1: Playback
     tabPlayback: TTabSheet;
@@ -53,8 +53,8 @@ type
     cboResume: TComboBox;
     lblAfterPlayback: TLabel;
     cboAfterPlayback: TComboBox;
-    chkSaveHistory: TCheckBox;
-    chkAutoPlayNext: TCheckBox;
+    chkSaveHistory: TPlayerCheckBox;
+    chkAutoPlayNext: TPlayerCheckBox;
     grpSpeedJump: TGroupBox;
     lblJumpShort: TLabel;
     cboJumpShort: TComboBox;
@@ -62,21 +62,21 @@ type
     cboJumpMedium: TComboBox;
     lblJumpLong: TLabel;
     cboJumpLong: TComboBox;
-    chkScaletempo: TCheckBox;
-    chkShowSpeedOSD: TCheckBox;
+    chkScaletempo: TPlayerCheckBox;
+    chkShowSpeedOSD: TPlayerCheckBox;
 
     // Tab 2: Video
     tabVideo: TTabSheet;
     grpHardware: TGroupBox;
     lblHwAccel: TLabel;
     cboHwAccel: TComboBox;
-    chkZeroCopy: TCheckBox;
+    chkZeroCopy: TPlayerCheckBox;
     grpVideoOut: TGroupBox;
     lblVout: TLabel;
     cboVout: TComboBox;
     lblDeinterlace: TLabel;
     cboDeinterlace: TComboBox;
-    chkAspectAuto: TCheckBox;
+    chkAspectAuto: TPlayerCheckBox;
 
     // Tab 3: Audio
     tabAudio: TTabSheet;
@@ -85,12 +85,12 @@ type
     cboAout: TComboBox;
     lblChannels: TLabel;
     cboChannels: TComboBox;
-    chkRememberVolume: TCheckBox;
-    chkNormalizer: TCheckBox;
+    chkRememberVolume: TPlayerCheckBox;
+    chkNormalizer: TPlayerCheckBox;
     grpVolumeDef: TGroupBox;
     lblDefaultVolume: TLabel;
     lblDefVolVal: TLabel;
-    tbDefaultVol: TTrackBar;
+    tbDefaultVol: TPlayerSlider;
 
     // Tab 4: Subtitles
     tabSubtitles: TTabSheet;
@@ -101,8 +101,8 @@ type
     cboSubSize: TComboBox;
     lblSubEncoding: TLabel;
     cboSubEncoding: TComboBox;
-    chkSubBold: TCheckBox;
-    chkSubAutoLoad: TCheckBox;
+    chkSubBold: TPlayerCheckBox;
+    chkSubAutoLoad: TPlayerCheckBox;
 
     // Tab 5: Network & IPTV
     tabNetwork: TTabSheet;
@@ -111,19 +111,19 @@ type
     cboNetCache: TComboBox;
     lblLiveEdge: TLabel;
     cboLiveEdge: TComboBox;
-    chkHlsHardware: TCheckBox;
+    chkHlsHardware: TPlayerCheckBox;
     grpUserAgent: TGroupBox;
     lblUserAgent: TLabel;
     cboUserAgent: TComboBox;
-    chkPassReferer: TCheckBox;
+    chkPassReferer: TPlayerCheckBox;
 
     // Tab 6: Associations
     tabAssociations: TTabSheet;
     grpFileTypes: TGroupBox;
-    chkAssocVideo: TCheckBox;
-    chkAssocAudio: TCheckBox;
-    chkAssocPlaylists: TCheckBox;
-    btnRegisterAssoc: TButton;
+    chkAssocVideo: TPlayerCheckBox;
+    chkAssocAudio: TPlayerCheckBox;
+    chkAssocPlaylists: TPlayerCheckBox;
+    btnRegisterAssoc: TPlayerTextButton;
 
     procedure FormCreate(Sender: TObject);
     procedure treeCategoriesChange(Sender: TObject; Node: TTreeNode);
@@ -133,32 +133,43 @@ type
     procedure btnCancelClick(Sender: TObject);
     procedure tbDefaultVolChange(Sender: TObject);
     procedure btnRegisterAssocClick(Sender: TObject);
+  protected
+    procedure CreateParams(var Params: TCreateParams); override;
   private
     FNavigation: TSettingsNavigation;
     FRightColumns: TList<TControl>;
+    FDesignLeft: TDictionary<TControl, Integer>;
     FLayoutBusy: Boolean;
-    FEnterFullscreen: TCheckBox;
+    FEnterFullscreen: TPlayerCheckBox;
+    FComponentsButton: TPlayerTextButton;
+    FLanguageLabel: TLabel;
+    FLanguage: TComboBox;
     FPageHeader: TPanel;
     FPageTitle, FPageHint: TLabel;
     FAdvanced: TAdvancedSettings;
     FPreparingAdvanced: Boolean;
+    FPreloadStep: Integer;
     FPageLoaded: array[0..6] of Boolean;
     FEffectsPage: TTabSheet;
     FEffectsBounds: TRect;
     FEffectsBorder: TFormBorderStyle;
     FEffectsMinWidth, FEffectsMinHeight: Integer;
+    procedure OpenComponents(Sender: TObject);
     procedure PrepareActivePage(Sender:TObject);
     procedure LoadPagePreferences(PageIndex:Integer);
     procedure RememberColumns(Page:TTabSheet);
     procedure NavigationClick(Sender: TObject);
     procedure AttachEffects(Sender: TObject);
-    procedure DetachEffects(Sender: TObject);
+    procedure PrepareEffects;
     procedure LayoutSettings(Sender: TObject);
     function GetIniPath: string;
   public
     destructor Destroy; override;
     procedure AfterConstruction; override;
     procedure EnsurePage(PageIndex:Integer);
+    function PrepareNextPage: Boolean;
+    procedure PrepareInitialPages;
+    procedure DetachEffects(Sender: TObject);
     procedure LoadPreferences;
     procedure SavePreferences;
   end;
@@ -168,9 +179,15 @@ var
 
 implementation
 
-uses FileAssociations, PlayerDialogs, MainForm, EffectsForm, PageTransitions;
+uses FileAssociations, PlayerDialogs, MainForm, EffectsForm, PageTransitions, RuntimeComponents, PlayerLanguage;
 
 {$R *.dfm}
+
+procedure TFrmPreferences.CreateParams(var Params: TCreateParams);
+begin
+  inherited;
+  Params.ExStyle := Params.ExStyle or WS_EX_COMPOSITED;
+end;
 
 type TDeferredPageAccess=class(TTabSheet);
 
@@ -189,10 +206,34 @@ begin
   ClientWidth := MulDiv(960, CurrentPPI, 96);
   ClientHeight := MulDiv(660, CurrentPPI, 96);
   pnlLeft.Width := MulDiv(262, CurrentPPI, 96);
-  FEnterFullscreen:=TCheckBox.Create(Self);
+  if PlayerIsArabic then pnlLeft.Align := alRight;
+  FEnterFullscreen:=TPlayerCheckBox.Create(Self);
   FEnterFullscreen.Parent:=grpMouse;
   FEnterFullscreen.Caption:='Enter toggles fullscreen';
   FEnterFullscreen.SetBounds(280,chkWheelVolume.Top,250,24);
+  FLanguageLabel := TLabel.Create(Self);
+  FLanguageLabel.Parent := grpStartup;
+  FLanguageLabel.Caption := 'Language (applies on restart)';
+  FLanguageLabel.SetBounds(cboTheme.Left, MulDiv(82, CurrentPPI, 96), cboTheme.Width, 22);
+  FLanguage := TComboBox.Create(Self);
+  FLanguage.Name := 'InterfaceLanguage';
+  FLanguage.Parent := grpStartup;
+  FLanguage.Style := csDropDownList;
+  FLanguage.SetBounds(cboTheme.Left, MulDiv(104, CurrentPPI, 96), cboTheme.Width, cboTheme.Height);
+  FLanguage.Items.Add(Translate('Follow system'));
+  FLanguage.Items.Add('English');
+  FLanguage.Items.Add(#$0627#$0644#$0639#$0631#$0628#$064A#$0629);
+  for var I := 0 to cboTheme.Items.Count - 1 do
+    cboTheme.Items[I] := Translate(cboTheme.Items[I]);
+  FComponentsButton := TPlayerTextButton.Create(Self);
+  btnReset.Caption := 'Reset';
+  btnReset.Hint := 'Restore all preferences to their defaults';
+  btnReset.ShowHint := True;
+  FComponentsButton.Parent := pnlBottom;
+  FComponentsButton.Caption := 'Components';
+  FComponentsButton.Hint := 'Manage playback plugins and FFmpeg';
+  FComponentsButton.ShowHint := True;
+  FComponentsButton.OnClick := OpenComponents;
   tabNetwork.Caption := 'Network and TV';
   FPageLoaded[0]:=True;
   for var Caption in ['Video processing','Audio leveling','Subtitle appearance'] do
@@ -209,10 +250,10 @@ begin
   FNavigation.Font.Size := 10;
   FNavigation.OnClick := NavigationClick;
   for var I := 0 to PageControlPages.PageCount - 2 do
-    FNavigation.Items.Add(PageControlPages.Pages[I].Caption);
-  FNavigation.Items.Add('Equalizer and audio filters');
-  FNavigation.Items.Add('Picture adjustments');
-  FNavigation.Items.Add('Audio and subtitle timing');
+    FNavigation.Items.Add(Translate(PageControlPages.Pages[I].Caption));
+  FNavigation.Items.Add(Translate('Equalizer and audio filters'));
+  FNavigation.Items.Add(Translate('Picture adjustments'));
+  FNavigation.Items.Add(Translate('Audio and subtitle timing'));
   FNavigation.ItemIndex := 0;
   PageControlPages.ActivePageIndex := 0;
   lblCategoriesTitle.Visible := False;
@@ -232,8 +273,15 @@ begin
   FPageHint.SetBounds(MulDiv(23, CurrentPPI, 96), MulDiv(48, CurrentPPI, 96), 600, 20);
   FPageHint.Caption := 'Make the player feel like yours.';
   OnShow := AttachEffects;
-  OnHide := DetachEffects;
   FRightColumns:=TList<TControl>.Create;
+  FDesignLeft := TDictionary<TControl, Integer>.Create;
+  if PlayerIsArabic then
+  begin
+    FPageTitle.AutoSize := False;
+    FPageTitle.Alignment := taRightJustify;
+    FPageHint.AutoSize := False;
+    FPageHint.Alignment := taRightJustify;
+  end;
   RememberColumns(tabGeneral);
   PageControlPages.OnChange:=PrepareActivePage;
   LoadPagePreferences(0);
@@ -243,6 +291,11 @@ begin
   FNavigation.DoubleBuffered := True;
   FPageHint.Font.Color := DP_COLOR_MUTED;
   lblCategoriesTitle.Font.Color := DP_COLOR_MUTED;
+end;
+
+procedure TFrmPreferences.OpenComponents(Sender: TObject);
+begin
+  ShowRuntimeComponents(Self);
 end;
 
 procedure TFrmPreferences.NavigationClick(Sender: TObject);
@@ -260,18 +313,40 @@ const Hints: array[0..12] of string = (
   'Shape the sound with equalization and audio filters.',
   'Adjust the picture to suit your display.',
   'Keep audio and subtitles in time with the video.');
+var Started, Finished, Frequency: Int64;
 begin
+  var TimingLog := GetEnvironmentVariable('VLC_PREFERENCES_TIMING_LOG');
+  if TimingLog <> '' then QueryPerformanceCounter(Started);
   if FNavigation.ItemIndex < 0 then Exit;
-  EnsurePage(FNavigation.ItemIndex);
-  if (FNavigation.ItemIndex in [3,4]) and Assigned(FAdvanced) then FAdvanced.QueueRefresh;
-  FPageTitle.Caption := FNavigation.Items[FNavigation.ItemIndex];
-  if FNavigation.ItemIndex <= High(Hints) then FPageHint.Caption := Hints[FNavigation.ItemIndex];
-  if FNavigation.ItemIndex < FEffectsPage.PageIndex then SelectPageAnimated(PageControlPages, FNavigation.ItemIndex)
-  else
+  try
+    EnsurePage(FNavigation.ItemIndex);
+    if (FNavigation.ItemIndex in [3,4]) and Assigned(FAdvanced) then FAdvanced.QueueRefresh;
+    FPageTitle.Caption := FNavigation.Items[FNavigation.ItemIndex];
+    if FNavigation.ItemIndex <= High(Hints) then FPageHint.Caption := Translate(Hints[FNavigation.ItemIndex]);
+    if FNavigation.ItemIndex < FEffectsPage.PageIndex then SelectPageAnimated(PageControlPages, FNavigation.ItemIndex)
+    else
+    begin
+      AttachEffects(nil);
+      SelectPageAnimated(PageControlPages, FEffectsPage.PageIndex);
+      if Assigned(FrmEffects) then
+      begin
+        var EffectIndex := FNavigation.ItemIndex - FEffectsPage.PageIndex;
+        SelectPageAnimated(FrmEffects.PageControl1, EffectIndex);
+      end;
+    end;
+  finally
+    if pnlMain.Showing then
+      RedrawWindow(pnlMain.Handle, nil, 0, RDW_INVALIDATE or RDW_ALLCHILDREN);
+  end;
+  if TimingLog <> '' then
   begin
-    AttachEffects(nil);
-    SelectPageAnimated(PageControlPages, FEffectsPage.PageIndex);
-    if Assigned(FrmEffects) then SelectPageAnimated(FrmEffects.PageControl1, FNavigation.ItemIndex - FEffectsPage.PageIndex);
+    RedrawWindow(PageControlPages.Handle, nil, 0, RDW_UPDATENOW or RDW_ALLCHILDREN);
+    Winapi.Dwmapi.DwmFlush;
+    QueryPerformanceCounter(Finished);
+    QueryPerformanceFrequency(Frequency);
+    System.IOUtils.TFile.AppendAllText(TimingLog,
+      Format('%s to composed page: %.2f ms', [FPageTitle.Caption,
+        (Finished - Started) * 1000.0 / Frequency]) + sLineBreak);
   end;
 end;
 
@@ -285,13 +360,37 @@ begin
   W := MulDiv(96, CurrentPPI, 96);
   H := MulDiv(32, CurrentPPI, 96);
   Gap := MulDiv(12, CurrentPPI, 96);
-  pnlBottom.Height := H + Gap * 2;
-  btnCancel.SetBounds(ClientWidth - W - Gap, Gap, W, H);
-  btnSave.SetBounds(btnCancel.Left - W - Gap, Gap, W, H);
-  btnApply.SetBounds(btnSave.Left - W - Gap, Gap, W, H);
-  btnReset.SetBounds(Gap, Gap, MulDiv(156, CurrentPPI, 96), H);
+  if pnlBottom.Height <> H + Gap * 2 then pnlBottom.Height := H + Gap * 2;
+  var CancelLeft := pnlBottom.ClientWidth - W - Gap;
+  var ButtonStep := -(W + Gap);
+  var SideWidth := pnlLeft.ClientWidth - Gap * 2;
+  var FooterLeft := pnlLeft.Left - pnlBottom.Left + Gap;
+  if PlayerIsArabic then
+  begin
+    CancelLeft := Gap;
+    ButtonStep := W + Gap;
+    FooterLeft := pnlBottom.ClientWidth - pnlLeft.Width + Gap;
+    FPageTitle.Width := Max(0, FPageHeader.ClientWidth - Gap * 4);
+    FPageHint.Width := FPageTitle.Width;
+  end;
+  btnCancel.SetBounds(CancelLeft, Gap, W, H);
+  btnSave.SetBounds(CancelLeft + ButtonStep, Gap, W, H);
+  btnApply.SetBounds(CancelLeft + ButtonStep * 2, Gap, W, H);
+  var ActionWidth := (SideWidth - Gap) div 2;
+  if PlayerIsArabic then
+  begin
+    btnReset.Caption := Translate('Reset settings');
+    var ResetWidth := SideWidth - Gap - ActionWidth;
+    btnReset.SetBounds(FooterLeft, Gap, ResetWidth, H);
+    FComponentsButton.SetBounds(FooterLeft + ResetWidth + Gap, Gap, ActionWidth, H);
+  end
+  else
+  begin
+    FComponentsButton.SetBounds(FooterLeft, Gap, ActionWidth, H);
+    btnReset.SetBounds(FooterLeft + ActionWidth + Gap, Gap, SideWidth - Gap - ActionWidth, H);
+  end;
   if Assigned(FNavigation) then FNavigation.SetBounds(Gap, Gap,
-    pnlLeft.ClientWidth - Gap * 2, pnlLeft.ClientHeight - Gap * 2);
+    SideWidth, Max(0, pnlLeft.ClientHeight - Gap * 2));
   // Keep both columns aligned and use the available page width. Effects owns
   // its own responsive layout and is deliberately excluded here.
   Margin := MulDiv(18, CurrentPPI, 96);
@@ -301,33 +400,57 @@ begin
         if PageControlPages.Pages[P].Controls[I] is TGroupBox then
         begin
           Group := TGroupBox(PageControlPages.Pages[P].Controls[I]);
-          Group.Width := System.Math.Min(PageControlPages.Pages[P].ClientWidth - Gap * 3, MulDiv(760, CurrentPPI, 96));
+          var PageWidth := PageControlPages.Pages[P].ClientWidth;
+          var GroupWidth := System.Math.Max(0, PageWidth - Gap * 3);
+          var GroupLeft := Group.Left;
+          if PlayerIsArabic then GroupLeft := PageWidth - GroupWidth - Gap;
+          Group.SetBounds(GroupLeft, Group.Top, GroupWidth, Group.Height);
           Half := Group.ClientWidth div 2;
           for var J := 0 to Group.ControlCount - 1 do
           begin
             Child := Group.Controls[J];
+            if (Group = grpSpeedJump) or (Child = chkWheelVolume) or
+               (Child = FEnterFullscreen) or (Child = tbDefaultVol) or
+               (Child = lblDefVolVal) then Continue;
+            var LogicalLeft := Child.Left;
+            var ChildWidth := Child.Width;
+            var Mirror := PlayerIsArabic and FDesignLeft.ContainsKey(Child);
+            if Mirror then LogicalLeft := MulDiv(FDesignLeft[Child], CurrentPPI, 96);
             if (Group <> grpSpeedJump) and FRightColumns.Contains(Child) then
-              Child.Left := Half + Margin div 2;
+              LogicalLeft := Half + Margin div 2;
+            if (Group = grpStartup) and (Child is TPlayerCheckBox) then
+              ChildWidth := Max(0, Half - Margin * 3 div 2);
             if (Child is TComboBox) and (Group <> grpSpeedJump) then
               if Child = cboUserAgent then
-                Child.Width := Group.ClientWidth - Child.Left - Margin
-              else Child.Width := Half - Margin * 3 div 2;
+                ChildWidth := Group.ClientWidth - LogicalLeft - Margin
+              else ChildWidth := Half - Margin * 3 div 2;
+            if Mirror then
+            begin
+              if Child is TPlayerCheckBox then
+                ChildWidth := Max(0, Min(ChildWidth, Group.ClientWidth - LogicalLeft - Margin));
+              LogicalLeft := Max(0, Group.ClientWidth - LogicalLeft - ChildWidth);
+            end;
+            if (Child.Left <> LogicalLeft) or (Child.Width <> ChildWidth) then
+              Child.SetBounds(LogicalLeft, Child.Top, ChildWidth, Child.Height);
           end;
         end;
-  chkWheelVolume.Caption:='Mouse wheel adjusts volume';
-  chkWheelVolume.Width:=grpMouse.ClientWidth div 2-Margin*2;
-  FEnterFullscreen.Left:=grpMouse.ClientWidth div 2+Margin div 2;
-  FEnterFullscreen.Width:=grpMouse.ClientWidth div 2-Margin*2;
+  chkWheelVolume.Caption := Translate('Mouse wheel adjusts volume');
+  PlaceLocalized(chkWheelVolume, Margin, chkWheelVolume.Top,
+    grpMouse.ClientWidth div 2-Margin*2, chkWheelVolume.Height);
+  PlaceLocalized(FEnterFullscreen, grpMouse.ClientWidth div 2+Margin div 2,
+    FEnterFullscreen.Top, grpMouse.ClientWidth div 2-Margin*2, FEnterFullscreen.Height);
   if Assigned(tbDefaultVol) then begin
-  tbDefaultVol.Width := grpVolumeDef.ClientWidth - Margin * 2 - MulDiv(64, CurrentPPI, 96);
-  lblDefVolVal.Left := grpVolumeDef.ClientWidth - Margin - MulDiv(48, CurrentPPI, 96);
+  PlaceLocalized(tbDefaultVol, Margin, tbDefaultVol.Top,
+    grpVolumeDef.ClientWidth - Margin * 2 - MulDiv(64, CurrentPPI, 96), tbDefaultVol.Height);
+  PlaceLocalized(lblDefVolVal, grpVolumeDef.ClientWidth - Margin - MulDiv(48, CurrentPPI, 96),
+    lblDefVolVal.Top, lblDefVolVal.Width, lblDefVolVal.Height);
   end;
   if Assigned(cboJumpShort) then begin
   // This section has three columns, not the two-column layout used elsewhere.
   W := (grpSpeedJump.ClientWidth - Margin * 2 - Gap * 2) div 3;
-  cboJumpShort.SetBounds(Margin, cboJumpShort.Top, W, cboJumpShort.Height);
-  cboJumpMedium.SetBounds(Margin + W + Gap, cboJumpMedium.Top, W, cboJumpMedium.Height);
-  cboJumpLong.SetBounds(Margin + (W + Gap) * 2, cboJumpLong.Top, W, cboJumpLong.Height);
+  PlaceLocalized(cboJumpShort, Margin, cboJumpShort.Top, W, cboJumpShort.Height);
+  PlaceLocalized(cboJumpMedium, Margin + W + Gap, cboJumpMedium.Top, W, cboJumpMedium.Height);
+  PlaceLocalized(cboJumpLong, Margin + (W + Gap) * 2, cboJumpLong.Top, W, cboJumpLong.Height);
   lblJumpShort.Left := cboJumpShort.Left;
   lblJumpMedium.Left := cboJumpMedium.Left;
   lblJumpLong.Left := cboJumpLong.Left;
@@ -335,7 +458,6 @@ begin
   finally
     EnableAlign;
     FLayoutBusy:=False;
-
   end;
 end;
 
@@ -343,26 +465,42 @@ destructor TFrmPreferences.Destroy;
 begin
   OnResize:=nil; OnShow:=nil; OnHide:=nil;
   DetachEffects(nil);
+  FreeAndNil(FDesignLeft);
   FreeAndNil(FRightColumns);
   inherited;
 end;
 
 procedure TFrmPreferences.AttachEffects(Sender: TObject);
 begin
-  LayoutSettings(nil);
-  if (FNavigation=nil) or (FNavigation.ItemIndex<FEffectsPage.PageIndex) then Exit;
-  if not Assigned(FrmEffects) then FrmEffects := TFrmEffects.Create(FrmMain);
+  if not Showing or (FNavigation = nil) or (FEffectsPage = nil) or
+     (FNavigation.ItemIndex < FEffectsPage.PageIndex) then Exit;
+  PrepareEffects;
+  FrmEffects.Show;
+end;
+
+procedure TFrmPreferences.PrepareEffects;
+begin
+  if FEffectsPage = nil then Exit;
+  if not Assigned(FrmEffects) then FrmEffects := TFrmEffects.CreateForEmbedding(FrmMain);
   if FrmEffects.Parent = FEffectsPage then Exit;
   FEffectsBounds := FrmEffects.BoundsRect;
   FEffectsBorder := FrmEffects.BorderStyle;
   FEffectsMinWidth:=FrmEffects.Constraints.MinWidth; FEffectsMinHeight:=FrmEffects.Constraints.MinHeight;
-  FrmEffects.Constraints.MinWidth:=0; FrmEffects.Constraints.MinHeight:=0;
   FrmEffects.Hide;
-  FrmEffects.BorderStyle := bsNone;
-  FrmEffects.Parent := FEffectsPage;
-  FrmEffects.Align := alClient;
-  FrmEffects.pnlBottom.Visible := False;
-  FrmEffects.Show;
+  var Resize := FrmEffects.OnResize;
+  FrmEffects.OnResize := nil;
+  try
+    FrmEffects.Constraints.MinWidth := 0;
+    FrmEffects.Constraints.MinHeight := 0;
+    FrmEffects.pnlBottom.Visible := False;
+    FrmEffects.BorderStyle := bsNone;
+    FrmEffects.Parent := FEffectsPage;
+    FrmEffects.Align := alClient;
+    ApplyPlayerAppearance(FrmEffects);
+  finally
+    FrmEffects.OnResize := Resize;
+  end;
+  if Assigned(Resize) then Resize(FrmEffects);
 end;
 
 procedure TFrmPreferences.DetachEffects(Sender: TObject);
@@ -389,9 +527,13 @@ begin
     if Page.Controls[I] is TGroupBox then
     begin
       var Group:=TGroupBox(Page.Controls[I]);
-      for var J:=0 to Group.ControlCount-1 do
-        if (Group.Controls[J].Left>=MulDiv(250,CurrentPPI,96)) and
-          not FRightColumns.Contains(Group.Controls[J]) then FRightColumns.Add(Group.Controls[J]);
+      for var J := 0 to Group.ControlCount - 1 do
+      begin
+        var Child := Group.Controls[J];
+        if FDesignLeft.ContainsKey(Child) then Continue;
+        FDesignLeft.Add(Child, MulDiv(Child.Left, 96, CurrentPPI));
+        if Child.Left >= MulDiv(250, CurrentPPI, 96) then FRightColumns.Add(Child);
+      end;
     end;
 end;
 
@@ -421,21 +563,66 @@ begin
       cboResume.Items[0]:='Resume automatically'; cboResume.Items[1]:='Ask before resuming';
       cboResume.Items[2]:='Always start from the beginning';
     end;
-    RememberColumns(Page); LoadPagePreferences(PageIndex); LayoutSettings(nil);
+    LoadPagePreferences(PageIndex);
+    if not FPreparingAdvanced then
+    begin
+      LocalizeControls(Page);
+      PreparePlayerPageAppearance(Page, True);
+      RememberColumns(Page);
+      LayoutSettings(nil);
+    end;
   end;
   if (PageIndex in [2,3,4,7,8,9]) and (FAdvanced=nil) and not FPreparingAdvanced then
   begin
     FPreparingAdvanced:=True;
     try
       EnsurePage(2); EnsurePage(3); EnsurePage(4);
-      FAdvanced:=TAdvancedSettings.CreatePages(Self,tabVideo,tabAudio,tabSubtitles);
+      FAdvanced:=TAdvancedSettings.CreatePages(Self,tabVideo,tabAudio,tabSubtitles,
+        PageControlPages.Pages[7], PageControlPages.Pages[8], PageControlPages.Pages[9]);
       chkAspectAuto.Visible:=False;
       Store:=TAppSettings.Create(GetIniPath);
       try FAdvanced.Load(Store); finally Store.Free; end;
-      for var I:=2 to 9 do RememberColumns(PageControlPages.Pages[I]);
+      for var I := 2 to 9 do
+      begin
+        LocalizeControls(PageControlPages.Pages[I]);
+        PreparePlayerPageAppearance(PageControlPages.Pages[I], True);
+        RememberColumns(PageControlPages.Pages[I]);
+      end;
       LayoutSettings(nil);
     finally FPreparingAdvanced:=False; end;
   end;
+end;
+
+function TFrmPreferences.PrepareNextPage: Boolean;
+const
+  WarmPages: array[0..8] of Integer = (2, 3, 4, 7, 8, 9, 1, 5, 6);
+  procedure PrepareHandles(Parent: TWinControl);
+  begin
+    Parent.HandleNeeded;
+    for var I := 0 to Parent.ControlCount - 1 do
+      if Parent.Controls[I] is TWinControl then
+        PrepareHandles(TWinControl(Parent.Controls[I]));
+  end;
+begin
+  if FPreloadStep = 0 then
+  begin
+    PrepareEffects;
+    Inc(FPreloadStep);
+    Exit(True);
+  end;
+  if FPreloadStep <= Length(WarmPages) then
+  begin
+    var Page := WarmPages[FPreloadStep - 1];
+    EnsurePage(Page);
+    PrepareHandles(PageControlPages.Pages[Page]);
+    Inc(FPreloadStep);
+  end;
+  Result := FPreloadStep <= Length(WarmPages);
+end;
+
+procedure TFrmPreferences.PrepareInitialPages;
+begin
+  for var I := 1 to 3 do PrepareNextPage;
 end;
 
 procedure TFrmPreferences.PrepareActivePage(Sender:TObject);
@@ -452,6 +639,11 @@ end;
 
 procedure TFrmPreferences.FormCreate(Sender: TObject);
 begin
+  DoubleBuffered := True;
+  if Assigned(pnlBottom) then pnlBottom.DoubleBuffered := True;
+  if Assigned(pnlLeft) then pnlLeft.DoubleBuffered := True;
+  if Assigned(PageControlPages) then PageControlPages.DoubleBuffered := True;
+  if Assigned(FPageHeader) then FPageHeader.DoubleBuffered := True;
   LoadPreferences;
 end;
 
@@ -464,7 +656,11 @@ begin
   if (PageIdx >= 7) and Assigned(FEffectsPage) then
   begin
     PageControlPages.ActivePage := FEffectsPage;
-    if Assigned(FrmEffects) then FrmEffects.PageControl1.ActivePageIndex := PageIdx - 7;
+    if Assigned(FrmEffects) then
+    begin
+      var EffectIndex := PageIdx - 7;
+      FrmEffects.PageControl1.ActivePageIndex := EffectIndex;
+    end;
     Exit;
   end;
   if (PageIdx >= 0) and (PageIdx < PageControlPages.PageCount) then
@@ -485,6 +681,13 @@ begin
     // General
     if ((PageIndex<0) or (PageIndex=0)) and FPageLoaded[0] then begin
     cboTheme.ItemIndex := EnsureRange(Ini.ReadInteger('Interface', 'Theme', 0), 0, 2);
+    if Assigned(FLanguage) then
+    begin
+      var Choice := PlayerLanguageChoice;
+      FLanguage.ItemIndex := 0;
+      if Choice = 'en' then FLanguage.ItemIndex := 1;
+      if Choice = 'ar' then FLanguage.ItemIndex := 2;
+    end;
     chkSingleInstance.Checked := Ini.ReadBool('General', 'SingleInstance', True);
     chkRememberSize.Checked := Ini.ReadBool('General', 'RememberSize', True);
     chkStartFullscreen.Checked := Ini.ReadBool('General', 'StartFullscreen', False);
@@ -577,6 +780,12 @@ begin
     // General
     if FPageLoaded[0] then begin
     Ini.WriteInteger('Interface', 'Theme', cboTheme.ItemIndex);
+    case FLanguage.ItemIndex of
+      1: Ini.WriteString('Interface', 'Language', 'en');
+      2: Ini.WriteString('Interface', 'Language', 'ar');
+    else
+      Ini.WriteString('Interface', 'Language', 'system');
+    end;
     Ini.WriteBool('General', 'SingleInstance', chkSingleInstance.Checked);
     Ini.WriteBool('General', 'RememberSize', chkRememberSize.Checked);
     Ini.WriteBool('General', 'StartFullscreen', chkStartFullscreen.Checked);
@@ -689,6 +898,7 @@ begin
   for var I:=1 to 9 do EnsurePage(I);
   FEnterFullscreen.Checked:=True;
   cboTheme.ItemIndex := 0;
+  FLanguage.ItemIndex := 0;
   chkSingleInstance.Checked := True;
   chkRememberSize.Checked := True;
   chkStartFullscreen.Checked := False;

@@ -1,10 +1,10 @@
-unit PlayerMenu;
+﻿unit PlayerMenu;
 
 interface
 
 uses System.Classes, System.Types, Vcl.Forms, Vcl.Menus;
 
-procedure ShowPlayerMenu(OwnerForm: TForm; Items: TMenuItem; const Position: TPoint; FieldWidth: Integer = 0; OnDismiss: TNotifyEvent = nil);
+procedure ShowPlayerMenu(OwnerForm: TForm; Items: TMenuItem; const Position: TPoint; FieldWidth: Integer = 0; OnDismiss: TNotifyEvent = nil; AnchorRight: Boolean = False);
 procedure ClosePlayerMenus;
 function PlayerMenuWindow: TForm;
 function PlayerMenuShows(Items: TMenuItem): Boolean;
@@ -12,6 +12,7 @@ function PlayerMenuShows(Items: TMenuItem): Boolean;
 implementation
 
 uses
+  PlayerLanguage,
   Winapi.Windows, Winapi.Messages, Winapi.GDIPAPI, Winapi.GDIPOBJ, System.SysUtils, System.Math,
   System.Generics.Collections, Vcl.Controls, Vcl.Graphics, Vcl.ExtCtrls,
   Vcl.AppEvnts, CurvedControls;
@@ -63,7 +64,7 @@ type
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     function DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean; override;
   public
-    constructor CreateMenu(OwnerForm: TForm; Items: TMenuItem; ALevel: Integer; Position: TPoint; FieldWidth: Integer = 0; OnDismiss: TNotifyEvent = nil);
+    constructor CreateMenu(OwnerForm: TForm; Items: TMenuItem; ALevel: Integer; Position: TPoint; FieldWidth: Integer = 0; OnDismiss: TNotifyEvent = nil; AnchorRight: Boolean = False);
     destructor Destroy; override;
   end;
 
@@ -156,7 +157,7 @@ begin
   Params.WindowClass.style := Params.WindowClass.style or CS_DROPSHADOW;
 end;
 
-constructor TPlayerPopup.CreateMenu(OwnerForm: TForm; Items: TMenuItem; ALevel: Integer; Position: TPoint; FieldWidth: Integer; OnDismiss: TNotifyEvent);
+constructor TPlayerPopup.CreateMenu(OwnerForm: TForm; Items: TMenuItem; ALevel: Integer; Position: TPoint; FieldWidth: Integer; OnDismiss: TNotifyEvent; AnchorRight: Boolean);
 var
   TotalHeight, MenuWidth: Integer;
   Work: TRect;
@@ -165,7 +166,7 @@ begin
   BorderStyle := bsNone;
   StyleElements := [];
   Color := DP_COLOR_SURFACE;
-  Font.Name := 'Segoe UI';
+  Font.Name := PlayerUIFont;
   Font.Size := 10;
   Font.Color := DP_COLOR_TEXT;
   Font.Quality := fqClearType;
@@ -189,22 +190,29 @@ begin
     begin
       Entries.Add(Items[I]);
       Inc(TotalHeight, EntryHeight(Entries.Count - 1));
-      MenuWidth := Max(MenuWidth, Canvas.TextWidth(StripHotkey(Items[I].Caption)) +
+      MenuWidth := Max(MenuWidth, Canvas.TextWidth(Translate(StripHotkey(Items[I].Caption))) +
         Canvas.TextWidth(ShortCutToText(Items[I].ShortCut)) + Padding * 10);
     end;
   Work := Screen.MonitorFromPoint(Position).WorkareaRect;
   if FieldWidth>0 then MenuWidth:=FieldWidth;
+  if AnchorRight then Dec(Position.X, MenuWidth);
   MenuWidth:=Min(MenuWidth,Work.Width-Padding*2);
   ClientWidth := MenuWidth;
   if IsCombo then TotalHeight:=Min(TotalHeight,RowHeight*8+Padding*2);
   ClientHeight := Min(TotalHeight, Work.Height - Padding * 2);
+  if PlayerIsArabic and (Level > 0) and (Controller.Windows.Count > 0) then
+  begin
+    Position.X := Controller.Windows.Last.Left - Width + Padding;
+    if Position.X < Work.Left then
+      Position.X := Controller.Windows.Last.Left + Controller.Windows.Last.Width - Padding;
+  end;
   if Position.X + Width > Work.Right then
   begin
     if (Level > 0) and (Controller.Windows.Count > 0) then
       Position.X := Controller.Windows.Last.Left - Width + Padding
     else Position.X := Work.Right - Width - Padding;
   end;
-  Left := Max(Work.Left + Padding, Position.X);
+  Left := EnsureRange(Position.X, Work.Left + Padding, Max(Work.Left + Padding, Work.Right - Width - Padding));
   Top := EnsureRange(Position.Y, Work.Top + Padding, Work.Bottom - ClientHeight - Padding);
   SetBounds(Left, Top, MenuWidth, ClientHeight);
   HoverTimer := TTimer.Create(Self);
@@ -322,24 +330,39 @@ begin
     Canvas.Brush.Style := bsClear;
     if Item.Enabled then Canvas.Font.Color := DP_COLOR_TEXT else Canvas.Font.Color := DP_COLOR_SCROLL;
     TextRect := Rect(Padding * 4, R.Top, ClientWidth - Padding * 3, R.Bottom);
-    Caption := StripHotkey(Item.Caption);
+    Caption := Translate(StripHotkey(Item.Caption));
     Shortcut := ShortCutToText(Item.ShortCut);
-    if Shortcut <> '' then Dec(TextRect.Right, Canvas.TextWidth(Shortcut) + Padding * 2);
-    DrawText(Canvas.Handle, PChar(Caption), Length(Caption), TextRect, DT_SINGLELINE or DT_VCENTER or DT_END_ELLIPSIS);
+    var CaptionFlags := DT_SINGLELINE or DT_VCENTER or DT_END_ELLIPSIS;
+    if PlayerIsArabic then
+    begin
+      CaptionFlags := CaptionFlags or DT_RTLREADING or DT_RIGHT;
+      if Shortcut <> '' then Inc(TextRect.Left, Canvas.TextWidth(Shortcut) + Padding * 2);
+    end
+    else if Shortcut <> '' then Dec(TextRect.Right, Canvas.TextWidth(Shortcut) + Padding * 2);
+    DrawText(Canvas.Handle, PChar(Caption), Length(Caption), TextRect, CaptionFlags);
     if Shortcut <> '' then
     begin
       Canvas.Font.Color := DP_COLOR_MUTED;
       TextRect := Rect(Padding * 4, R.Top, ClientWidth - Padding * 3, R.Bottom);
-      DrawText(Canvas.Handle, PChar(Shortcut), Length(Shortcut), TextRect, DT_SINGLELINE or DT_VCENTER or DT_RIGHT);
+      var ShortcutFlags := DT_SINGLELINE or DT_VCENTER;
+      if not PlayerIsArabic then ShortcutFlags := ShortcutFlags or DT_RIGHT;
+      DrawText(Canvas.Handle, PChar(Shortcut), Length(Shortcut), TextRect, ShortcutFlags);
     end;
     Canvas.Pen.Color := DP_COLOR_MUTED;
     Canvas.Pen.Width := Max(1, CurrentPPI div 96);
     if Item.Count > 0 then
     begin
-      ArrowRect := Rect(ClientWidth - Padding * 2, R.Top + RowHeight div 2, 0, 0);
-      Canvas.MoveTo(ArrowRect.Left - 2, ArrowRect.Top - 3);
-      Canvas.LineTo(ArrowRect.Left + 1, ArrowRect.Top);
-      Canvas.LineTo(ArrowRect.Left - 2, ArrowRect.Top + 3);
+      var ArrowX := ClientWidth - Padding * 2;
+      var Direction := 1;
+      if PlayerIsArabic then
+      begin
+        ArrowX := Padding * 2;
+        Direction := -1;
+      end;
+      ArrowRect := Rect(ArrowX, R.Top + RowHeight div 2, 0, 0);
+      Canvas.MoveTo(ArrowRect.Left - 2 * Direction, ArrowRect.Top - 3);
+      Canvas.LineTo(ArrowRect.Left + Direction, ArrowRect.Top);
+      Canvas.LineTo(ArrowRect.Left - 2 * Direction, ArrowRect.Top + 3);
     end;
     if Item.Checked then
     begin
@@ -352,6 +375,7 @@ begin
           PenCheck.SetEndCap(LineCapRound);
           PenCheck.SetLineJoin(LineJoinRound);
           var CX := Single(Padding * 2);
+          if PlayerIsArabic then CX := ClientWidth - CX;
           var CY := Single(R.Top + RowHeight div 2);
           G.DrawLine(PenCheck, CX - 4.5, CY + 0.5, CX - 1.0, CY + 4.0);
           G.DrawLine(PenCheck, CX - 1.0, CY + 4.0, CX + 5.5, CY - 3.5);
@@ -371,7 +395,9 @@ begin
     var ThumbHeight:=Max(24,RailHeight*VisibleRows div Entries.Count);
     var ThumbTop:=Padding+(RailHeight-ThumbHeight)*First div Max(1,Entries.Count-VisibleRows);
     Canvas.Pen.Style:=psClear; Canvas.Brush.Color:=DP_COLOR_SCROLL;
-    Canvas.RoundRect(ClientWidth-7,ThumbTop,ClientWidth-3,ThumbTop+ThumbHeight,4,4);
+    var RailX := ClientWidth - 7;
+    if PlayerIsArabic then RailX := 3;
+    Canvas.RoundRect(RailX, ThumbTop, RailX + 4, ThumbTop + ThumbHeight, 4, 4);
     Canvas.Pen.Style:=psSolid;
   end;
 end;
@@ -396,7 +422,7 @@ end;
 procedure TPlayerPopup.MouseDown(Button:TMouseButton; Shift:TShiftState; X,Y:Integer);
 begin
   inherited;
-  if (Button=mbLeft) and IsCombo and (X>ClientWidth-14) and (Entries.Count*RowHeight>ClientHeight-Padding*2) then
+  if (Button=mbLeft) and IsCombo and ((not PlayerIsArabic and (X > ClientWidth - 14)) or (PlayerIsArabic and (X < 14))) and (Entries.Count*RowHeight>ClientHeight-Padding*2) then
   begin ScrollDragging:=True; MouseCapture:=True; ScrollAt(Y); end;
 end;
 
@@ -457,8 +483,8 @@ begin
   case Key of
     VK_ESCAPE: ClosePlayerMenus;
     VK_RETURN, VK_SPACE: ExecuteRow;
-    VK_RIGHT: OpenChild;
-    VK_LEFT: if Level > 0 then Controller.CloseFrom(Level);
+    VK_RIGHT: if not PlayerIsArabic then OpenChild else if Level > 0 then Controller.CloseFrom(Level);
+    VK_LEFT: if PlayerIsArabic then OpenChild else if Level > 0 then Controller.CloseFrom(Level);
     VK_HOME,VK_END:
       begin
         if Key=VK_HOME then Index:=0 else Index:=Entries.Count-1;
@@ -499,7 +525,7 @@ begin
   if Controller <> nil then Controller.CloseFrom(0);
 end;
 
-procedure ShowPlayerMenu(OwnerForm: TForm; Items: TMenuItem; const Position: TPoint; FieldWidth: Integer; OnDismiss: TNotifyEvent);
+procedure ShowPlayerMenu(OwnerForm: TForm; Items: TMenuItem; const Position: TPoint; FieldWidth: Integer; OnDismiss: TNotifyEvent; AnchorRight: Boolean);
 begin
   if PlayerMenuShows(Items) then Exit;
   if Controller = nil then Controller := TMenuController.Create(Application);
@@ -507,7 +533,7 @@ begin
   // A rapid reopen must never leave two visible lists in the same field.
   for var Old in Controller.Retiring do begin Old.FadeTimer.Enabled:=False; ShowWindow(Old.Handle,SW_HIDE); Old.Release; end;
   Controller.Retiring.Clear;
-  TPlayerPopup.CreateMenu(OwnerForm, Items, 0, Position, FieldWidth, OnDismiss);
+  TPlayerPopup.CreateMenu(OwnerForm, Items, 0, Position, FieldWidth, OnDismiss, AnchorRight);
 end;
 
 function PlayerMenuWindow: TForm;

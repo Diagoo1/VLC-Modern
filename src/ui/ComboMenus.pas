@@ -1,4 +1,4 @@
-unit ComboMenus;
+﻿unit ComboMenus;
 interface
 uses Vcl.StdCtrls;
 function ShowComboMenu(Combo: TComboBox): Boolean;
@@ -43,7 +43,7 @@ begin
   if Index<0 then
   begin
     var Value:string:=Combo.Text;
-    if not PlayerInput('Enter value','Value:',Value) or (Value='') then Exit;
+    if not PlayerInput('Enter value','Value:',Value, Combo.BiDiMode = bdLeftToRight) or (Value='') then Exit;
     Index:=Combo.Items.IndexOf(Value);
     if Index<0 then Index:=Combo.Items.Add(Value);
   end;

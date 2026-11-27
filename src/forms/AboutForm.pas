@@ -1,4 +1,4 @@
-﻿unit AboutForm;
+unit AboutForm;
 
 interface
 
@@ -10,21 +10,29 @@ type
   private
     FUpdate: IFuture<string>;
     FUpdateTimer: TTimer;
-    FUpdateButton: TButton;
+    FUpdateButton: TPlayerTextButton;
     FUpdateStatus: TLabel;
     procedure CheckUpdate(Sender: TObject);
     procedure UpdateFinished(Sender: TObject);
     procedure OpenLink(Sender: TObject);
     procedure OpenShortcuts(Sender: TObject);
+  protected
+    procedure CreateParams(var Params: TCreateParams); override;
   end;
 
 implementation
 
 uses Winapi.Windows, Winapi.ShellAPI, Winapi.ActiveX, Winapi.GDIPAPI, Winapi.GDIPOBJ,
   System.SysUtils, System.JSON, System.Net.HttpClient, Vcl.Graphics,
-  PlayerDialogs, MainForm;
+  PlayerDialogs, MainForm, PlayerLanguage;
 
 {$R *.dfm}
+
+procedure TFrmAbout.CreateParams(var Params: TCreateParams);
+begin
+  inherited;
+  Params.ExStyle := Params.ExStyle or WS_EX_COMPOSITED;
+end;
 
 const
   Links: array[0..4] of string = (
@@ -144,7 +152,7 @@ end;
 procedure TFrmAbout.CheckUpdate(Sender: TObject);
 begin
   if FUpdate <> nil then Exit;
-  FUpdateStatus.Caption := 'Checking GitHub for updates...';
+  FUpdateStatus.Caption := Translate('Checking GitHub for updates...');
   FUpdate := TTask.Future<string>(
     function: string
     var
@@ -212,16 +220,16 @@ begin
   FUpdate := nil;
 
   if Tag = '' then
-    FUpdateStatus.Caption := 'Could not check for updates. Try again later.'
+    FUpdateStatus.Caption := Translate('Could not check for updates. Try again later.')
   else if SameText(Tag, RunningVersionTag) then
-    FUpdateStatus.Caption := 'You have the latest published release (' + Tag + ').'
+    FUpdateStatus.Caption := Format(Translate('You have the latest published release (%s).'), [Tag])
   else
-    FUpdateStatus.Caption := 'GitHub release ' + Tag + ' is listed under Releases.';
+    FUpdateStatus.Caption := Format(Translate('GitHub release %s is listed under Releases.'), [Tag]);
 end;
 
 procedure TFrmAbout.OpenLink(Sender: TObject);
 begin
-  if ShellExecute(Handle, 'open', PChar(Links[TButton(Sender).Tag]), nil, nil,
+  if ShellExecute(Handle, 'open', PChar(Links[TPlayerTextButton(Sender).Tag]), nil, nil,
     SW_SHOWNORMAL) <= 32 then
     PlayerMessage('Windows could not open this link.');
 end;
@@ -243,7 +251,7 @@ var
   AppIcon: TAboutArtwork;
   HeroFill, HeroEdge, BadgeFill, WatermarkColor: TColor;
   VersionText, EngineText, CreditText, AccountText: TLabel;
-  Button: TButton;
+  Button: TPlayerTextButton;
 
   function Px(Value: Integer): Integer;
   begin
@@ -279,9 +287,9 @@ var
     Result.Top := Px(Y);
   end;
 
-  function Action(const Caption: string; X, Y, W: Integer): TButton;
+  function Action(const Caption: string; X, Y, W: Integer): TPlayerTextButton;
   begin
-    Result := TButton.Create(Self);
+    Result := TPlayerTextButton.Create(Self);
     Result.Parent := Body;
     Result.Caption := Caption;
     Place(Result, X, Y, W, 34);
@@ -360,7 +368,8 @@ begin
   Button.Cancel := True;
   Button.Default := True;
 
-  ApplyPlayerAppearance(Self);
+  ApplyPlayerAppearance(Self, True);
+  AccountText.BiDiMode := bdLeftToRight;
   Body.Color := DP_COLOR_SURFACE;
   FUpdateStatus.Font.Color := DP_COLOR_MUTED;
   VersionText.Font.Color := DP_COLOR_ACCENT;

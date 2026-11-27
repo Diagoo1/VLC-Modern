@@ -22,6 +22,7 @@ type
     FPlane: Pointer;
     FPath: string;
     FTarget, FRequested: Int64;
+    FWaitingForFrame: Boolean;
     FReady: Boolean;
     FTimer: TTimer;
     FImage: TImage;
@@ -180,6 +181,7 @@ begin
     libvlc_media_player_set_media(FPlayer, FMedia);
     FPath := Path;
     FRequested := -1;
+    FWaitingForFrame := False;
     FReady := False;
     libvlc_media_player_play(FPlayer);
   end;
@@ -191,6 +193,8 @@ procedure TSeekPreview.Suspend;
 begin
   if FTimer <> nil then FTimer.Enabled := False;
   if FPlayer <> nil then libvlc_media_player_set_pause(FPlayer, 1);
+  if FWaitingForFrame then FRequested := -1;
+  FWaitingForFrame := False;
 end;
 
 function TSeekPreview.DiagnosticState:string;
@@ -207,16 +211,21 @@ begin
     Exit;
   end;
   if (FTarget <> FRequested) and
-     (GetTickCount64 - FLastSeek >= 120) and
+     (GetTickCount64 - FLastSeek >= 100) and
+     (not FWaitingForFrame or (GetTickCount64 - FLastSeek >= 250)) and
      (libvlc_media_player_is_seekable(FPlayer) <> 0) then
   begin
-    FReady := False;
+    FGuard.Enter;
+    try
+      FReady := False;
+    finally FGuard.Leave; end;
     FRequested := FTarget;
+    FWaitingForFrame := True;
     FLastSeek := GetTickCount64;
     libvlc_media_player_set_time(FPlayer, FRequested);
     libvlc_media_player_set_pause(FPlayer, 0);
   end;
-  if not FReady or (FRequested < 0) or
+  if not FWaitingForFrame or (FRequested < 0) or
      (Abs(libvlc_media_player_get_time(FPlayer) - FRequested) > 700) then Exit;
   Bmp := TBitmap.Create;
   try
@@ -224,10 +233,12 @@ begin
     Bmp.SetSize(176, 100);
     FGuard.Enter;
     try
+      if not FReady then Exit;
       for Row := 0 to 99 do
         Move(FFrame[Row * 176 * 4], Bmp.ScanLine[Row]^, 176 * 4);
       FReady := False;
     finally FGuard.Leave; end;
+    FWaitingForFrame := False;
     FImage.Picture.Assign(Bmp);
     FImage.Visible := True;
   finally Bmp.Free; end;

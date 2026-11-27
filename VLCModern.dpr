@@ -1,4 +1,4 @@
-program VLCModern;
+﻿program VLCModern;
 
 uses
   Winapi.Windows,
@@ -9,6 +9,12 @@ uses
   System.SysUtils,
   InstanceBroker,
   LibVLC in 'src\core\LibVLC.pas',
+  Lut3D in 'src\core\Lut3D.pas',
+  D3D11ShaderRenderer in 'src\core\D3D11ShaderRenderer.pas',
+  OpenSubtitlesDownloader in 'src\core\OpenSubtitlesDownloader.pas',
+  PlaybackResumeStore in 'src\core\PlaybackResumeStore.pas',
+  WebRemoteServer in 'src\core\WebRemoteServer.pas',
+  YtDlpResolver in 'src\core\YtDlpResolver.pas',
   VideoInput in 'src\core\VideoInput.pas',
   CurvedControls in 'src\ui\CurvedControls.pas',
   PlayerDialogs in 'src\ui\PlayerDialogs.pas',
@@ -25,7 +31,9 @@ uses
   ConvertForm in 'src\forms\ConvertForm.pas' {FrmConvert},
   IPTVForm in 'src\forms\IPTVForm.pas' {FrmIPTV},
   MessagesForm in 'src\forms\MessagesForm.pas' {FrmMessages},
-  CustomizeForm in 'src\forms\CustomizeForm.pas' {FrmCustomize};
+  CustomizeForm in 'src\forms\CustomizeForm.pas' {FrmCustomize},
+  PlayerLanguage in 'src\core\PlayerLanguage.pas',
+  AboutForm in 'src\forms\AboutForm.pas' {FrmAbout};
 
 {$R 'res\VLCModern.res'}
 
@@ -37,10 +45,10 @@ begin
   except
   end;
   if ForwardToRunningPlayer then Exit;
+  InitializePlayerLanguage;
   InitializePlayerAppearance;
   Application.MainFormOnTaskbar := True;
 
   Application.CreateForm(TFrmMain, FrmMain);
-  FrmMain.WarmPreferences(nil);
   Application.Run;
 end.

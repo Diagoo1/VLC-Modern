@@ -2,7 +2,7 @@ unit AdvancedSettings;
 
 interface
 
-uses System.Classes, Vcl.Controls, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls, SettingsStore;
+uses CurvedControls, System.Classes, Vcl.Controls, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls, SettingsStore;
 
 type
   TAdvancedSettings = class(TComponent)
@@ -12,7 +12,7 @@ type
     Transform, ReplayGain, ReplayPreamp, ReplayDefault: TComboBox;
     Sharpen, Deband: TComboBox;
     TextColor, OutlineSize, Shadow, Background: TComboBox;
-    PeakProtection: TCheckBox;
+    PeakProtection: TPlayerCheckBox;
     DeviceIDs: TStringList;
     FLoading: Boolean;
     FDevicePlayer: Pointer;
@@ -22,7 +22,8 @@ type
     procedure RefreshAfterLoad(Sender: TObject);
     procedure SelectRuntime(Sender: TObject);
   public
-    constructor CreatePages(AOwner: TComponent; VideoPage, AudioPage, SubtitlePage: TTabSheet);
+    constructor CreatePages(AOwner: TComponent; VideoPage, AudioPage, SubtitlePage,
+      ProcessingPage, LevelingPage, AppearancePage: TTabSheet);
     destructor Destroy; override;
     procedure Load(Store: TAppSettings);
     procedure Save(Store: TAppSettings);
@@ -35,7 +36,8 @@ implementation
 
 uses System.SysUtils, Winapi.Windows, MainForm, LibVLC, Vcl.Dialogs, PlayerDialogs;
 
-constructor TAdvancedSettings.CreatePages(AOwner: TComponent; VideoPage, AudioPage, SubtitlePage: TTabSheet);
+constructor TAdvancedSettings.CreatePages(AOwner: TComponent; VideoPage, AudioPage, SubtitlePage,
+  ProcessingPage, LevelingPage, AppearancePage: TTabSheet);
   function Group(Page: TTabSheet; const Caption: string; Top, Height: Integer): TGroupBox;
   begin
     Result := TGroupBox.Create(Self);
@@ -61,17 +63,9 @@ constructor TAdvancedSettings.CreatePages(AOwner: TComponent; VideoPage, AudioPa
     Result.SetBounds(MulDiv(X, D, 96), MulDiv(Y + 22, D, 96), MulDiv(240, D, 96), MulDiv(28, D, 96));
     if Result.Items.Count > 0 then Result.ItemIndex := 0;
   end;
-  function ExtraPage(const Caption: string): TTabSheet;
-  begin
-    for var I:=0 to VideoPage.PageControl.PageCount-1 do
-      if VideoPage.PageControl.Pages[I].Caption=Caption then Exit(VideoPage.PageControl.Pages[I]);
-    Result := TTabSheet.Create(Self);
-    Result.PageControl := VideoPage.PageControl;
-    Result.Caption := Caption;
-  end;
   procedure LoadButton(Parent: TGroupBox; const Caption: string; Audio: Boolean);
   begin
-    var Button := TButton.Create(Self);
+    var Button := TPlayerTextButton.Create(Self);
     Button.Parent := Parent;
     Button.Caption := Caption;
     Button.Tag := Ord(Audio);
@@ -105,19 +99,19 @@ begin
   RefreshTimer.Enabled := False;
   RefreshTimer.Interval := 250;
   RefreshTimer.OnTimer := RefreshAfterLoad;
-  var Processing := Group(ExtraPage('Video processing'), 'Orientation and detail (next file)', 12, 214);
+  var Processing := Group(ProcessingPage, 'Orientation and detail (next file)', 12, 214);
   Transform := Choice(Processing, 'Rotate or mirror', 'Original|Rotate 90 degrees|Rotate 180 degrees|Rotate 270 degrees|Mirror horizontally|Flip vertically|Transpose|Anti-transpose', 18, 30);
   Sharpen := Choice(Processing, 'Sharpen detail', 'Off|Low|Medium|High', 18, 118);
   Deband := Choice(Processing, 'Smooth color banding', 'Off|Low|Medium|High', 280, 118);
-  var Leveling := Group(ExtraPage('Audio leveling'), 'ReplayGain (next file)', 12, 252);
+  var Leveling := Group(LevelingPage, 'ReplayGain (next file)', 12, 252);
   ReplayGain := Choice(Leveling, 'Loudness metadata', 'Off|Track gain|Album gain', 18, 30);
   ReplayPreamp := Choice(Leveling, 'Preamp for tagged audio', '-12 dB|-9 dB|-6 dB|-3 dB|0 dB|+3 dB|+6 dB|+9 dB|+12 dB', 280, 30);
   ReplayDefault := Choice(Leveling, 'Gain when tags are missing', '-12 dB|-9 dB|-6 dB|-3 dB|0 dB|+3 dB|+6 dB|+9 dB|+12 dB', 18, 112);
-  PeakProtection := TCheckBox.Create(Self);
+  PeakProtection := TPlayerCheckBox.Create(Self);
   PeakProtection.Parent := Leveling;
   PeakProtection.Caption := 'Prevent clipping from ReplayGain peaks';
   PeakProtection.SetBounds(MulDiv(18, Leveling.CurrentPPI, 96), MulDiv(206, Leveling.CurrentPPI, 96), MulDiv(490, Leveling.CurrentPPI, 96), MulDiv(24, Leveling.CurrentPPI, 96));
-  var Appearance := Group(ExtraPage('Subtitle appearance'), 'Text subtitles (next file; embedded ASS styling may override)', 12, 226);
+  var Appearance := Group(AppearancePage, 'Text subtitles (next file; embedded ASS styling may override)', 12, 226);
   TextColor := Choice(Appearance, 'Text color', 'White|Warm yellow|Green|Cyan', 18, 30);
   OutlineSize := Choice(Appearance, 'Black outline', 'None|Thin|Normal|Thick', 280, 30);
   Shadow := Choice(Appearance, 'Black shadow', 'Off|Subtle|Medium|Strong', 18, 118);
@@ -129,8 +123,8 @@ begin
   DualHint.SetBounds(MulDiv(18, Dual.CurrentPPI, 96), MulDiv(28, Dual.CurrentPPI, 96),
     MulDiv(516, Dual.CurrentPPI, 96), MulDiv(22, Dual.CurrentPPI, 96));
   LoadButton(Dual, 'Load secondary SRT...', False);
-  TButton(Dual.Controls[Dual.ControlCount - 1]).Tag := 2;
-  TButton(Dual.Controls[Dual.ControlCount - 1]).Top := MulDiv(66, Dual.CurrentPPI, 96);
+  TPlayerTextButton(Dual.Controls[Dual.ControlCount - 1]).Tag := 2;
+  TPlayerTextButton(Dual.Controls[Dual.ControlCount - 1]).Top := MulDiv(66, Dual.CurrentPPI, 96);
 end;
 
 destructor TAdvancedSettings.Destroy;
@@ -146,16 +140,16 @@ begin
   var Dialog := TOpenDialog.Create(Self);
   try
     Dialog.Options := [ofFileMustExist, ofPathMustExist, ofEnableSizing];
-    if TButton(Sender).Tag = 2 then Dialog.Filter := 'UTF-8 SRT subtitles|*.srt'
-    else if TButton(Sender).Tag = 1 then
+    if TPlayerTextButton(Sender).Tag = 2 then Dialog.Filter := 'UTF-8 SRT subtitles|*.srt'
+    else if TPlayerTextButton(Sender).Tag = 1 then
       Dialog.Filter := 'Audio files|*.aac;*.ac3;*.dts;*.eac3;*.flac;*.m4a;*.mp3;*.ogg;*.opus;*.wav;*.wma|All files|*.*'
     else Dialog.Filter := 'Subtitles|*.srt;*.ass;*.ssa;*.vtt;*.sub;*.idx|All files|*.*';
     if not Dialog.Execute then Exit;
     var Loaded: Boolean;
-    if TButton(Sender).Tag = 2 then Loaded := FrmMain.LoadSecondarySubtitleFile(Dialog.FileName)
-    else if TButton(Sender).Tag = 1 then Loaded := FrmMain.LoadAudioFile(Dialog.FileName)
+    if TPlayerTextButton(Sender).Tag = 2 then Loaded := FrmMain.LoadSecondarySubtitleFile(Dialog.FileName)
+    else if TPlayerTextButton(Sender).Tag = 1 then Loaded := FrmMain.LoadAudioFile(Dialog.FileName)
     else Loaded := FrmMain.LoadSubtitleFile(Dialog.FileName);
-    if not Loaded and (TButton(Sender).Tag = 2) then PlayerMessage('Load a primary UTF-8 SRT subtitle first, then choose a valid secondary SRT.')
+    if not Loaded and (TPlayerTextButton(Sender).Tag = 2) then PlayerMessage('Load a primary UTF-8 SRT subtitle first, then choose a valid secondary SRT.')
     else if not Loaded then PlayerMessage('The external track could not be loaded.')
     else begin RefreshRemaining := 8; RefreshTimer.Enabled := True; end;
   finally Dialog.Free; end;
@@ -201,12 +195,11 @@ const Zooms: array[0..4] of Integer = (0, 50, 100, 150, 200);
 begin
   FLoading := True;
   try
-    Aspect.ItemIndex := Aspect.Items.IndexOf(Store.ReadString('Video', 'AspectRatio', 'Default'));
-    if Store.ReadBool('Video', 'AspectAuto', True) then Aspect.ItemIndex := 0;
-    Crop.ItemIndex := Crop.Items.IndexOf(Store.ReadString('Video', 'Crop', 'Default'));
+    Aspect.ItemIndex := Aspect.Items.IndexOf(Store.ReadString('Video', 'DefaultAspectRatio', 'Default'));
+    Crop.ItemIndex := Crop.Items.IndexOf(Store.ReadString('Video', 'DefaultCrop', 'Default'));
     Zoom.ItemIndex := 0;
     for var I := 0 to High(Zooms) do
-      if Zooms[I] = Store.ReadInteger('Video', 'ZoomPercent', 0) then Zoom.ItemIndex := I;
+      if Zooms[I] = Store.ReadInteger('Video', 'DefaultZoomPercent', 0) then Zoom.ItemIndex := I;
     var AudioLanguageValue:=Store.ReadString('Audio','PreferredLanguages','');
     if AudioLanguageValue='' then AudioLanguageValue:='Automatic';
     var AudioLanguageIndex:=AudioLanguage.Items.IndexOf(AudioLanguageValue);
@@ -236,12 +229,9 @@ procedure TAdvancedSettings.Save(Store: TAppSettings);
 const Zooms: array[0..4] of Integer = (0, 50, 100, 150, 200);
 begin
   if Aspect.ItemIndex >= 0 then
-  begin
-    Store.WriteString('Video', 'AspectRatio', Aspect.Text);
-    Store.WriteBool('Video', 'AspectAuto', Aspect.ItemIndex = 0);
-  end;
-  if Crop.ItemIndex >= 0 then Store.WriteString('Video', 'Crop', Crop.Text);
-  if Zoom.ItemIndex >= 0 then Store.WriteInteger('Video', 'ZoomPercent', Zooms[Zoom.ItemIndex]);
+    Store.WriteString('Video', 'DefaultAspectRatio', Aspect.Text);
+  if Crop.ItemIndex >= 0 then Store.WriteString('Video', 'DefaultCrop', Crop.Text);
+  if Zoom.ItemIndex >= 0 then Store.WriteInteger('Video', 'DefaultZoomPercent', Zooms[Zoom.ItemIndex]);
   var Language := AudioLanguage.Text;
   if SameText(Language, 'Automatic') then Language := '';
   Store.WriteString('Audio', 'PreferredLanguages', Language);

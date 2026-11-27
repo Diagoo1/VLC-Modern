@@ -13,8 +13,6 @@ type
     FItems: TStringList;
     FItemIndex, FHot: Integer;
     FHover: array of Single;
-    FIndicator, FIndicatorFrom: Single;
-    FIndicatorStarted: Int64;
     FLastTick: Int64;
     FTimer: TTimer;
     procedure Tick(Sender: TObject);
@@ -27,7 +25,6 @@ type
     function VerticalInset: Integer;
   protected
     procedure Paint; override;
-    procedure Click; override;
     procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure KeyDown(var Key: Word; Shift: TShiftState); override;
@@ -125,7 +122,6 @@ begin
   FItems.OnChange := ItemsChanged;
   FItemIndex := -1;
   FHot := -1;
-  FIndicator := -1;
   FTimer := TTimer.Create(Self);
   FTimer.Enabled := False;
   FTimer.Interval := 16;
@@ -164,16 +160,12 @@ begin
   Value := EnsureRange(Value,-1,FItems.Count-1);
   if Value=FItemIndex then Exit;
   FItemIndex := Value;
-  if (FIndicator < 0) or (Value < 0) then FIndicator := Value;
-  FIndicatorFrom := FIndicator;
-  FIndicatorStarted := TStopwatch.GetTimeStamp;
   Invalidate;
-  Animate;
 end;
 
 procedure TSettingsNavigation.Tick(Sender: TObject);
 var
-  Target, Factor, OldIndicator, Progress: Single;
+  Target, Factor: Single;
   Moving: Boolean;
   Now: Int64;
   Dirty: TRect;
@@ -189,21 +181,6 @@ begin
     FHover[I] := FHover[I] + (Target - FHover[I]) * Factor;
     if Abs(FHover[I] - Target) < 0.01 then FHover[I] := Target else Moving := True;
     Dirty := Rect(0, VerticalInset + I * RowHeight, Width, VerticalInset + (I + 1) * RowHeight);
-    InvalidateRect(Handle, @Dirty, False);
-  end;
-  OldIndicator := FIndicator;
-  if FIndicator <> FItemIndex then
-  begin
-    Progress := Min(1.0, (Now - FIndicatorStarted) / TStopwatch.Frequency / 0.16);
-    FIndicator := FIndicatorFrom + (FItemIndex - FIndicatorFrom) *
-      (1 - (1 - Progress) * (1 - Progress) * (1 - Progress));
-    if Progress >= 1 then FIndicator := FItemIndex else Moving := True;
-  end;
-  if OldIndicator <> FIndicator then
-  begin
-    var Margin := MulDiv(11, CurrentPPI, 96);
-    Dirty := Rect(MulDiv(IndicatorLeft - 2, CurrentPPI, 96), Floor((Min(OldIndicator, FIndicator) + 0.5) * RowHeight) + VerticalInset - Margin,
-      MulDiv(IndicatorLeft + IndicatorWidth + 2, CurrentPPI, 96), Ceil((Max(OldIndicator, FIndicator) + 0.5) * RowHeight) + VerticalInset + Margin);
     InvalidateRect(Handle, @Dirty, False);
   end;
   FTimer.Enabled := Moving;
@@ -222,16 +199,6 @@ end;
 
 procedure TSettingsNavigation.CMMouseLeave(var Msg: TMessage);
 begin inherited; FHot:=-1; Animate; end;
-
-procedure TSettingsNavigation.Click;
-begin
-  inherited;
-  // First visits can build a settings page on the UI thread. Start the
-  // remaining animation after that work so the first frame does not jump.
-  if FTimer.Enabled then FLastTick := TStopwatch.GetTimeStamp;
-  if (FIndicator = FIndicatorFrom) and (FIndicator <> FItemIndex) then
-    FIndicatorStarted := FLastTick;
-end;
 
 procedure TSettingsNavigation.MouseDown(Button: TMouseButton; Shift: TShiftState; X,Y: Integer);
 var Index: Integer;
@@ -292,11 +259,15 @@ begin
         9: Kind:=4;
         12: Kind:=9;
       end;
-      if Clip.Right > (IndicatorLeft+IndicatorWidth+2)*S then Icon(G,Kind,IconCenter*S,VerticalInset+(I+0.5)*RowHeight,S,FHover[I],C);
+      var IconX := IconCenter * S;
+      if BiDiMode <> bdLeftToRight then IconX := Width - IconX;
+      Icon(G, Kind, IconX, VerticalInset+(I+0.5)*RowHeight,S,FHover[I],C);
     end;
     if FItemIndex>=0 then
     begin
-      R:=Rect(Round(IndicatorLeft*S),Round(VerticalInset+(FIndicator+0.5)*RowHeight-9*S),Round((IndicatorLeft+IndicatorWidth)*S),Round(VerticalInset+(FIndicator+0.5)*RowHeight+9*S));
+      R:=Rect(Round(IndicatorLeft*S),Round(VerticalInset+(FItemIndex+0.5)*RowHeight-9*S),Round((IndicatorLeft+IndicatorWidth)*S),Round(VerticalInset+(FItemIndex+0.5)*RowHeight+9*S));
+      if BiDiMode <> bdLeftToRight then
+        R := Rect(Width - R.Right, R.Top, Width - R.Left, R.Bottom);
       Rounded(G,R,1.5*S,DP_COLOR_ACCENT);
     end;
   finally G.Free; end;
@@ -309,7 +280,13 @@ begin
     if (TextRect.Bottom <= Clip.Top) or (TextRect.Top >= Clip.Bottom) or (TextRect.Left >= Clip.Right) then Continue;
     if (I=FItemIndex) or (I=FHot) then Canvas.Font.Color:=DP_COLOR_TEXT
     else Canvas.Font.Color:=DP_COLOR_MUTED;
-    DrawText(Canvas.Handle,PChar(FItems[I]),-1,TextRect,DT_SINGLELINE or DT_VCENTER or DT_END_ELLIPSIS);
+    var Flags := DT_SINGLELINE or DT_VCENTER or DT_END_ELLIPSIS;
+    if BiDiMode <> bdLeftToRight then
+    begin
+      TextRect := Rect(Width - TextRect.Right, TextRect.Top, Width - TextRect.Left, TextRect.Bottom);
+      Flags := Flags or DT_RIGHT or DT_RTLREADING;
+    end;
+    DrawText(Canvas.Handle, PChar(FItems[I]), -1, TextRect, Flags);
   end;
   Canvas.Brush.Style:=bsSolid;
 end;

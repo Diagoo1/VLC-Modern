@@ -46,7 +46,7 @@ object FrmIPTV: TFrmIPTV
       TabOrder = 0
       OnChange = edtSearchChange
     end
-    object btnSwitchServer: TButton
+    object btnSwitchServer: TPlayerTextButton
       Left = 208
       Top = 12
       Width = 130
@@ -55,7 +55,7 @@ object FrmIPTV: TFrmIPTV
       TabOrder = 1
       OnClick = btnSwitchServerClick
     end
-    object btnAddM3U: TButton
+    object btnAddM3U: TPlayerTextButton
       Left = 344
       Top = 12
       Width = 86
@@ -64,7 +64,7 @@ object FrmIPTV: TFrmIPTV
       TabOrder = 2
       OnClick = btnAddM3UClick
     end
-    object btnConnectXtream: TButton
+    object btnConnectXtream: TPlayerTextButton
       Left = 436
       Top = 12
       Width = 88
@@ -73,7 +73,7 @@ object FrmIPTV: TFrmIPTV
       TabOrder = 3
       OnClick = btnConnectXtreamClick
     end
-    object btnOpenLocalM3U: TButton
+    object btnOpenLocalM3U: TPlayerTextButton
       Left = 530
       Top = 12
       Width = 78
@@ -82,7 +82,7 @@ object FrmIPTV: TFrmIPTV
       TabOrder = 4
       OnClick = btnOpenLocalM3UClick
     end
-    object btnRefresh: TButton
+    object btnRefresh: TPlayerTextButton
       Left = 614
       Top = 12
       Width = 50
@@ -91,7 +91,7 @@ object FrmIPTV: TFrmIPTV
       TabOrder = 5
       OnClick = btnRefreshClick
     end
-    object btnExportM3U: TButton
+    object btnExportM3U: TPlayerTextButton
       Left = 670
       Top = 12
       Width = 56
@@ -123,7 +123,7 @@ object FrmIPTV: TFrmIPTV
       Font.Style = [fsBold]
       ParentFont = False
     end
-    object lstCategories: TListBox
+    object lstCategories: TIPTVListBox
       Left = 8
       Top = 28
       Width = 184
@@ -145,7 +145,7 @@ object FrmIPTV: TFrmIPTV
     BevelOuter = bvNone
     Color = 2105376
     TabOrder = 2
-    object lstChannels: TListBox
+    object lstChannels: TIPTVListBox
       Left = 0
       Top = 0
       Width = 640
@@ -153,7 +153,7 @@ object FrmIPTV: TFrmIPTV
       Align = alClient
       Color = 2697513
       ItemHeight = 40
-      Style = lbOwnerDrawFixed
+      Style = lbVirtualOwnerDraw
       TabOrder = 0
       OnClick = lstChannelsClick
       OnDblClick = lstChannelsDblClick
@@ -231,7 +231,7 @@ object FrmIPTV: TFrmIPTV
     BevelOuter = bvNone
     Color = 2105376
     TabOrder = 3
-    object btnWatch: TButton
+    object btnWatch: TPlayerTextButton
       Left = 14
       Top = 11
       Width = 140
@@ -241,7 +241,7 @@ object FrmIPTV: TFrmIPTV
       TabOrder = 0
       OnClick = btnWatchClick
     end
-    object btnFav: TButton
+    object btnFav: TPlayerTextButton
       Left = 162
       Top = 11
       Width = 120
@@ -250,7 +250,7 @@ object FrmIPTV: TFrmIPTV
       TabOrder = 1
       OnClick = btnFavClick
     end
-    object btnCopyUrl: TButton
+    object btnCopyUrl: TPlayerTextButton
       Left = 290
       Top = 11
       Width = 110
@@ -259,7 +259,7 @@ object FrmIPTV: TFrmIPTV
       TabOrder = 2
       OnClick = btnCopyUrlClick
     end
-    object btnEPG: TButton
+    object btnEPG: TPlayerTextButton
       Left = 408
       Top = 11
       Width = 110
@@ -268,14 +268,32 @@ object FrmIPTV: TFrmIPTV
       TabOrder = 3
       OnClick = btnEPGClick
     end
-    object btnClose: TButton
+    object btnCheckHealth: TPlayerTextButton
+      Left = 526
+      Top = 11
+      Width = 110
+      Height = 28
+      Caption = 'Check &Health'
+      TabOrder = 4
+      OnClick = btnCheckHealthClick
+    end
+    object btnRecordStream: TPlayerTextButton
+      Left = 644
+      Top = 11
+      Width = 110
+      Height = 28
+      Caption = '&Record Live (.ts)'
+      TabOrder = 5
+      OnClick = btnRecordStreamClick
+    end
+    object btnClose: TPlayerTextButton
       Left = 736
       Top = 11
       Width = 90
       Height = 28
       Cancel = True
       Caption = 'Close'
-      TabOrder = 4
+      TabOrder = 5
       OnClick = btnCloseClick
     end
   end
@@ -399,7 +417,7 @@ object FrmIPTV: TFrmIPTV
           TabOrder = 0
           Text = 'http://'
         end
-        object btnBrowseFile: TButton
+        object btnBrowseFile: TPlayerTextButton
           Left = 486
           Top = 43
           Width = 88
@@ -438,7 +456,7 @@ object FrmIPTV: TFrmIPTV
           PasswordChar = '*'
           TabOrder = 3
         end
-        object chkRememberPortal: TCheckBox
+        object chkRememberPortal: TPlayerCheckBox
           Left = 18
           Top = 132
           Width = 320
@@ -464,7 +482,7 @@ object FrmIPTV: TFrmIPTV
           WordWrap = True
         end
       end
-      object btnConnectPortal: TButton
+      object btnConnectPortal: TPlayerTextButton
         Left = 24
         Top = 412
         Width = 210
@@ -474,7 +492,7 @@ object FrmIPTV: TFrmIPTV
         TabOrder = 2
         OnClick = btnConnectPortalClick
       end
-      object btnCancelHub: TButton
+      object btnCancelHub: TPlayerTextButton
         Left = 248
         Top = 412
         Width = 140

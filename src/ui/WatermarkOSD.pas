@@ -1,10 +1,10 @@
-unit WatermarkOSD;
+﻿unit WatermarkOSD;
 
 interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes, System.Types,
-  Vcl.Controls, Vcl.Graphics,
+  Vcl.Controls, Vcl.Graphics, PlayerLanguage,
   Winapi.GDIPAPI, Winapi.GDIPOBJ;
 
 type
@@ -42,7 +42,7 @@ type
     FSize: Integer;
     FTimerId: UINT_PTR;
     FHoldCount: Integer;
-    procedure CreateOSDWindow;
+    procedure CreateOSDWindow(Owner: HWND);
     procedure RenderWatermark(TargetControl: TWinControl);
     procedure OnTimerTick;
   public
@@ -60,7 +60,7 @@ type
     FText: string;
     FTimerId: UINT_PTR;
     FHoldCount: Integer;
-    procedure CreateOSDWindow;
+    procedure CreateOSDWindow(Owner: HWND);
     procedure RenderTextOSD(TargetControl: TWinControl);
     procedure OnTimerTick;
   public
@@ -147,7 +147,6 @@ begin
   FSize := 120;
   FTimerId := 0;
   FHoldCount := 0;
-  CreateOSDWindow;
 end;
 
 destructor TWin32WatermarkOSD.Destroy;
@@ -161,16 +160,38 @@ begin
   inherited Destroy;
 end;
 
-procedure TWin32WatermarkOSD.CreateOSDWindow;
+function CreatePlaybackOverlay(Owner: HWND; ClassName: PChar): HWND;
+var Style, ExStyle: DWORD;
 begin
   RegisterOSDClasses;
-  FHWnd := CreateWindowEx(
-    WS_EX_LAYERED or WS_EX_TRANSPARENT or WS_EX_NOACTIVATE or WS_EX_TOOLWINDOW,
-    WATERMARK_CLASS,
-    nil,
-    WS_POPUP,
-    0, 0, FSize, FSize,
-    0, 0, HInstance, nil);
+  ExStyle := WS_EX_LAYERED or WS_EX_TRANSPARENT or WS_EX_NOACTIVATE;
+  if TOSVersion.Check(6, 2) then Style := WS_CHILD
+  else
+  begin
+    Style := WS_POPUP;
+    ExStyle := ExStyle or WS_EX_TOOLWINDOW;
+  end;
+  Result := CreateWindowEx(ExStyle, ClassName, nil, Style,
+    0, 0, 10, 10, Owner, 0, HInstance, nil);
+end;
+
+function PositionPlaybackOverlay(Window, Owner: HWND; const Size: TSize;
+  var Position: TPoint): Boolean;
+var Bounds: TRect;
+begin
+  Result := GetClientRect(Owner, Bounds) and (Size.cx <= Bounds.Width) and (Size.cy <= Bounds.Height);
+  if not Result then Exit;
+  ScreenToClient(Owner, Position);
+  if Position.X < 0 then Position.X := 0;
+  if Position.Y < 0 then Position.Y := 0;
+  if Position.X > Bounds.Right - Size.cx then Position.X := Bounds.Right - Size.cx;
+  if Position.Y > Bounds.Bottom - Size.cy then Position.Y := Bounds.Bottom - Size.cy;
+  if GetWindowLong(Window, GWL_STYLE) and WS_CHILD = 0 then ClientToScreen(Owner, Position);
+end;
+
+procedure TWin32WatermarkOSD.CreateOSDWindow(Owner: HWND);
+begin
+  FHWnd := CreatePlaybackOverlay(Owner, WATERMARK_CLASS);
 end;
 
 procedure TWin32WatermarkOSD.Hide;
@@ -188,8 +209,8 @@ end;
 procedure TWin32WatermarkOSD.Trigger(TargetControl: TWinControl; IsPlaying: Boolean);
 begin
   if (TargetControl = nil) or not TargetControl.HandleAllocated or not TargetControl.Visible then Exit;
-  if not IsWindow(FHWnd) then CreateOSDWindow;
-  SetWindowLongPtr(FHWnd, GWLP_HWNDPARENT, GetAncestor(TargetControl.Handle, GA_ROOT));
+  if not IsWindow(FHWnd) then CreateOSDWindow(GetAncestor(TargetControl.Handle, GA_ROOT));
+  if FHWnd = 0 then Exit;
 
   if FTimerId <> 0 then
   begin
@@ -206,7 +227,7 @@ begin
   FHoldCount := 18; // ~360ms hold time at 20ms ticks
   RenderWatermark(TargetControl);
 
-  FTimerId := SetTimer(FHWnd, 1, 20, nil);
+  if FAlpha <> 0 then FTimerId := SetTimer(FHWnd, 1, 20, nil);
 end;
 
 procedure TWin32WatermarkOSD.OnTimerTick;
@@ -266,6 +287,11 @@ begin
     (TargetControl.ClientWidth - FSize) div 2,
     (TargetControl.ClientHeight - FSize) div 2));
   PointDest := ControlPt;
+  if not PositionPlaybackOverlay(FHWnd, GetAncestor(TargetControl.Handle, GA_ROOT), Size, PointDest) then
+  begin
+    Hide;
+    Exit;
+  end;
 
   GPBmp := TGPBitmap.Create(Size.cx, Size.cy, PixelFormat32bppPARGB);
   try
@@ -432,7 +458,6 @@ begin
   FText := '';
   FTimerId := 0;
   FHoldCount := 0;
-  CreateOSDWindow;
 end;
 
 destructor TWin32TextOSD.Destroy;
@@ -446,16 +471,9 @@ begin
   inherited Destroy;
 end;
 
-procedure TWin32TextOSD.CreateOSDWindow;
+procedure TWin32TextOSD.CreateOSDWindow(Owner: HWND);
 begin
-  RegisterOSDClasses;
-  FHWnd := CreateWindowEx(
-    WS_EX_LAYERED or WS_EX_TRANSPARENT or WS_EX_NOACTIVATE or WS_EX_TOOLWINDOW,
-    TEXTOSD_CLASS,
-    nil,
-    WS_POPUP,
-    0, 0, 10, 10,
-    0, 0, HInstance, nil);
+  FHWnd := CreatePlaybackOverlay(Owner, TEXTOSD_CLASS);
 end;
 
 procedure TWin32TextOSD.Hide;
@@ -473,8 +491,8 @@ end;
 procedure TWin32TextOSD.Trigger(TargetControl: TWinControl; const AText: string);
 begin
   if (TargetControl = nil) or (AText = '') or not TargetControl.HandleAllocated or not TargetControl.Visible then Exit;
-  if not IsWindow(FHWnd) then CreateOSDWindow;
-  SetWindowLongPtr(FHWnd, GWLP_HWNDPARENT, GetAncestor(TargetControl.Handle, GA_ROOT));
+  if not IsWindow(FHWnd) then CreateOSDWindow(GetAncestor(TargetControl.Handle, GA_ROOT));
+  if FHWnd = 0 then Exit;
 
   if FTimerId <> 0 then
   begin
@@ -488,7 +506,7 @@ begin
   FHoldCount := GTextDuration div 20;
   RenderTextOSD(TargetControl);
 
-  FTimerId := SetTimer(FHWnd, 2, 20, nil);
+  if FAlpha <> 0 then FTimerId := SetTimer(FHWnd, 2, 20, nil);
 end;
 
 procedure TWin32TextOSD.OnTimerTick;
@@ -548,7 +566,7 @@ begin
   try
     G := TGPGraphics.Create(DC);
     try
-      FontFam := TGPFontFamily.Create('Segoe UI');
+      FontFam := PlayerFontFamily;
       try
         Font := TGPFont.Create(FontFam, GTextFontSize * 0.88 * TargetControl.CurrentPPI / 96, FontStyleRegular, UnitPoint);
         try
@@ -558,6 +576,7 @@ begin
           try
             Format.SetAlignment(StringAlignmentNear);
             Format.SetLineAlignment(StringAlignmentCenter);
+            if PlayerIsArabic then Format.SetFormatFlags(StringFormatFlagsDirectionRightToLeft);
             G.MeasureString(FText, Length(FText), Font, LayoutRect, Format, BoundRect);
           finally
             Format.Free;
@@ -592,6 +611,11 @@ begin
     MulDiv(20, TargetControl.CurrentPPI, 96),
     MulDiv(20, TargetControl.CurrentPPI, 96)));
   PointDest := ControlPt;
+  if not PositionPlaybackOverlay(FHWnd, GetAncestor(TargetControl.Handle, GA_ROOT), Size, PointDest) then
+  begin
+    Hide;
+    Exit;
+  end;
 
   GPBmp := TGPBitmap.Create(Size.cx, Size.cy, PixelFormat32bppPARGB);
   try
@@ -630,7 +654,7 @@ begin
       end;
 
       // Draw crisp bold text
-      FontFam := TGPFontFamily.Create('Segoe UI');
+      FontFam := PlayerFontFamily;
       try
         Font := TGPFont.Create(FontFam, GTextFontSize * 0.88 * TargetControl.CurrentPPI / 96, FontStyleRegular, UnitPoint);
         try
@@ -638,6 +662,7 @@ begin
           try
             Format.SetAlignment(StringAlignmentCenter);
             Format.SetLineAlignment(StringAlignmentCenter);
+            if PlayerIsArabic then Format.SetFormatFlags(StringFormatFlagsDirectionRightToLeft);
             TextRect.X := 0;
             TextRect.Y := 0;
             TextRect.Width := Size.cx;
@@ -714,10 +739,17 @@ begin
   end;
 end;
 
+function CanShowPlaybackOSD(TargetControl: TWinControl): Boolean;
+begin
+  Result := False;
+  if TargetControl = nil then Exit;
+  var Owner := GetAncestor(TargetControl.Handle, GA_ROOT);
+  Result := IsWindowVisible(Owner) and IsWindowEnabled(Owner) and not IsIconic(Owner);
+end;
+
 procedure ShowVideoPlayPauseWatermark(TargetControl: TWinControl; IsPlaying: Boolean);
 begin
-  if TargetControl = nil then Exit;
-  if not IsWindowEnabled(GetAncestor(TargetControl.Handle, GA_ROOT)) then Exit;
+  if not CanShowPlaybackOSD(TargetControl) then Exit;
   if GWatermarkOSD = nil then
     GWatermarkOSD := TWin32WatermarkOSD.Create;
   GWatermarkOSD.Trigger(TargetControl, IsPlaying);
@@ -746,8 +778,7 @@ end;
 
 procedure ShowVideoTextOSD(TargetControl: TWinControl; const AText: string);
 begin
-  if (TargetControl = nil) or (AText = '') then Exit;
-  if not IsWindowEnabled(GetAncestor(TargetControl.Handle, GA_ROOT)) then Exit;
+  if (AText = '') or not CanShowPlaybackOSD(TargetControl) then Exit;
   if GTextOSD = nil then
     GTextOSD := TWin32TextOSD.Create;
   GTextOSD.Trigger(TargetControl, AText);

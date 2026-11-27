@@ -2,7 +2,7 @@ unit OpenMediaForm;
 
 interface
 
-uses SettingsStore,
+uses CurvedControls, SettingsStore,
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes, System.IniFiles, System.StrUtils,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls;
 
@@ -13,8 +13,8 @@ type
     tabDisc: TTabSheet;
     tabCapture: TTabSheet;
     pnlBottom: TPanel;
-    btnPlay: TButton;
-    btnCancel: TButton;
+    btnPlay: TPlayerTextButton;
+    btnCancel: TPlayerTextButton;
 
     // Network Tab
     lblNetworkURL: TLabel;
@@ -40,6 +40,7 @@ type
   private
     FSelectedMRL: string;
     FOptions: TStringList;
+    FMediaCards: array[0..2] of TModernCardPanel;
     procedure LayoutMedia(Sender: TObject);
     function GetIniPath: string;
     procedure PopulateDrives;
@@ -57,19 +58,40 @@ var
 
 implementation
 
-uses PlayerDialogs, CurvedControls;
+uses PlayerDialogs, PlayerLanguage;
 
 {$R *.dfm}
 
 procedure TFrmOpenMedia.AfterConstruction;
 begin
   inherited;
+  BorderStyle := bsSizeable;
   ClientWidth:=MulDiv(640,CurrentPPI,96);
   ClientHeight:=MulDiv(420,CurrentPPI,96);
-  Constraints.MinWidth:=MulDiv(580,CurrentPPI,96);
-  Constraints.MinHeight:=MulDiv(400,CurrentPPI,96);
+  Constraints.MinWidth:=Width;
+  Constraints.MinHeight:=Height;
+  for var I := 0 to High(FMediaCards) do
+  begin
+    var Page := PageControl1.Pages[I];
+    var Card := TModernCardPanel.Create(Self);
+    Card.CardColor := DP_COLOR_SURFACE;
+    Card.BorderColor := DP_COLOR_BORDER;
+    Card.CornerRadius := 12;
+    Card.SetBounds(0, 0, Page.ClientWidth, Page.ClientHeight);
+    while Page.ControlCount > 0 do Page.Controls[0].Parent := Card;
+    Card.Parent := Page;
+    FMediaCards[I] := Card;
+  end;
   OnResize:=LayoutMedia;
   ApplyPlayerAppearance(Self);
+  if PlayerIsArabic then
+  begin
+    for var L in [lblNetworkURL, lblNetCaching, lblDrive, lblCaptureMode, lblScreenFps] do
+    begin
+      L.AutoSize := False;
+      L.Alignment := taRightJustify;
+    end;
+  end;
   LayoutMedia(nil);
 end;
 
@@ -79,27 +101,30 @@ procedure TFrmOpenMedia.LayoutMedia(Sender: TObject);
   procedure Place(Control: TControl; X,Y,W,H: Integer);
   begin
     if (Control is TEdit) and (Control.Parent is TModernCardPanel) then Control:=Control.Parent;
-    Control.SetBounds(S(X),S(Y),W,S(H));
+    PlaceLocalized(Control, S(X), S(Y), W, S(H));
   end;
 begin
   pnlBottom.Height:=S(56);
-  btnCancel.SetBounds(ClientWidth-S(128),S(12),S(104),S(32));
-  btnPlay.SetBounds(btnCancel.Left-S(116),S(12),S(104),S(32));
+  PlaceLocalized(btnCancel, pnlBottom.ClientWidth-S(128),S(12),S(104),S(32));
+  PlaceLocalized(btnPlay, pnlBottom.ClientWidth-S(244),S(12),S(104),S(32));
   PageControl1.SetBounds(S(16),S(48),ClientWidth-S(32),ClientHeight-S(120));
   PageControl1.TabHeight:=S(36);
-  Place(lblNetworkURL,24,24,tabNetwork.ClientWidth-S(48),24);
-  Place(cboNetworkURL,24,56,tabNetwork.ClientWidth-S(48),32);
+  for var Card in FMediaCards do
+    if Assigned(Card) then
+      Card.SetBounds(S(10), S(12), Card.Parent.ClientWidth-S(20), Card.Parent.ClientHeight-S(24));
+  Place(lblNetworkURL,24,24,FMediaCards[0].ClientWidth-S(48),24);
+  Place(cboNetworkURL,24,56,FMediaCards[0].ClientWidth-S(48),32);
   Place(lblNetCaching,24,126,S(140),24);
   Place(edtNetCaching,180,120,S(100),32);
   Place(lblNetCachingMs,290,126,S(32),24);
-  grpDiscType.SetBounds(S(24),S(24),tabDisc.ClientWidth-S(48),S(80));
+  grpDiscType.SetBounds(S(24),S(24),FMediaCards[1].ClientWidth-S(48),S(80));
   var ChoiceWidth:=(grpDiscType.ClientWidth-S(40)) div 3;
   for var I:=0 to grpDiscType.ControlCount-1 do
-    grpDiscType.Controls[I].SetBounds(S(12)+I*(ChoiceWidth+S(8)),S(26),ChoiceWidth,S(40));
+    PlaceLocalized(grpDiscType.Controls[I], S(12)+I*(ChoiceWidth+S(8)),S(26),ChoiceWidth,S(40));
   Place(lblDrive,24,126,S(240),24);
-  Place(cboDrives,24,156,tabDisc.ClientWidth-S(48),32);
+  Place(cboDrives,24,156,FMediaCards[1].ClientWidth-S(48),32);
   Place(lblCaptureMode,24,24,S(240),24);
-  Place(cboCaptureMode,24,56,tabCapture.ClientWidth-S(48),32);
+  Place(cboCaptureMode,24,56,FMediaCards[2].ClientWidth-S(48),32);
   Place(lblScreenFps,24,126,S(140),24);
   Place(edtScreenFps,180,120,S(100),32);
 end;

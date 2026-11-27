@@ -8,6 +8,62 @@ uses
   Winapi.GDIPAPI, Winapi.GDIPOBJ, System.Math;
 
 type
+  TPlayerProgress = class(TCustomControl)
+  private
+    FPosition, FMax: Integer;
+    procedure SetPosition(Value: Integer);
+    procedure SetMax(Value: Integer);
+  protected
+    procedure Paint; override;
+  public
+    constructor Create(AOwner: TComponent); override;
+  published
+    property Max: Integer read FMax write SetMax default 100;
+    property Position: Integer read FPosition write SetPosition default 0;
+    property TabOrder;
+  end;
+
+  TPlayerSliderOrientation = (psoHorizontal, psoVertical);
+  TPlayerSlider = class(TCustomControl)
+  private
+    FMin, FMax, FPosition, FLineSize, FPageSize, FWheelDelta: Integer;
+    FOrientation: TPlayerSliderOrientation;
+    FOnChange: TNotifyEvent;
+    FHovered: Boolean;
+    procedure SetMin(Value: Integer);
+    procedure SetMax(Value: Integer);
+    procedure SetPosition(Value: Integer);
+    procedure UpdateFromPointer(X, Y: Integer);
+    procedure WMPaintBackground(var Msg: TWMEraseBkgnd); message WM_ERASEBKGND;
+    procedure WMMouseWheel(var Msg: TWMMouseWheel); message WM_MOUSEWHEEL;
+    procedure CMEnabledChanged(var Msg: TMessage); message CM_ENABLEDCHANGED;
+    procedure WMGetDlgCode(var Msg: TWMGetDlgCode); message WM_GETDLGCODE;
+    procedure CMMouseEnter(var Msg: TMessage); message CM_MOUSEENTER;
+    procedure CMMouseLeave(var Msg: TMessage); message CM_MOUSELEAVE;
+  protected
+    procedure Paint; override;
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
+    procedure KeyDown(var Key: Word; Shift: TShiftState); override;
+    function DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean; override;
+  public
+    constructor Create(AOwner: TComponent); override;
+  published
+    property Align;
+    property Anchors;
+    property Enabled;
+    property TabOrder;
+    property TabStop default True;
+    property Visible;
+    property Min: Integer read FMin write SetMin default 0;
+    property Max: Integer read FMax write SetMax default 10;
+    property Position: Integer read FPosition write SetPosition default 0;
+    property LineSize: Integer read FLineSize write FLineSize default 1;
+    property PageSize: Integer read FPageSize write FPageSize default 2;
+    property Orientation: TPlayerSliderOrientation read FOrientation write FOrientation default psoHorizontal;
+    property OnChange: TNotifyEvent read FOnChange write FOnChange;
+  end;
+
   TIconKind = (
     ikNone,
     ikPlay,
@@ -35,7 +91,7 @@ type
     ikRepeatOne,
     ikShuffle,
     ikSpeed,
-    ikSettings
+    ikSettings, ikHome, ikTV, ikFilm, ikSeries, ikStar, ikStarFilled, ikGrid
   );
 
 var
@@ -57,7 +113,7 @@ var
 
 type
   // 1. Modern Vector Button with crisp GDI+ anti-aliased icon rendering
-  TModernVectorButton = class(TCustomControl)
+  TModernVectorButton = class(TGraphicControl)
   private
     FIsHovered: Boolean;
     FHoverAmount: Single;
@@ -69,6 +125,8 @@ type
     FCornerRadius: Single;
     FIconKind: TIconKind;
     FBadgeText: string;
+    FCaptionPointSize: Single;
+    procedure SetCaptionPointSize(const Value: Single);
     procedure HoverTick(Sender: TObject);
     procedure SetIconKind(const Value: TIconKind);
     procedure SetIsAccent(const Value: Boolean);
@@ -78,7 +136,6 @@ type
     procedure SetCornerRadius(const Value: Single);
     procedure CMMouseEnter(var Msg: TMessage); message CM_MOUSEENTER;
     procedure CMMouseLeave(var Msg: TMessage); message CM_MOUSELEAVE;
-    procedure WMEraseBkgnd(var Msg: TWMEraseBkgnd); message WM_ERASEBKGND;
     function CreateRoundRectPath(X, Y, W, H, Radius: Single): TGPGraphicsPath;
     procedure DrawVectorIcon(G: TGPGraphics; Kind: TIconKind; CX, CY, Size: Single; PenColor, FillColor: TGPColor);
   protected
@@ -88,6 +145,8 @@ type
   public
     constructor Create(AOwner: TComponent); override;
   published
+    property Align;
+    property Anchors;
     property Caption;
     property Font;
     property OnClick;
@@ -103,13 +162,74 @@ type
     property IsActive: Boolean read FIsActive write SetIsActive default False;
     property CornerRadius: Single read FCornerRadius write SetCornerRadius;
     property BadgeText: string read FBadgeText write SetBadgeText;
+    property CaptionPointSize: Single read FCaptionPointSize write SetCaptionPointSize;
+  end;
+
+  TPlayerTextButton = class(TCustomControl)
+  private
+    FIsHovered: Boolean;
+    FIsPressed: Boolean;
+    FIsAccent: Boolean;
+    FCornerRadius: Single;
+    FDefault, FCancel: Boolean;
+    FModalResult: TModalResult;
+    procedure SetIsAccent(const Value: Boolean);
+    procedure SetCornerRadius(const Value: Single);
+    procedure SetDefault(Value: Boolean);
+    procedure CMMouseEnter(var Msg: TMessage); message CM_MOUSEENTER;
+    procedure CMMouseLeave(var Msg: TMessage); message CM_MOUSELEAVE;
+    procedure WMEraseBkgnd(var Msg: TWMEraseBkgnd); message WM_ERASEBKGND;
+    procedure CMDialogKey(var Msg: TCMDialogKey); message CM_DIALOGKEY;
+    procedure CMDialogChar(var Msg: TCMDialogChar); message CM_DIALOGCHAR;
+    procedure CMFocusChanged(var Msg: TMessage); message CM_FOCUSCHANGED;
+    procedure CMEnabledChanged(var Msg: TMessage); message CM_ENABLEDCHANGED;
+    procedure CMTextChanged(var Msg: TMessage); message CM_TEXTCHANGED;
+  protected
+    procedure Paint; override;
+    procedure Click; override;
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure KeyDown(var Key: Word; Shift: TShiftState); override;
+  public
+    constructor Create(AOwner: TComponent); override;
+  published
+    property Caption;
+    property Font;
+    property OnClick;
+    property ShowHint;
+    property Hint;
+    property Enabled;
+    property Visible;
+    property Anchors;
+    property TabOrder;
+    property TabStop default True;
+    property IsAccent: Boolean read FIsAccent write SetIsAccent default False;
+    property CornerRadius: Single read FCornerRadius write SetCornerRadius;
+    property Default: Boolean read FDefault write SetDefault default False;
+    property Cancel: Boolean read FCancel write FCancel default False;
+    property ModalResult: TModalResult read FModalResult write FModalResult default mrNone;
+  end;
+
+  TPlayerCheckBox = class(TPlayerTextButton)
+  private
+    FState: TCheckBoxState;
+    function GetChecked: Boolean;
+    procedure SetChecked(Value: Boolean);
+    procedure SetState(Value: TCheckBoxState);
+    procedure BMClick(var Msg: TMessage); message BM_CLICK;
+  protected
+    procedure Paint; override;
+    procedure Click; override;
+  published
+    property Checked: Boolean read GetChecked write SetChecked stored False;
+    property State: TCheckBoxState read FState write SetState default cbUnchecked;
   end;
 
   // 2. Modern Anti-Aliased Seek Bar with glowing accent fill and smooth thumb
   TOnSeekEvent = procedure(Sender: TObject; NewPosition: Single) of object;
   TSeekHoverEvent = procedure(Sender: TObject; Pos: Single; ScreenPt: TPoint) of object;
 
-  TModernSeekBar = class(TCustomControl)
+  TModernSeekBar = class(TGraphicControl)
   private
     FPosition: Single;     // 0.0 to 1.0
     FBuffered: Single;     // 0.0 to 1.0
@@ -124,16 +244,15 @@ type
     procedure SetBuffered(const Value: Single);
     procedure CMMouseEnter(var Msg: TMessage); message CM_MOUSEENTER;
     procedure CMMouseLeave(var Msg: TMessage); message CM_MOUSELEAVE;
-    procedure WMEraseBkgnd(var Msg: TWMEraseBkgnd); message WM_ERASEBKGND;
     function PosFromX(X: Integer): Single;
   protected
     procedure Paint; override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
-    function DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean; override;
   public
     constructor Create(AOwner: TComponent); override;
+    procedure HandleMouseWheel(WheelDelta: Integer);
   published
     property Position: Single read FPosition write SetPosition;
     property Buffered: Single read FBuffered write SetBuffered;
@@ -150,7 +269,7 @@ type
   // 3. Modern Anti-Aliased Volume Slider
   TOnVolumeChangeEvent = procedure(Sender: TObject; Volume: Integer) of object;
 
-  TModernVolumeSlider = class(TCustomControl)
+  TModernVolumeSlider = class(TGraphicControl)
   private
     FVolume: Integer;      // 0 to 100
     FIsDragging: Boolean;
@@ -159,17 +278,16 @@ type
     procedure SetVolume(const Value: Integer);
     procedure CMMouseEnter(var Msg: TMessage); message CM_MOUSEENTER;
     procedure CMMouseLeave(var Msg: TMessage); message CM_MOUSELEAVE;
-    procedure WMEraseBkgnd(var Msg: TWMEraseBkgnd); message WM_ERASEBKGND;
     function VolFromX(X: Integer): Integer;
     procedure ChangeFromPointer(X: Integer);
   protected
     procedure Paint; override;
-    function DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean; override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
   public
     constructor Create(AOwner: TComponent); override;
+    procedure HandleMouseWheel(WheelDelta: Integer);
   published
     property Volume: Integer read FVolume write SetVolume default 100;
     property IsDragging: Boolean read FIsDragging;
@@ -186,10 +304,12 @@ type
     FBorderColor: TColor;
     FCardColor: TColor;
     FFlushRight: Boolean;
+    FFlushLeft: Boolean;
     procedure SetCornerRadius(const Value: Single);
     procedure SetBorderColor(const Value: TColor);
     procedure SetCardColor(const Value: TColor);
     procedure SetFlushRight(const Value: Boolean);
+    procedure SetFlushLeft(const Value: Boolean);
     procedure WMEraseBkgnd(var Msg: TWMEraseBkgnd); message WM_ERASEBKGND;
     procedure UpdateRegion;
   protected
@@ -205,6 +325,7 @@ type
     property BorderColor: TColor read FBorderColor write SetBorderColor default $00383838;
     property CardColor: TColor read FCardColor write SetCardColor default $00202020;
     property FlushRight: Boolean read FFlushRight write SetFlushRight default False;
+    property FlushLeft: Boolean read FFlushLeft write SetFlushLeft default False;
     property Visible;
     property OnMouseDown;
     property OnMouseMove;
@@ -221,6 +342,7 @@ type
     procedure WMEraseBkgnd(var Msg: TWMEraseBkgnd); message WM_ERASEBKGND;
   protected
     procedure Paint; override;
+    procedure Resize; override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure DblClick; override;
     procedure WMNCHitTest(var Msg:TWMNCHitTest); message WM_NCHITTEST;
@@ -256,7 +378,7 @@ procedure EnableWindows11DarkMenus(AFormHandle: HWND);
 
 implementation
 
-uses Winapi.ActiveX;
+uses PlayerLanguage, Winapi.ActiveX;
 
 function MakeGDIColor(DelphiColor: TColor; Alpha: Byte = 255): TGPColor;
 var
@@ -341,7 +463,6 @@ constructor TModernVectorButton.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   ControlStyle := [csCaptureMouse, csClickEvents];
-  DoubleBuffered := True;
   FHoverTimer := TTimer.Create(Self);
   FHoverTimer.Enabled := False;
   FHoverTimer.Interval := 16;
@@ -357,14 +478,9 @@ begin
   Cursor := crHandPoint;
   Width := 38;
   Height := 38;
-  Font.Name := 'Segoe UI';
+  Font.Name := PlayerUIFont;
   Font.Size := 10;
   Font.Color := DP_COLOR_TEXT;
-end;
-
-procedure TModernVectorButton.WMEraseBkgnd(var Msg: TWMEraseBkgnd);
-begin
-  Msg.Result := 1;
 end;
 
 procedure TModernVectorButton.HoverTick(Sender: TObject);
@@ -379,7 +495,7 @@ procedure TModernVectorButton.CMMouseEnter(var Msg: TMessage);
 begin
   inherited;
   FIsHovered := True;
-  FHoverTimer.Enabled := True;
+  if Assigned(FHoverTimer) then FHoverTimer.Enabled := True;
   Invalidate;
 end;
 
@@ -387,7 +503,7 @@ procedure TModernVectorButton.CMMouseLeave(var Msg: TMessage);
 begin
   inherited;
   FIsHovered := False;
-  FHoverTimer.Enabled := True;
+  if Assigned(FHoverTimer) then FHoverTimer.Enabled := True;
   Invalidate;
 end;
 
@@ -505,6 +621,45 @@ begin
     P.SetLineJoin(LineJoinRound);
 
     case Kind of
+      ikHome:
+      begin
+        G.DrawLine(P, CX-R, CY, CX, CY-R);
+        G.DrawLine(P, CX, CY-R, CX+R, CY);
+        G.DrawRectangle(P, CX-R*0.72, CY, R*1.44, R*0.88);
+      end;
+      ikTV:
+      begin
+        G.DrawRectangle(P, CX-R, CY-R*0.72, R*2, R*1.35);
+        G.DrawLine(P, CX-R*0.45, CY+R, CX+R*0.45, CY+R);
+        G.DrawLine(P, CX, CY+R*0.63, CX, CY+R);
+      end;
+      ikFilm, ikSeries:
+      begin
+        G.DrawRectangle(P, CX-R, CY-R*0.6, R*2, R*1.45);
+        G.DrawLine(P, CX-R, CY-R*0.1, CX+R, CY-R*0.1);
+        if Kind = ikSeries then
+          G.DrawLine(P, CX-R*0.65, CY-R, CX+R*0.65, CY-R)
+        else
+          G.DrawLine(P, CX-R, CY-R*0.6, CX+R*0.8, CY-R);
+      end;
+      ikGrid:
+        for var Y := 0 to 1 do
+          for var X := 0 to 1 do
+            G.DrawRectangle(P, CX-R+X*R*1.15, CY-R+Y*R*1.15, R*0.75, R*0.75);
+      ikStar, ikStarFilled:
+      begin
+        var Star: array[0..9] of TGPPointF;
+        for var I := 0 to High(Star) do
+        begin
+          var Angle := I * Pi / 5 - Pi / 2;
+          var Radius := R;
+          if Odd(I) then Radius := Radius * 0.44;
+          Star[I].X := CX + Cos(Angle) * Radius;
+          Star[I].Y := CY + Sin(Angle) * Radius;
+        end;
+        if Kind = ikStarFilled then G.FillPolygon(B, PGPPointF(@Star[0]), Length(Star))
+        else G.DrawPolygon(P, PGPPointF(@Star[0]), Length(Star));
+      end;
       ikPlay:
       begin
         // Crisp right-pointing equilateral triangle
@@ -835,10 +990,16 @@ begin
   end;
 end;
 
+procedure TModernVectorButton.SetCaptionPointSize(const Value: Single);
+begin
+  if FCaptionPointSize = Value then Exit;
+  FCaptionPointSize := Value;
+  Invalidate;
+end;
+
 procedure TModernVectorButton.Paint;
 var
   R: TRect;
-  ParentBgColor: TColor;
   G: TGPGraphics;
   Path: TGPGraphicsPath;
   Brush: TGPSolidBrush;
@@ -853,24 +1014,12 @@ var
 begin
   R := ClientRect;
 
-  // 1. Fill background with exact Parent background color
-  if Parent is TModernCardPanel then
-    ParentBgColor := TModernCardPanel(Parent).CardColor
-  else if Parent is TPanel then
-    ParentBgColor := TPanel(Parent).Color
-  else if (Parent <> nil) and (Parent is TCustomForm) then
-    ParentBgColor := TCustomForm(Parent).Color
-  else
-    ParentBgColor := DP_COLOR_BG;
 
-  Canvas.Brush.Color := ParentBgColor;
-  Canvas.Brush.Style := bsSolid;
-  Canvas.FillRect(R);
 
   PenColor := MakeColor(0, 0, 0, 0);
   IconColor := MakeGDIColor(DP_COLOR_TEXT);
   if not Enabled then IconColor := MakeGDIColor(DP_COLOR_SCROLL);
-  if FIsAccent then
+  if FIsAccent and Enabled then
   begin
     if FIsPressed then BgColor := MakeGDIColor(DP_COLOR_ACCPRESS)
     else if FIsHovered then BgColor := MakeGDIColor(DP_COLOR_ACCHOVER)
@@ -954,12 +1103,18 @@ begin
       DispText := FBadgeText;
       if DispText = '' then DispText := Caption;
 
-      FontFamily := TGPFontFamily.Create('Segoe UI');
+
+      FontFamily := PlayerFontFamily;
       try
+        var PointSize: Single := 9.0;
+        var TextStyle := FontStyleRegular;
         if FIsAccent then
-          FontObj := TGPFont.Create(FontFamily, 9.5, FontStyleBold, UnitPoint)
-        else
-          FontObj := TGPFont.Create(FontFamily, 9.0, FontStyleRegular, UnitPoint);
+        begin
+          PointSize := 9.5;
+          TextStyle := FontStyleBold;
+        end;
+        if FCaptionPointSize > 0 then PointSize := FCaptionPointSize;
+        FontObj := TGPFont.Create(FontFamily, PointSize, TextStyle, UnitPoint);
         try
           StringFormat := TGPStringFormat.Create;
           try
@@ -972,6 +1127,13 @@ begin
               LayoutRect.Y := 0;
               LayoutRect.Width := Width;
               LayoutRect.Height := Height;
+              if FCaptionPointSize > 0 then
+              begin
+                LayoutRect.X := MulDiv(7, CurrentPPI, 96);
+                LayoutRect.Width := Max(1, Width - 2 * LayoutRect.X);
+                StringFormat.SetFormatFlags(StringFormatFlagsNoWrap);
+                StringFormat.SetTrimming(StringTrimmingEllipsisCharacter);
+              end;
               G.DrawString(PWideChar(DispText), Length(DispText), FontObj, LayoutRect, StringFormat, Brush);
             finally
               Brush.Free;
@@ -998,7 +1160,6 @@ constructor TModernSeekBar.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   ControlStyle := [csCaptureMouse, csClickEvents];
-  DoubleBuffered := True;
   FPosition := 0.0;
   FBuffered := 0.0;
   FIsDragging := False;
@@ -1007,11 +1168,6 @@ begin
   Cursor := crHandPoint;
   Height := 24;
   Width := 400;
-end;
-
-procedure TModernSeekBar.WMEraseBkgnd(var Msg: TWMEraseBkgnd);
-begin
-  Msg.Result := 1;
 end;
 
 procedure TModernSeekBar.CMMouseEnter(var Msg: TMessage);
@@ -1087,23 +1243,19 @@ begin
   end;
 end;
 
-function TModernSeekBar.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean;
+
+procedure TModernSeekBar.HandleMouseWheel(WheelDelta: Integer);
 var
   Step, NewPos: Single;
 begin
-  Result := Enabled;
-  if not Result then Exit;
-  if FTotalTimeMs > 0 then
-    Step := 5000.0 / FTotalTimeMs
-  else
-    Step := 0.01;
+  if not Enabled then Exit;
+  if FTotalTimeMs > 0 then Step := 5000.0 / FTotalTimeMs else Step := 0.01;
   if WheelDelta < 0 then Step := -Step;
   NewPos := FPosition + Step;
   if NewPos < 0.0 then NewPos := 0.0;
   if NewPos > 1.0 then NewPos := 1.0;
   SetPosition(NewPos);
   if Assigned(FOnSeek) then FOnSeek(Self, FPosition);
-  Result := True;
 end;
 
 procedure TModernSeekBar.SetPosition(const Value: Single);
@@ -1131,9 +1283,6 @@ end;
 
 procedure TModernSeekBar.Paint;
 begin
-  if Parent is TModernCardPanel then Canvas.Brush.Color := TModernCardPanel(Parent).CardColor
-  else Canvas.Brush.Color := DP_COLOR_SURFACE;
-  Canvas.FillRect(ClientRect);
   PaintMediaSlider(Canvas.Handle, ClientRect, FPosition, FBuffered, -1, False,
     FIsHovered or FIsDragging, Enabled, CurrentPPI);
 end;
@@ -1144,18 +1293,12 @@ constructor TModernVolumeSlider.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   ControlStyle := [csCaptureMouse, csClickEvents];
-  DoubleBuffered := True;
   FVolume := 100;
   FIsDragging := False;
   FIsHovered := False;
   Cursor := crHandPoint;
   Height := 24;
   Width := 90;
-end;
-
-procedure TModernVolumeSlider.WMEraseBkgnd(var Msg: TWMEraseBkgnd);
-begin
-  Msg.Result := 1;
 end;
 
 procedure TModernVolumeSlider.CMMouseEnter(var Msg: TMessage);
@@ -1214,15 +1357,15 @@ begin
   end;
 end;
 
-function TModernVolumeSlider.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean;
+
+procedure TModernVolumeSlider.HandleMouseWheel(WheelDelta: Integer);
 var
   Previous: Integer;
 begin
-  Result := Enabled;
-  if not Result then Exit;
+  if not Enabled then Exit;
   Previous := FVolume;
   SetVolume(FVolume + Round(WheelDelta / WHEEL_DELTA * 5));
-  if (FVolume <> Previous) and Assigned(FOnVolumeChange) then FOnVolumeChange(Self,FVolume);
+  if (FVolume <> Previous) and Assigned(FOnVolumeChange) then FOnVolumeChange(Self, FVolume);
 end;
 
 procedure TModernVolumeSlider.ChangeFromPointer(X: Integer);
@@ -1251,9 +1394,6 @@ end;
 
 procedure TModernVolumeSlider.Paint;
 begin
-  if Parent is TModernCardPanel then Canvas.Brush.Color := TModernCardPanel(Parent).CardColor
-  else Canvas.Brush.Color := DP_COLOR_SURFACE;
-  Canvas.FillRect(ClientRect);
   PaintMediaSlider(Canvas.Handle, ClientRect, FVolume / 200, 0, -1, False,
     FIsHovered or FIsDragging, Enabled, CurrentPPI, Max(0,(FVolume-100)/100));
 end;
@@ -1291,6 +1431,7 @@ procedure TModernCardPanel.Resize;
 begin
   inherited;
   UpdateRegion;
+  Invalidate;
 end;
 
 procedure TModernCardPanel.SetCornerRadius(const Value: Single);
@@ -1330,6 +1471,13 @@ begin
   end;
 end;
 
+procedure TModernCardPanel.SetFlushLeft(const Value: Boolean);
+begin
+  if FFlushLeft = Value then Exit;
+  FFlushLeft := Value;
+  Invalidate;
+end;
+
 procedure TModernCardPanel.Paint;
 var
   G: TGPGraphics;
@@ -1339,6 +1487,7 @@ var
   D: Single;
 begin
   if Parent is TModernCardPanel then Canvas.Brush.Color := TModernCardPanel(Parent).CardColor
+  else if Parent is TPanel then Canvas.Brush.Color := TPanel(Parent).Color
   else if Parent <> nil then Canvas.Brush.Color := Parent.Brush.Color
   else Canvas.Brush.Color := DP_COLOR_BG;
   Canvas.FillRect(ClientRect);
@@ -1354,6 +1503,14 @@ begin
       if D > Height then D := Height;
 
       if D <= 0 then Path.AddRectangle(MakeRect(0, 0, Width, Height))
+      else if FFlushLeft then
+      begin
+        Path.AddLine(0, 1, Width - 1 - D, 1);
+        Path.AddArc(Width - 1 - D, 1, D, D, 270, 90);
+        Path.AddArc(Width - 1 - D, Height - 1 - D, D, D, 0, 90);
+        Path.AddLine(Width - 1 - D, Height - 1, 0, Height - 1);
+        Path.CloseFigure;
+      end
       else if FFlushRight then
       begin
         // Rounded on Left (facing video), Flush and straight on Right
@@ -1399,7 +1556,7 @@ end;
 constructor TModernTitleBar.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  ControlStyle := [csCaptureMouse, csClickEvents, csDoubleClicks];
+  ControlStyle := [csAcceptsControls, csCaptureMouse, csClickEvents, csDoubleClicks];
   DoubleBuffered := True;
   Align := alTop;
   Height := 36;
@@ -1420,6 +1577,12 @@ end;
 procedure TModernTitleBar.WMEraseBkgnd(var Msg: TWMEraseBkgnd);
 begin
   Msg.Result := 1;
+end;
+
+procedure TModernTitleBar.Resize;
+begin
+  inherited;
+  Invalidate;
 end;
 
 procedure TModernTitleBar.SetIcon(AIcon: TIcon);
@@ -1602,21 +1765,23 @@ begin
 
     // Draw Crisp Glossy App Icon using GDI+ Bicubic Scaling
     IconRight := 8;
+    var IconX := 8;
+    if PlayerIsArabic then IconX := Width - 30;
     if (FAppIconImage <> nil) and (FAppIconImage.GetLastStatus = Ok) then
     begin
       G.SetInterpolationMode(InterpolationModeHighQualityBicubic);
       G.SetSmoothingMode(SmoothingModeAntiAlias);
-      G.DrawImage(FAppIconImage, 8, (Height - 22) div 2, 22, 22);
+      G.DrawImage(FAppIconImage, IconX, (Height - 22) div 2, 22, 22);
       IconRight := 36;
     end
     else if (FIconBitmap <> nil) and (FIconBitmap.Width > 0) then
     begin
-      Canvas.Draw(8, (Height - 22) div 2, FIconBitmap);
+      Canvas.Draw(IconX, (Height - 22) div 2, FIconBitmap);
       IconRight := 36;
     end;
 
     // Draw Sharp ClearType Window Title Text
-    FontFamily := TGPFontFamily.Create('Segoe UI');
+    FontFamily := PlayerFontFamily;
     try
       FontObj := TGPFont.Create(FontFamily, 10.0, FontStyleBold, UnitPoint);
       try
@@ -1630,6 +1795,11 @@ begin
             TitleRect.Y := 0;
             TitleRect.Width := Width - IconRight - 110;
             TitleRect.Height := Height;
+            if PlayerIsArabic then
+            begin
+              TitleRect.X := 110;
+              StringFormat.SetFormatFlags(StringFormatFlagsDirectionRightToLeft);
+            end;
             G.DrawString(PWideChar(FTitleText), Length(FTitleText), FontObj, TitleRect, StringFormat, Brush);
           finally
             Brush.Free;
@@ -1689,7 +1859,7 @@ begin
   begin
     Height := 28;
     CapText := StripHotkey(Item.Caption);
-    ACanvas.Font.Name := 'Segoe UI';
+    ACanvas.Font.Name := PlayerUIFont;
     ACanvas.Font.Size := 9;
     Width := ACanvas.TextWidth(CapText) + 75;
     if Item.ShortCut <> 0 then
@@ -1794,7 +1964,7 @@ begin
 
   // 5. Draw Caption
   ACanvas.Brush.Style := bsClear;
-  ACanvas.Font.Name := 'Segoe UI';
+  ACanvas.Font.Name := PlayerUIFont;
   ACanvas.Font.Size := 9;
   if IsDis then
     ACanvas.Font.Color := $00978663
@@ -1852,5 +2022,460 @@ begin
   // Use documented DWM attributes only; menu rendering is owned by VCL.
   if AFormHandle <> 0 then EnableDwmRoundedCorners(AFormHandle);
 end;
+
+constructor TPlayerSlider.Create(AOwner: TComponent);
+begin
+  inherited;
+  ControlStyle := ControlStyle + [csOpaque, csCaptureMouse];
+  DoubleBuffered := True;
+  TabStop := True;
+  Cursor := crHandPoint;
+  FMax := 10;
+  FLineSize := 1;
+  FPageSize := 2;
+end;
+
+procedure TPlayerSlider.SetMin(Value: Integer);
+begin
+  FMin := Value;
+  FMax := System.Math.Max(FMax, Value);
+  SetPosition(FPosition);
+  Invalidate;
+end;
+
+procedure TPlayerSlider.SetMax(Value: Integer);
+begin
+  FMax := Value;
+  FMin := System.Math.Min(FMin, Value);
+  SetPosition(FPosition);
+  Invalidate;
+end;
+
+procedure TPlayerSlider.SetPosition(Value: Integer);
+begin
+  Value := EnsureRange(Value, FMin, FMax);
+  if Value = FPosition then Exit;
+  FPosition := Value;
+  Invalidate;
+  if not (csLoading in ComponentState) and Assigned(FOnChange) then FOnChange(Self);
+end;
+
+procedure TPlayerSlider.Paint;
+var Ratio, Zero: Single;
+begin
+  Canvas.Brush.Color := DP_COLOR_SURFACE;
+  Canvas.FillRect(ClientRect);
+  Ratio := 0;
+  Zero := -1;
+  if FMax > FMin then
+  begin
+    Ratio := (FPosition - FMin) / (FMax - FMin);
+    if (FMin < 0) and (FMax > 0) then Zero := -FMin / (FMax - FMin);
+  end;
+  PaintMediaSlider(Canvas.Handle, ClientRect, Ratio, 0, Zero,
+    FOrientation = psoVertical, FHovered or MouseCapture, Enabled, CurrentPPI);
+end;
+
+procedure TPlayerSlider.UpdateFromPointer(X, Y: Integer);
+begin
+  var Span := ClientWidth;
+  var Offset := X;
+  if FOrientation = psoVertical then
+  begin
+    Span := ClientHeight;
+    Offset := Span - Y;
+  end;
+  var Padding := MulDiv(10, CurrentPPI, 96);
+  Dec(Span, Padding * 2);
+  if Span > 0 then Position := FMin + MulDiv(EnsureRange(Offset - Padding, 0, Span), FMax - FMin, Span);
+end;
+
+procedure TPlayerSlider.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited;
+  if (Button <> mbLeft) or not Enabled then Exit;
+  if CanFocus then SetFocus;
+  UpdateFromPointer(X, Y);
+end;
+
+procedure TPlayerSlider.MouseMove(Shift: TShiftState; X, Y: Integer);
+begin
+  inherited;
+  if Enabled and MouseCapture and (ssLeft in Shift) then UpdateFromPointer(X, Y);
+end;
+
+procedure TPlayerSlider.KeyDown(var Key: Word; Shift: TShiftState);
+begin
+  inherited;
+  case Key of
+    VK_LEFT, VK_DOWN: Position := FPosition - FLineSize;
+    VK_RIGHT, VK_UP: Position := FPosition + FLineSize;
+    VK_PRIOR: Position := FPosition + FPageSize;
+    VK_NEXT: Position := FPosition - FPageSize;
+    VK_HOME: Position := FMin;
+    VK_END: Position := FMax;
+  else Exit;
+  end;
+  Key := 0;
+end;
+
+function TPlayerSlider.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean;
+begin
+  Result := Enabled;
+  if not Result then Exit;
+  Inc(FWheelDelta, WheelDelta);
+  var Steps := FWheelDelta div WHEEL_DELTA;
+  FWheelDelta := FWheelDelta mod WHEEL_DELTA;
+  if Steps <> 0 then Position := FPosition + Steps * FLineSize;
+end;
+
+procedure TPlayerSlider.WMMouseWheel(var Msg: TWMMouseWheel);
+begin
+  Msg.Result := Ord(DoMouseWheel([], Msg.WheelDelta, Point(Msg.XPos, Msg.YPos)));
+end;
+
+procedure TPlayerSlider.CMEnabledChanged(var Msg: TMessage);
+begin
+  inherited;
+  FWheelDelta := 0;
+  if not Enabled then MouseCapture := False;
+  Invalidate;
+end;
+
+procedure TPlayerSlider.WMPaintBackground(var Msg: TWMEraseBkgnd);
+begin
+  Msg.Result := 1;
+end;
+
+procedure TPlayerSlider.WMGetDlgCode(var Msg: TWMGetDlgCode);
+begin
+  Msg.Result := DLGC_WANTARROWS;
+end;
+
+procedure TPlayerSlider.CMMouseEnter(var Msg: TMessage);
+begin
+  inherited;
+  FHovered := True;
+  Invalidate;
+end;
+
+procedure TPlayerSlider.CMMouseLeave(var Msg: TMessage);
+begin
+  inherited;
+  FHovered := False;
+  Invalidate;
+end;
+
+constructor TPlayerTextButton.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  ControlStyle := [csCaptureMouse, csClickEvents];
+  DoubleBuffered := True;
+  FCornerRadius := 8;
+  Cursor := crHandPoint;
+  Width := 96;
+  Height := 32;
+  Font.Name := PlayerUIFont;
+  Font.Size := 9;
+  Font.Color := DP_COLOR_TEXT;
+  TabStop := True;
+end;
+
+procedure TPlayerTextButton.SetIsAccent(const Value: Boolean);
+begin
+  if FIsAccent <> Value then begin FIsAccent := Value; Invalidate; end;
+end;
+
+procedure TPlayerTextButton.SetCornerRadius(const Value: Single);
+begin
+  if FCornerRadius <> Value then begin FCornerRadius := Value; Invalidate; end;
+end;
+
+procedure TPlayerTextButton.CMMouseEnter(var Msg: TMessage);
+begin
+  inherited;
+  FIsHovered := True;
+  Invalidate;
+end;
+
+procedure TPlayerTextButton.CMMouseLeave(var Msg: TMessage);
+begin
+  inherited;
+  FIsHovered := False;
+  Invalidate;
+end;
+
+procedure TPlayerTextButton.WMEraseBkgnd(var Msg: TWMEraseBkgnd);
+begin
+  Msg.Result := 1;
+end;
+
+procedure TPlayerTextButton.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited;
+  if Button = mbLeft then begin FIsPressed := False; Invalidate; end;
+end;
+
+procedure TPlayerTextButton.Paint;
+var
+  R: TRect;
+  ParentBgColor: TColor;
+  G: TGPGraphics;
+  Path: TGPGraphicsPath;
+  Brush: TGPSolidBrush;
+  Pen: TGPPen;
+  BgColor, PenColor: TGPColor;
+  Rad, D: Single;
+begin
+  R := ClientRect;
+  if Parent is TModernCardPanel then ParentBgColor := TModernCardPanel(Parent).CardColor
+  else if Parent is TPanel then ParentBgColor := TPanel(Parent).Color
+  else if (Parent <> nil) and (Parent is TCustomForm) then ParentBgColor := TCustomForm(Parent).Color
+  else ParentBgColor := DP_COLOR_SURFACE;
+  Canvas.Brush.Color := ParentBgColor;
+  Canvas.Brush.Style := bsSolid;
+  Canvas.FillRect(R);
+  PenColor := MakeGDIColor(DP_COLOR_BORDER);
+  if FIsAccent and Enabled then
+  begin
+    if FIsPressed then BgColor := MakeGDIColor(DP_COLOR_ACCPRESS)
+    else if FIsHovered then BgColor := MakeGDIColor(DP_COLOR_ACCHOVER)
+    else BgColor := MakeGDIColor(DP_COLOR_ACCENT);
+  end
+  else if FIsPressed then BgColor := MakeGDIColor(DP_COLOR_ELEVATED)
+  else if FIsHovered or Focused then BgColor := MakeGDIColor(DP_COLOR_HOVER)
+  else BgColor := MakeGDIColor(DP_COLOR_ELEVATED);
+  G := TGPGraphics.Create(Canvas.Handle);
+  try
+    G.SetSmoothingMode(SmoothingModeAntiAlias);
+    G.SetPixelOffsetMode(PixelOffsetModeHighQuality);
+    Rad := FCornerRadius * CurrentPPI / 96;
+    D := Rad * 2;
+    Path := TGPGraphicsPath.Create;
+    try
+      Path.AddArc(1, 1, D, D, 180, 90);
+      Path.AddArc(1 + (Width - 2) - D, 1, D, D, 270, 90);
+      Path.AddArc(1 + (Width - 2) - D, 1 + (Height - 2) - D, D, D, 0, 90);
+      Path.AddArc(1, 1 + (Height - 2) - D, D, D, 90, 90);
+      Path.CloseFigure;
+      Brush := TGPSolidBrush.Create(BgColor);
+      try G.FillPath(Brush, Path); finally Brush.Free; end;
+      Pen := TGPPen.Create(PenColor, 1.0);
+      try G.DrawPath(Pen, Path); finally Pen.Free; end;
+    finally Path.Free; end;
+  finally G.Free; end;
+  Canvas.Font.Assign(Font);
+  if FIsAccent and Enabled then Canvas.Font.Color := DP_COLOR_BG
+  else if Enabled then Canvas.Font.Color := DP_COLOR_TEXT
+  else Canvas.Font.Color := DP_COLOR_MUTED;
+  SetBkMode(Canvas.Handle, TRANSPARENT);
+  InflateRect(R, -MulDiv(5, CurrentPPI, 96), 0);
+  DrawText(Canvas.Handle, PChar(Caption), Length(Caption), R,
+    DT_CENTER or DT_VCENTER or DT_SINGLELINE or DT_END_ELLIPSIS or DT_NOPREFIX);
+end;
+
+procedure TPlayerTextButton.SetDefault(Value: Boolean);
+begin
+  FDefault := Value;
+  IsAccent := Value;
+  Invalidate;
+end;
+
+procedure TPlayerTextButton.Click;
+begin
+  if not Enabled then Exit;
+  var Form := GetParentForm(Self);
+  if (Form <> nil) and (ModalResult <> mrNone) then
+    Form.ModalResult := ModalResult;
+  inherited;
+end;
+
+procedure TPlayerTextButton.CMDialogKey(var Msg: TCMDialogKey);
+begin
+  if CanFocus and (KeyDataToShiftState(Msg.KeyData) = []) then
+  begin
+    var Form := GetParentForm(Self);
+    if ((Msg.CharCode = VK_ESCAPE) and Cancel) or
+       ((Msg.CharCode = VK_RETURN) and (Focused or
+        (Default and ((Form = nil) or not (Form.ActiveControl is TPlayerTextButton))))) then
+    begin
+      Click;
+      Msg.Result := 1;
+      Exit;
+    end;
+  end;
+  inherited;
+end;
+
+procedure TPlayerTextButton.CMDialogChar(var Msg: TCMDialogChar);
+begin
+  if CanFocus and IsAccel(Msg.CharCode, Caption) then
+  begin
+    Click;
+    Msg.Result := 1;
+  end
+  else
+    inherited;
+end;
+
+procedure TPlayerTextButton.CMFocusChanged(var Msg: TMessage);
+begin
+  inherited;
+  Invalidate;
+end;
+
+procedure TPlayerTextButton.CMEnabledChanged(var Msg: TMessage);
+begin
+  inherited;
+  Invalidate;
+end;
+
+procedure TPlayerTextButton.CMTextChanged(var Msg: TMessage);
+begin
+  inherited;
+  Invalidate;
+end;
+
+procedure TPlayerTextButton.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  if Button = mbLeft then begin FIsPressed := True; if CanFocus then SetFocus; Invalidate; end;
+  inherited;
+end;
+
+procedure TPlayerTextButton.KeyDown(var Key: Word; Shift: TShiftState);
+begin
+  inherited;
+  if (Key = VK_SPACE) or (Key = VK_RETURN) then
+  begin
+    Key := 0;
+    Click;
+  end;
+end;
+
+constructor TPlayerProgress.Create(AOwner: TComponent);
+begin
+  inherited;
+  FMax := 100;
+  ControlStyle := ControlStyle + [csOpaque];
+  DoubleBuffered := True;
+end;
+
+procedure TPlayerProgress.SetMax(Value: Integer);
+begin
+  FMax := System.Math.Max(1, Value);
+  SetPosition(FPosition);
+  Invalidate;
+end;
+
+procedure TPlayerProgress.SetPosition(Value: Integer);
+begin
+  Value := EnsureRange(Value, 0, FMax);
+  if FPosition = Value then Exit;
+  FPosition := Value;
+  Invalidate;
+end;
+
+procedure TPlayerProgress.Paint;
+begin
+  Canvas.Brush.Color := DP_COLOR_SURFACE;
+  Canvas.FillRect(ClientRect);
+  Canvas.Pen.Style := psClear;
+  Canvas.Brush.Color := DP_COLOR_BORDER;
+  Canvas.RoundRect(0, 0, Width + 1, Height + 1, Height, Height);
+  var FillWidth := MulDiv(Width, Position, Max);
+  if FillWidth = 0 then Exit;
+  Canvas.Brush.Color := DP_COLOR_ACCENT;
+  var Radius := Min(Height, FillWidth);
+  if UseRightToLeftAlignment then
+    Canvas.RoundRect(Width - FillWidth, 0, Width + 1, Height + 1, Radius, Radius)
+  else
+    Canvas.RoundRect(0, 0, FillWidth + 1, Height + 1, Radius, Radius);
+end;
+
+function TPlayerCheckBox.GetChecked: Boolean;
+begin
+  Result := State = cbChecked;
+end;
+
+procedure TPlayerCheckBox.SetChecked(Value: Boolean);
+begin
+  if Value then State := cbChecked else State := cbUnchecked;
+end;
+
+procedure TPlayerCheckBox.SetState(Value: TCheckBoxState);
+begin
+  if FState = Value then Exit;
+  FState := Value;
+  Invalidate;
+  if not (csLoading in ComponentState) then inherited Click;
+end;
+
+procedure TPlayerCheckBox.Click;
+begin
+  if Enabled then Checked := not Checked;
+end;
+
+procedure TPlayerCheckBox.BMClick(var Msg: TMessage);
+begin
+  Click;
+  Msg.Result := 0;
+end;
+
+procedure TPlayerCheckBox.Paint;
+begin
+  var R := ClientRect;
+  Canvas.Brush.Color := DP_COLOR_SURFACE;
+  if Parent is TModernCardPanel then Canvas.Brush.Color := TModernCardPanel(Parent).CardColor;
+  if Parent is TPanel then Canvas.Brush.Color := TPanel(Parent).Color;
+  Canvas.FillRect(R);
+  var Side := MulDiv(14, CurrentPPI, 96);
+  var X := 1;
+  var RTL := BiDiMode <> bdLeftToRight;
+  if RTL then X := Width - Side - 1;
+  var Y := (Height - Side) div 2;
+  Canvas.Pen.Color := DP_COLOR_SCROLL;
+  Canvas.Brush.Color := DP_COLOR_ELEVATED;
+  if (Checked and Enabled) or Focused then Canvas.Pen.Color := DP_COLOR_ACCENT;
+  if Checked and Enabled then Canvas.Brush.Color := DP_COLOR_ACCENT;
+  Canvas.RoundRect(X, Y, X + Side, Y + Side, 4, 4);
+  if State <> cbUnchecked then
+  begin
+    var MarkColor := DP_COLOR_BG;
+    if not Enabled or not Checked then MarkColor := DP_COLOR_MUTED;
+    var Graphics := TGPGraphics.Create(Canvas.Handle);
+    var Pen := TGPPen.Create(MakeGDIColor(MarkColor), Side / 8);
+    try
+      Graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+      Pen.SetStartCap(LineCapRound);
+      Pen.SetEndCap(LineCapRound);
+      if Checked then
+      begin
+        Graphics.DrawLine(Pen, X + Side * 0.22, Y + Side * 0.5, X + Side * 0.43, Y + Side * 0.72);
+        Graphics.DrawLine(Pen, X + Side * 0.43, Y + Side * 0.72, X + Side * 0.79, Y + Side * 0.25);
+      end
+      else
+        Graphics.DrawLine(Pen, X + Side * 0.25, Y + Side * 0.5, X + Side * 0.75, Y + Side * 0.5);
+    finally
+      Pen.Free;
+      Graphics.Free;
+    end;
+  end;
+  Canvas.Font.Assign(Font);
+  Canvas.Font.Size := 8;
+  Canvas.Font.Color := DP_COLOR_TEXT;
+  if not Enabled then Canvas.Font.Color := DP_COLOR_MUTED;
+  SetBkMode(Canvas.Handle, TRANSPARENT);
+  var Flags := DT_VCENTER or DT_SINGLELINE or DT_END_ELLIPSIS or DT_NOPREFIX;
+  if RTL then
+  begin
+    R.Right := X - MulDiv(8, CurrentPPI, 96);
+    Flags := Flags or DT_RIGHT or DT_RTLREADING;
+  end
+  else R.Left := X + Side + MulDiv(8, CurrentPPI, 96);
+  DrawText(Canvas.Handle, PChar(Caption), Length(Caption), R, Flags);
+end;
+
+initialization
+  RegisterClasses([TPlayerSlider, TPlayerTextButton, TPlayerCheckBox, TModernCardPanel, TPlayerProgress]);
 
 end.

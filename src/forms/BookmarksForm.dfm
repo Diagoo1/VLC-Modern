@@ -32,7 +32,7 @@ object FrmBookmarks: TFrmBookmarks
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 1
-    object btnAdd: TButton
+    object btnAdd: TPlayerTextButton
       Left = 12
       Top = 8
       Width = 85
@@ -41,7 +41,7 @@ object FrmBookmarks: TFrmBookmarks
       TabOrder = 0
       OnClick = btnAddClick
     end
-    object btnJump: TButton
+    object btnJump: TPlayerTextButton
       Left = 104
       Top = 8
       Width = 85
@@ -50,7 +50,7 @@ object FrmBookmarks: TFrmBookmarks
       TabOrder = 1
       OnClick = btnJumpClick
     end
-    object btnDelete: TButton
+    object btnDelete: TPlayerTextButton
       Left = 196
       Top = 8
       Width = 85
@@ -59,7 +59,7 @@ object FrmBookmarks: TFrmBookmarks
       TabOrder = 2
       OnClick = btnDeleteClick
     end
-    object btnClose: TButton
+    object btnClose: TPlayerTextButton
       Left = 323
       Top = 8
       Width = 85

@@ -1,3 +1,3 @@
 @echo off
-pwsh -NoProfile -File "%~dp0tools\build.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\build.ps1"
 exit /b %ERRORLEVEL%

@@ -52,7 +52,7 @@ object FrmMediaInfo: TFrmMediaInfo
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 1
-    object btnClose: TButton
+    object btnClose: TPlayerTextButton
       Left = 414
       Top = 8
       Width = 90
