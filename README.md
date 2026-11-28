@@ -23,6 +23,10 @@ Lite includes basic local playback. You can download the full plugins and FFmpeg
 
 ## Screenshots
 
+| IPTV — العربية | IPTV — English |
+| --- | --- |
+| ![IPTV in Arabic](docs/screenshots/iptv-ar-grid-light.png) | ![IPTV in English](docs/screenshots/iptv-en-grid-light.png) |
+
 ![VLC Modern main player](docs/screenshots/player.png)
 
 **Main player.** The VLC Modern splash screen on startup, with the rounded control dock below.
