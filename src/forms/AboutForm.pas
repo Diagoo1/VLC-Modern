@@ -1,4 +1,4 @@
-unit AboutForm;
+﻿unit AboutForm;
 
 interface
 
@@ -12,6 +12,13 @@ type
     FUpdateTimer: TTimer;
     FUpdateButton: TPlayerTextButton;
     FUpdateStatus: TLabel;
+    FUpdateTrack, FUpdateFill: TShape;
+    FUpdateFile, FUpdateTag: string;
+    FUpdateBytes: Int64;
+    FUpdateProgress: TArray<Integer>;
+    procedure StartUpdateDownload(const URL, Digest: string);
+    procedure CanCloseDuringUpdate(Sender: TObject; var CanClose: Boolean);
+    procedure DragSurface(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure CheckUpdate(Sender: TObject);
     procedure UpdateFinished(Sender: TObject);
     procedure OpenLink(Sender: TObject);
@@ -23,7 +30,8 @@ type
 implementation
 
 uses Winapi.Windows, Winapi.ShellAPI, Winapi.ActiveX, Winapi.GDIPAPI, Winapi.GDIPOBJ,
-  System.SysUtils, System.JSON, System.Net.HttpClient, Vcl.Graphics,
+  Winapi.Messages, System.Types, System.SysUtils, System.JSON, System.Net.HttpClient, System.Hash,
+  System.IOUtils, System.Win.Registry, System.SyncObjs, Vcl.Graphics,
   PlayerDialogs, MainForm, PlayerLanguage;
 
 {$R *.dfm}
@@ -158,8 +166,6 @@ begin
     var
       Client: THTTPClient;
       Response: IHTTPResponse;
-      Data: TJSONValue;
-      Release: TJSONObject;
     begin
       Result := '';
       try
@@ -168,19 +174,8 @@ begin
           Client.ConnectionTimeout := 5000;
           Client.ResponseTimeout := 5000;
           Client.UserAgent := 'VLC-Modern';
-          Response := Client.Get('https://api.github.com/repos/Diagoo1/VLC-Modern/releases?per_page=1');
-          if Response.StatusCode <> 200 then Exit;
-          Data := TJSONObject.ParseJSONValue(Response.ContentAsString);
-          try
-            if (Data is TJSONArray) and (TJSONArray(Data).Count > 0) and
-              (TJSONArray(Data).Items[0] is TJSONObject) then
-            begin
-              Release := TJSONObject(TJSONArray(Data).Items[0]);
-              Release.TryGetValue<string>('tag_name', Result);
-            end;
-          finally
-            Data.Free;
-          end;
+          Response := Client.Get('https://api.github.com/repos/Diagoo1/VLC-Modern/releases/latest');
+          if Response.StatusCode = 200 then Result := Response.ContentAsString;
         finally
           Client.Free;
         end;
@@ -210,21 +205,199 @@ begin
     LoWord(Info.dwFileVersionMS), HiWord(Info.dwFileVersionLS)]);
 end;
 
-procedure TFrmAbout.UpdateFinished(Sender: TObject);
+function ReleaseVersion(const Tag: string; out Version: UInt64): Boolean;
 var
-  Tag: string;
+  Part: string;
+  Parts: TArray<string>;
+  Number: Integer;
 begin
-  if FUpdate.Status <> TTaskStatus.Completed then Exit;
-  FUpdateTimer.Enabled := False;
-  Tag := FUpdate.Value;
-  FUpdate := nil;
+  Result := False;
+  Version := 0;
+  if (Tag = '') or (Tag[1] <> 'v') then Exit;
+  Parts := Tag.Substring(1).Split(['.']);
+  if Length(Parts) <> 3 then Exit;
+  for Part in Parts do
+  begin
+    if not TryStrToInt(Part, Number) or (Number < 0) or (Number > 65535) or
+      (IntToStr(Number) <> Part) then Exit;
+    Version := (Version shl 16) or UInt64(Number);
+  end;
+  Result := True;
+end;
 
-  if Tag = '' then
-    FUpdateStatus.Caption := Translate('Could not check for updates. Try again later.')
-  else if SameText(Tag, RunningVersionTag) then
-    FUpdateStatus.Caption := Format(Translate('You have the latest published release (%s).'), [Tag])
-  else
+function InstalledEdition: string;
+var
+  Registry: TRegistry;
+  Name, Location: string;
+begin
+  Result := '';
+  Registry := TRegistry.Create(KEY_READ or KEY_WOW64_32KEY);
+  try
+    Registry.RootKey := HKEY_LOCAL_MACHINE;
+    if not Registry.OpenKeyReadOnly(
+      'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VLCModern.Win32_is1') then Exit;
+    Location := Registry.ReadString('InstallLocation');
+    if (Location = '') or not SameFileName(TPath.Combine(Location, 'VLCModern.exe'),
+      Application.ExeName) then Exit;
+    Name := Registry.ReadString('DisplayName');
+    if Name.EndsWith(' (Full)') then Result := 'Full';
+    if Name.EndsWith(' (Lite)') then Result := 'Lite';
+  finally
+    Registry.Free;
+  end;
+end;
+
+procedure TFrmAbout.CanCloseDuringUpdate(Sender: TObject; var CanClose: Boolean);
+begin
+  CanClose := FUpdateFile = '';
+end;
+
+procedure TFrmAbout.StartUpdateDownload(const URL, Digest: string);
+var
+  DownloadPath: string;
+  ExpectedSize: Int64;
+  Progress: TArray<Integer>;
+  Id: TGUID;
+begin
+  if CreateGUID(Id) <> S_OK then
+  begin
+    FUpdateButton.Enabled := True;
+    FUpdateStatus.Caption := Translate('Update download failed. Try again.');
+    Exit;
+  end;
+  DownloadPath := TPath.Combine(TPath.GetTempPath, 'VLCModern-' + GUIDToString(Id) + '.exe');
+  ExpectedSize := FUpdateBytes;
+  SetLength(Progress, 1);
+  FUpdateProgress := Progress;
+  FUpdateFile := DownloadPath;
+  FUpdateTrack.Visible := True;
+  FUpdateFill.Visible := True;
+  FUpdateFill.Width := 0;
+  FUpdateStatus.Caption := Format(Translate('Downloading update %s… %d%%'), [FUpdateTag, 0]);
+  FUpdate := TTask.Future<string>(
+    function: string
+    var
+      Client: THTTPClient;
+      Stream: TFileStream;
+      Response: IHTTPResponse;
+    begin
+      Result := '';
+      try
+        Client := THTTPClient.Create;
+        try
+          Client.ConnectionTimeout := 10000;
+          Client.ResponseTimeout := 30000;
+          Client.UserAgent := 'VLC-Modern';
+          Client.ReceiveDataCallback :=
+            procedure(const Sender: TObject; AContentLength, AReadCount: Int64; var AAbort: Boolean)
+            begin
+              AAbort := AReadCount > ExpectedSize;
+              if not AAbort then
+                TInterlocked.Exchange(Progress[0], Integer(AReadCount * 100 div ExpectedSize));
+            end;
+          Stream := TFileStream.Create(DownloadPath, fmCreate);
+          try
+            Response := Client.Get(URL, Stream);
+            if (Response.StatusCode <> 200) or (Stream.Size <> ExpectedSize) then
+              raise EInOutError.Create('Unexpected update response');
+          finally
+            Stream.Free;
+          end;
+          if not SameText('sha256:' + THashSHA2.GetHashStringFromFile(DownloadPath), Digest) then
+            raise EInOutError.Create('Update checksum did not match');
+          Result := DownloadPath;
+        finally
+          Client.Free;
+        end;
+      except
+        System.SysUtils.DeleteFile(DownloadPath);
+      end;
+    end);
+  FUpdateTimer.Enabled := True;
+end;
+
+procedure TFrmAbout.UpdateFinished(Sender: TObject);
+const
+  ReleaseRoot = 'https://github.com/Diagoo1/VLC-Modern/releases/';
+var
+  Tag, Payload, Edition, Name, AssetName, Url, Digest, Arguments: string;
+  Data, Item: TJSONValue;
+  Assets: TJSONArray;
+  Published, Running: UInt64;
+  Percent: Integer;
+begin
+  if FUpdate = nil then Exit;
+  if FUpdate.Status <> TTaskStatus.Completed then
+  begin
+    if Length(FUpdateProgress) > 0 then
+    begin
+      Percent := TInterlocked.CompareExchange(FUpdateProgress[0], 0, 0);
+      FUpdateFill.Width := FUpdateTrack.Width * Percent div 100;
+      FUpdateStatus.Caption := Format(Translate('Downloading update %s… %d%%'), [FUpdateTag, Percent]);
+    end;
+    Exit;
+  end;
+
+  FUpdateTimer.Enabled := False;
+  Payload := FUpdate.Value;
+  FUpdate := nil;
+  FUpdateButton.Enabled := True;
+  if FUpdateFile <> '' then
+  begin
+    FUpdateFile := '';
+    FUpdateProgress := nil;
+    FUpdateTrack.Visible := False;
+    FUpdateFill.Visible := False;
+    if Payload = '' then
+    begin
+      FUpdateStatus.Caption := Translate('Update download failed. Try again.');
+      Exit;
+    end;
+    Arguments := '/SILENT /NORESTART /DIR="' + ExtractFileDir(Application.ExeName) + '"';
+    if ShellExecute(Handle, 'runas', PChar(Payload), PChar(Arguments), nil, SW_SHOWNORMAL) <= 32 then
+    begin
+      System.SysUtils.DeleteFile(Payload);
+      FUpdateStatus.Caption := Translate('The update installer could not start.');
+      Exit;
+    end;
+    ModalResult := mrOk;
+    Application.MainForm.Close;
+    Exit;
+  end;
+
+  FUpdateStatus.Caption := Translate('Could not check for updates. Try again later.');
+  Data := TJSONObject.ParseJSONValue(Payload);
+  try
+    if not (Data is TJSONObject) or not Data.TryGetValue<string>('tag_name', Tag) or
+      not ReleaseVersion(Tag, Published) or not ReleaseVersion(RunningVersionTag, Running) then Exit;
+    if Published <= Running then
+    begin
+      FUpdateStatus.Caption := Format(Translate('You have the latest published release (%s).'), [Tag]);
+      Exit;
+    end;
+    Edition := InstalledEdition;
+    if (Edition <> '') and Data.TryGetValue<TJSONArray>('assets', Assets) then
+    begin
+      AssetName := 'VLC-Modern-' + Tag + '-Setup-' + Edition + '-Windows.exe';
+      for Item in Assets do
+        if Item.TryGetValue<string>('name', Name) and (Name = AssetName) and
+          Item.TryGetValue<string>('browser_download_url', Url) and
+          (Url = ReleaseRoot + 'download/' + Tag + '/' + AssetName) and
+          Item.TryGetValue<string>('digest', Digest) and Digest.StartsWith('sha256:') and
+          (Length(Digest) = 71) and Item.TryGetValue<Int64>('size', FUpdateBytes) and
+          (FUpdateBytes > 0) then
+        begin
+          FUpdateTag := Tag;
+          FUpdateButton.Enabled := False;
+          StartUpdateDownload(Url, Digest);
+          Exit;
+        end;
+    end;
     FUpdateStatus.Caption := Format(Translate('GitHub release %s is listed under Releases.'), [Tag]);
+    ShellExecute(Handle, 'open', PChar(ReleaseRoot + 'tag/' + Tag), nil, nil, SW_SHOWNORMAL);
+  finally
+    Data.Free;
+  end;
 end;
 
 procedure TFrmAbout.OpenLink(Sender: TObject);
@@ -237,6 +410,15 @@ end;
 procedure TFrmAbout.OpenShortcuts(Sender: TObject);
 begin
   if Assigned(FrmMain) then FrmMain.ShowHotkeysReference;
+end;
+
+procedure TFrmAbout.DragSurface(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  if Button <> mbLeft then Exit;
+  var Position := TControl(Sender).ClientToScreen(Point(X, Y));
+  ReleaseCapture;
+  SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, MakeLParam(Position.X, Position.Y));
 end;
 
 procedure TFrmAbout.FormCreate(Sender: TObject);
@@ -271,6 +453,7 @@ var
     Result.CardColor := Fill;
     Result.BorderColor := Edge;
     Result.CornerRadius := Radius;
+    Result.OnMouseDown := DragSurface;
     Place(Result, X, Y, W, H);
   end;
 
@@ -283,6 +466,7 @@ var
     Result.Font.Size := Size;
     if Bold then Result.Font.Style := [fsBold];
     Result.Transparent := True;
+    Result.OnMouseDown := DragSurface;
     Result.Left := Px(X);
     Result.Top := Px(Y);
   end;
@@ -302,6 +486,7 @@ begin
   Body.Parent := Self;
   Body.Align := alClient;
   Body.BevelOuter := bvNone;
+  Body.OnMouseDown := DragSurface;
 
   HeroFill := DarkHeroFill;
   HeroEdge := DarkHeroEdge;
@@ -356,11 +541,26 @@ begin
   FUpdateButton.Hint := 'Check GitHub for a newer VLC Modern release';
   FUpdateButton.ShowHint := True;
   FUpdateButton.OnClick := CheckUpdate;
+  OnCloseQuery := CanCloseDuringUpdate;
   FUpdateTimer := TTimer.Create(Self);
   FUpdateTimer.Enabled := False;
   FUpdateTimer.Interval := 100;
   FUpdateTimer.OnTimer := UpdateFinished;
-  FUpdateStatus := Text(Body, '', 16, 338, 9);
+  FUpdateStatus := Text(Body, '', 16, 336, 9);
+  FUpdateTrack := TShape.Create(Self);
+  FUpdateTrack.Parent := Body;
+  Place(FUpdateTrack, 16, 361, 410, 7);
+  FUpdateTrack.Shape := stRoundRect;
+  FUpdateTrack.Pen.Style := psClear;
+  FUpdateTrack.Brush.Color := DP_COLOR_BORDER;
+  FUpdateTrack.Visible := False;
+  FUpdateFill := TShape.Create(Self);
+  FUpdateFill.Parent := Body;
+  Place(FUpdateFill, 16, 361, 0, 7);
+  FUpdateFill.Shape := stRoundRect;
+  FUpdateFill.Pen.Style := psClear;
+  FUpdateFill.Brush.Color := DP_COLOR_ACCENT;
+  FUpdateFill.Visible := False;
   Button := Action('Close', 452, 331, 96);
   Button.Hint := 'Close About';
   Button.ShowHint := True;

@@ -954,5 +954,8 @@
   "Xtream Codes...": "إعداد Xtream Codes…",
   "Playback samples...": "عينات التشغيل…",
   "Local playlist...": "فتح قائمة محلية…",
-  "Stalker / MAC...": "إعداد Stalker / MAC…"
+  "Stalker / MAC...": "إعداد Stalker / MAC…",
+  "Downloading update %s… %d%%": "جارٍ تنزيل التحديث %s… %d%%",
+  "Update download failed. Try again.": "تعذّر تنزيل التحديث. حاول مرة أخرى.",
+  "The update installer could not start.": "تعذّر بدء تشغيل مثبّت التحديث."
 }

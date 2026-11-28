@@ -220,9 +220,9 @@ begin
   FLanguage.Parent := grpStartup;
   FLanguage.Style := csDropDownList;
   FLanguage.SetBounds(cboTheme.Left, MulDiv(104, CurrentPPI, 96), cboTheme.Width, cboTheme.Height);
-  FLanguage.Items.Add(Translate('Follow system'));
-  FLanguage.Items.Add('English');
-  FLanguage.Items.Add(#$0627#$0644#$0639#$0631#$0628#$064A#$0629);
+  FLanguage.Items.Add(Translate(PlayerLanguageNames[0]));
+  for var I := 1 to High(PlayerLanguageNames) do
+    FLanguage.Items.Add(PlayerLanguageNames[I]);
   for var I := 0 to cboTheme.Items.Count - 1 do
     cboTheme.Items[I] := Translate(cboTheme.Items[I]);
   FComponentsButton := TPlayerTextButton.Create(Self);
@@ -685,8 +685,8 @@ begin
     begin
       var Choice := PlayerLanguageChoice;
       FLanguage.ItemIndex := 0;
-      if Choice = 'en' then FLanguage.ItemIndex := 1;
-      if Choice = 'ar' then FLanguage.ItemIndex := 2;
+      for var I := 1 to High(PlayerLanguageCodes) do
+        if Choice = PlayerLanguageCodes[I] then FLanguage.ItemIndex := I;
     end;
     chkSingleInstance.Checked := Ini.ReadBool('General', 'SingleInstance', True);
     chkRememberSize.Checked := Ini.ReadBool('General', 'RememberSize', True);
@@ -780,12 +780,8 @@ begin
     // General
     if FPageLoaded[0] then begin
     Ini.WriteInteger('Interface', 'Theme', cboTheme.ItemIndex);
-    case FLanguage.ItemIndex of
-      1: Ini.WriteString('Interface', 'Language', 'en');
-      2: Ini.WriteString('Interface', 'Language', 'ar');
-    else
-      Ini.WriteString('Interface', 'Language', 'system');
-    end;
+    if FLanguage.ItemIndex >= 0 then
+      Ini.WriteString('Interface', 'Language', PlayerLanguageCodes[FLanguage.ItemIndex]);
     Ini.WriteBool('General', 'SingleInstance', chkSingleInstance.Checked);
     Ini.WriteBool('General', 'RememberSize', chkRememberSize.Checked);
     Ini.WriteBool('General', 'StartFullscreen', chkStartFullscreen.Checked);

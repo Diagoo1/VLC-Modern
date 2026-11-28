@@ -1,4 +1,4 @@
-unit MainForm;
+﻿unit MainForm;
 
 interface
 
@@ -1650,10 +1650,16 @@ var
       PlaceLocalized(Control, MulDiv(X, CurrentPPI, 96), MulDiv(Y, CurrentPPI, 96),
         MulDiv(W, CurrentPPI, 96), MulDiv(H, CurrentPPI, 96));
   end;
-  procedure PlaceMenu(Control: TControl; X, Y, W, H: Integer);
+  procedure PlaceMenu(Control: TModernVectorButton; var X: Integer; Y, W, H: Integer);
+  var
+    LeftPos: Integer;
   begin
-    if PlayerIsArabic then X := Logical(pnlMenuBar.ClientWidth) - X - W;
-    Place(Control, X, Y, W, H);
+    if not PlayerIsEnglish and not PlayerIsArabic then
+      W := Max(W, Logical(Canvas.TextWidth(Control.Caption)) + 18);
+    LeftPos := X;
+    if PlayerIsArabic then LeftPos := Logical(pnlMenuBar.ClientWidth) - X - W;
+    Place(Control, LeftPos, Y, W, H);
+    Inc(X, W + 4);
   end;
 begin
   if not FUIReady or FClosing then Exit;
@@ -1725,19 +1731,18 @@ begin
     pnlMenuBar.Top := MulDiv(36, CurrentPPI, 96);
     pnlMenuBar.Height := MulDiv(26, CurrentPPI, 96);
     CurX := 12;
-    PlaceMenu(btnMenuMedia, CurX, 2, 54, 22); Inc(CurX, 58);
-    PlaceMenu(btnMenuPlayback, CurX, 2, 66, 22); Inc(CurX, 70);
-    PlaceMenu(btnMenuAudio, CurX, 2, 50, 22); Inc(CurX, 54);
-    PlaceMenu(btnMenuVideo, CurX, 2, 50, 22); Inc(CurX, 54);
-    PlaceMenu(btnMenuSubtitle, CurX, 2, 62, 22); Inc(CurX, 66);
-    PlaceMenu(btnMenuTools, CurX, 2, 50, 22); Inc(CurX, 54);
-    PlaceMenu(btnMenuView, CurX, 2, 48, 22); Inc(CurX, 52);
+    PlaceMenu(btnMenuMedia, CurX, 2, 54, 22);
+    PlaceMenu(btnMenuPlayback, CurX, 2, 66, 22);
+    PlaceMenu(btnMenuAudio, CurX, 2, 50, 22);
+    PlaceMenu(btnMenuVideo, CurX, 2, 50, 22);
+    PlaceMenu(btnMenuSubtitle, CurX, 2, 62, 22);
+    PlaceMenu(btnMenuTools, CurX, 2, 50, 22);
+    PlaceMenu(btnMenuView, CurX, 2, 48, 22);
     if btnMenuIPTV <> nil then
     begin
       var LiveTVWidth := 58;
-      if PlayerIsArabic then LiveTVWidth := 86;
+      if not PlayerIsEnglish then LiveTVWidth := 86;
       PlaceMenu(btnMenuIPTV, CurX, 2, LiveTVWidth, 22);
-      Inc(CurX, LiveTVWidth + 4);
     end;
     PlaceMenu(btnMenuHelp, CurX, 2, 48, 22);
   end;

@@ -790,6 +790,11 @@ begin
   lblInfoUrl.EllipsisPosition := epEndEllipsis;
   lblInfoBadge.AutoSize := False;
   lblInfoBadge.EllipsisPosition := epEndEllipsis;
+  if PlayerIsEnglish or PlayerIsArabic then
+    for var ActionButton in TArray<TPlayerTextButton>.Create(btnSwitchServer, btnAddM3U,
+      btnConnectXtream, btnOpenLocalM3U, btnRefresh, btnExportM3U, btnWatch,
+      btnFav, btnCopyUrl, btnEPG, btnCheckHealth, btnRecordStream, btnClose) do
+      ActionButton.Font.Size := 8;
   if PlayerIsArabic then
   begin
     FHeroTitle.Alignment := taRightJustify;
@@ -797,10 +802,6 @@ begin
     btnConnectXtream.Caption := 'Xtream';
     btnOpenLocalM3U.Caption := Translate('Open File');
     btnExportM3U.Caption := Translate('Export');
-    for var ActionButton in TArray<TPlayerTextButton>.Create(btnSwitchServer, btnAddM3U,
-      btnConnectXtream, btnOpenLocalM3U, btnRefresh, btnExportM3U, btnWatch,
-      btnFav, btnCopyUrl, btnEPG, btnCheckHealth, btnRecordStream, btnClose) do
-      ActionButton.Font.Size := 8;
     pnlCategories.Align := alRight;
     lblChannelCount.Alignment := taLeftJustify;
     lblCatTitle.Alignment := taRightJustify;

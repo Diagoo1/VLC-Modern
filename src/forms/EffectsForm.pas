@@ -1,4 +1,4 @@
-unit EffectsForm;
+﻿unit EffectsForm;
 
 interface
 
@@ -299,8 +299,8 @@ procedure TFrmEffects.LayoutEffects(Sender: TObject);
     PlaceLabel(NameLabel, S(18), S(42), Card.ClientWidth-S(140));
     PlaceLabel(ValueLabel, Card.ClientWidth-S(120), S(42), S(100), True);
     PlaceLocalized(Slider, S(18), S(72), Card.ClientWidth-S(163), S(32));
-    PlaceLocalized(MinusButton, Card.ClientWidth-S(132), S(72), S(52), S(30));
-    PlaceLocalized(PlusButton, Card.ClientWidth-S(73), S(72), S(52), S(30));
+    PlaceLocalized(MinusButton, Card.ClientWidth-S(146), S(72), S(62), S(30));
+    PlaceLocalized(PlusButton, Card.ClientWidth-S(80), S(72), S(62), S(30));
   end;
   procedure Rows(Items: TList);
   begin

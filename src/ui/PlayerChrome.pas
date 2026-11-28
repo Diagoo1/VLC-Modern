@@ -1,4 +1,4 @@
-unit PlayerChrome;
+﻿unit PlayerChrome;
 
 interface
 uses Vcl.Forms;
@@ -43,7 +43,8 @@ begin
     IsWindowEnabled(Chrome.Form.Handle) then
   begin
     ReleaseCapture;
-    SendMessage(Chrome.Form.Handle,WM_SYSCOMMAND,$F012,0);
+    var Cursor := Mouse.CursorPos;
+    SendMessage(Chrome.Form.Handle, WM_NCLBUTTONDOWN, HTCAPTION, MakeLParam(Cursor.X, Cursor.Y));
     Exit(0);
   end;
   Result:=DefSubclassProc(Wnd,Msg,W,L);
@@ -115,12 +116,14 @@ begin
   if (Msg=WM_LBUTTONDOWN) and (Chrome.Form.Parent=nil) and not Chrome.FTitleOnlyDrag then
   begin
     ReleaseCapture;
-    SendMessage(Wnd,WM_SYSCOMMAND,$F012,0);
+    var Cursor := Mouse.CursorPos;
+    SendMessage(Wnd, WM_NCLBUTTONDOWN, HTCAPTION, MakeLParam(Cursor.X, Cursor.Y));
     Exit(0);
   end;
   try
     Result := DefSubclassProc(Wnd, Msg, W, L);
     if ComposeResize and IsWindow(Wnd) then Chrome.Layout;
+    if ComposeShow and IsWindow(Wnd) then Chrome.BindSurfaces(Chrome.Form);
     if (ComposeShow or ComposeResize) and IsWindow(Wnd) then
       RedrawWindow(Wnd, nil, 0, RDW_INVALIDATE or RDW_ERASE or RDW_ALLCHILDREN or RDW_UPDATENOW);
   finally

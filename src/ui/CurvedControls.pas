@@ -1,4 +1,4 @@
-unit CurvedControls;
+﻿unit CurvedControls;
 
 interface
 
@@ -2265,6 +2265,9 @@ begin
     finally Path.Free; end;
   finally G.Free; end;
   Canvas.Font.Assign(Font);
+  if PlayerIsEnglish and (Canvas.Font.Size > 8) and
+     not SameText(Canvas.Font.Name, 'Segoe MDL2 Assets') then
+    Canvas.Font.Size := Canvas.Font.Size - 1;
   if FIsAccent and Enabled then Canvas.Font.Color := DP_COLOR_BG
   else if Enabled then Canvas.Font.Color := DP_COLOR_TEXT
   else Canvas.Font.Color := DP_COLOR_MUTED;

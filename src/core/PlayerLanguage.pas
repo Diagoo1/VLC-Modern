@@ -1,12 +1,20 @@
-unit PlayerLanguage;
+﻿unit PlayerLanguage;
 
 interface
 
 uses CurvedControls, System.SysUtils, Vcl.Controls, Winapi.GDIPOBJ;
 
+const
+  PlayerLanguageCodes: array[0..14] of string = ('system', 'en', 'ar', 'fr', 'de', 'es', 'ru',
+    'it', 'nl', 'zh_cn', 'ja', 'ko', 'pt', 'tr', 'uk');
+  PlayerLanguageNames: array[0..14] of string = ('Follow system', 'English',
+    #$0627#$0644#$0639#$0631#$0628#$064A#$0629, 'Fran'#$00E7'ais', 'Deutsch', 'Espa'#$00F1'ol', 'Русский',
+    'Italiano', 'Nederlands', '简体中文', '日本語', '한국어', 'Português', 'Türkçe', 'Українська');
+
 procedure InitializePlayerLanguage;
 function PlayerLanguageChoice: string;
 function PlayerIsArabic: Boolean;
+function PlayerIsEnglish: Boolean;
 function PlayerUIFont: string;
 function PlayerFontFamily: TGPFontFamily;
 function Translate(const Source: string): string;
@@ -24,7 +32,7 @@ uses
 
 var
   Catalog: TJSONObject;
-  Arabic, CairoLoaded: Boolean;
+  Arabic, CairoLoaded, LocalizeInterface: Boolean;
   CairoRegular, CairoBold: THandle;
   CairoFontCollection: TGPPrivateFontCollection;
 
@@ -38,7 +46,9 @@ begin
   finally
     Store.Free;
   end;
-  if (Result <> 'ar') and (Result <> 'en') then Result := 'system';
+  for var Code in PlayerLanguageCodes do
+    if Result = Code then Exit;
+  Result := 'system';
 end;
 
 function LoadFont(const ResourceName: string): THandle;
@@ -67,17 +77,38 @@ var
   Parsed: TJSONValue;
 begin
   Choice := PlayerLanguageChoice;
-  Arabic := (Choice = 'ar') or ((Choice = 'system') and
-    ((GetUserDefaultUILanguage and $03FF) = LANG_ARABIC));
+  if Choice = 'system' then
+    case GetUserDefaultUILanguage and $03FF of
+      LANG_ARABIC: Choice := 'ar';
+      LANG_FRENCH: Choice := 'fr';
+      LANG_GERMAN: Choice := 'de';
+      LANG_SPANISH: Choice := 'es';
+      LANG_RUSSIAN: Choice := 'ru';
+      LANG_ITALIAN: Choice := 'it';
+      LANG_DUTCH: Choice := 'nl';
+      LANG_CHINESE:
+        if (GetUserDefaultUILanguage = $0804) or (GetUserDefaultUILanguage = $1004) then
+          Choice := 'zh_cn'
+        else
+          Choice := 'en';
+      LANG_JAPANESE: Choice := 'ja';
+      LANG_KOREAN: Choice := 'ko';
+      LANG_PORTUGUESE: Choice := 'pt';
+      LANG_TURKISH: Choice := 'tr';
+      LANG_UKRAINIAN: Choice := 'uk';
+    else
+      Choice := 'en';
+    end;
+  ResourceName := 'PLAYER_LANG_' + UpperCase(Choice);
+  Arabic := Choice = 'ar';
+  LocalizeInterface := Choice <> 'en';
   if Arabic then
   begin
-    ResourceName := 'PLAYER_LANG_AR';
     CairoFontCollection := TGPPrivateFontCollection.Create;
     CairoRegular := LoadFont('PLAYER_CAIRO_REGULAR');
     CairoBold := LoadFont('PLAYER_CAIRO_BOLD');
     CairoLoaded := CairoRegular <> 0;
-  end
-  else ResourceName := 'PLAYER_LANG_EN';
+  end;
   Resource := TResourceStream.Create(HInstance, ResourceName, RT_RCDATA);
   try
     SetLength(Data, Resource.Size);
@@ -93,6 +124,11 @@ end;
 function PlayerIsArabic: Boolean;
 begin
   Result := Arabic;
+end;
+
+function PlayerIsEnglish: Boolean;
+begin
+  Result := not LocalizeInterface;
 end;
 
 function PlayerUIFont: string;
@@ -128,7 +164,7 @@ function LocalizeMessageText(const Source: string): string;
     Result := Translate(Line);
     if Result <> Line then Exit;
     for var I := Length(Line) - 1 downto 1 do
-      if (Line[I] = ':') and (Line[I + 1] = ' ') then
+      if (I < Length(Line)) and (Line[I] = ':') and (Line[I + 1] = ' ') then
       begin
         var Prefix := Copy(Line, 1, I);
         var Localized := Translate(Prefix);
@@ -139,7 +175,7 @@ var
   Start, I: Integer;
 begin
   Result := Translate(Source);
-  if not Arabic or (Result <> Source) then Exit;
+  if not LocalizeInterface or (Result <> Source) then Exit;
   Result := '';
   Start := 1;
   for I := 1 to Length(Source) do
@@ -153,7 +189,7 @@ end;
 
 function LocalizeWindowsError(Code: Cardinal): string;
 begin
-  if not Arabic then Exit(SysErrorMessage(Code));
+  if not LocalizeInterface then Exit(SysErrorMessage(Code));
   case Code of
     ERROR_FILE_NOT_FOUND: Result := Translate('Windows could not find the file.');
     ERROR_PATH_NOT_FOUND: Result := Translate('Windows could not find the folder.');
@@ -192,11 +228,14 @@ var
   CaptionInfo: PPropInfo;
   Source, Localized: string;
 begin
-  if not Arabic then Exit;
-  if (Control is TComboBox) and SameText(Control.Name, 'cboNetworkURL') then
-    Control.BiDiMode := bdLeftToRight
-  else
-    Control.BiDiMode := bdRightToLeftReadingOnly;
+  if not LocalizeInterface then Exit;
+  if Arabic then
+  begin
+    if (Control is TComboBox) and SameText(Control.Name, 'cboNetworkURL') then
+      Control.BiDiMode := bdLeftToRight
+    else
+      Control.BiDiMode := bdRightToLeftReadingOnly;
+  end;
   if not (Control is TCustomEdit) then
   begin
     CaptionInfo := GetPropInfo(Control, 'Caption');
@@ -207,7 +246,7 @@ begin
       if Source <> Localized then SetStrProp(Control, CaptionInfo, Localized);
     end;
   end;
-  if (Control is TPlayerCheckBox) and not TLocalizedControlAccess(Control).AutoSize then
+  if Arabic and (Control is TPlayerCheckBox) and not TLocalizedControlAccess(Control).AutoSize then
   begin
     var MinimumHeight := MulDiv(21, Control.CurrentPPI, 96);
     if Control.Height < MinimumHeight then Control.Height := MinimumHeight;
