@@ -3,6 +3,7 @@ const languageButtons = [...document.querySelectorAll("[data-language]")];
 function setLanguage(value) {
   const chosen = value === "ar" ? "ar" : "en";
   document.documentElement.lang = chosen;
+  document.dispatchEvent(new Event("gallerylanguagechange"));
   document.documentElement.dir = chosen === "ar" ? "rtl" : "ltr";
   languageButtons.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.language === chosen)));
 }
@@ -172,12 +173,16 @@ if (shots.length) {
     current = (index + shots.length) % shots.length;
     const shot = shots[current];
     const original = shot.querySelector("img");
-    fullSize.href = shot.href;
-    screenshot.src = original.src;
-    screenshot.alt = original.alt;
+    const language = document.documentElement.lang;
+    const theme = shot.dataset.iptvTheme;
+    const source = theme ? `assets/iptv-${language}-grid-${theme}.png` : original.src;
+    const description = theme ? shot.querySelector(`[lang=${language}]`).textContent : original.alt;
+    fullSize.href = theme ? source : shot.href;
+    screenshot.src = source;
+    screenshot.alt = description;
     title.replaceChildren(...[...shot.querySelectorAll("span")].map(label => label.cloneNode(true)));
-    viewerImage.src = original.src;
-    viewerImage.alt = original.alt;
+    viewerImage.src = source;
+    viewerImage.alt = description;
     viewerTitle.replaceChildren(...[...shot.querySelectorAll("span")].map(label => label.cloneNode(true)));
     buttons.forEach((button, position) => button.setAttribute("aria-pressed", String(position === current)));
     figure.getAnimations().forEach(animation => animation.cancel());
@@ -188,6 +193,7 @@ if (shots.length) {
     updatePlayback();
   }
 
+  document.addEventListener("gallerylanguagechange", () => showScreenshot(current));
   gallery.classList.add("is-interactive");
   gallery.replaceChildren(figure);
   if ("IntersectionObserver" in window) {
