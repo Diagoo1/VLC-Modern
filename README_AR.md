@@ -1,15 +1,15 @@
 <p align="center"><img src="res/app_icon.png" width="120" alt="أيقونة VLC Modern"></p>
 <h1 align="center">VLC Modern</h1>
 <p align="center">مشغّل وسائط لويندوز مبني باستخدام Delphi وVCL وLibVLC.</p>
-<p align="center"><a href="README.md"><img alt="English" src="https://img.shields.io/badge/English-243850?style=for-the-badge&amp;logo=googletranslate&amp;logoColor=white"></a> &nbsp;·&nbsp; <a href="https://diagoo1.github.io/VLC-Modern/#screenshots"><strong>معرض الصور</strong></a> &nbsp;·&nbsp; <a href="https://diagoo1.github.io/VLC-Modern/#download"><strong>التحميل</strong></a></p>
+<p align="center"><a href="README.md"><img alt="English" src="https://img.shields.io/badge/English-243850?style=for-the-badge&amp;logo=googletranslate&amp;logoColor=white"></a>&nbsp;<a href="https://diagoo1.github.io/VLC-Modern/#screenshots"><img src="docs/screenshots/badge-ar-2.png" alt="معرض الصور" height="28"></a>&nbsp;<a href="https://diagoo1.github.io/VLC-Modern/#download"><img src="docs/screenshots/badge-ar-3.png" alt="التحميل" height="28"></a></p>
 
 <p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.12"><img src="https://img.shields.io/badge/Release-v1.0.12-1473E6" alt="Release: v1.0.12"></a> <img src="https://img.shields.io/badge/Platform-Windows%20x86-1473E6" alt="Platform: Windows x86"> <img src="https://img.shields.io/badge/Language-Delphi%2013-E62431" alt="Language: Delphi 13"> <img src="https://img.shields.io/badge/UI-VCL-6D4AFF" alt="UI: VCL"> <img src="https://img.shields.io/badge/Playback-LibVLC%203.0.20-E56A16" alt="Playback: LibVLC 3.0.20"> <img src="https://img.shields.io/badge/Theme-Dark-333333" alt="Theme: Dark"></p>
 
 <blockquote dir="rtl" align="right"><strong>الإصدار الرسمي v1.0.12.</strong> اختر EXE للتثبيت في Program Files أو ZIP محمول للتشغيل بعد فك الضغط.</blockquote>
 
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.12/VLC-Modern-v1.0.12-Setup-Full-Windows.exe"><strong>تثبيت Full &#183; EXE</strong></a> &nbsp;·&nbsp; <a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.12/VLC-Modern-v1.0.12-Portable-Full-Windows.zip"><strong>محمول Full &#183; ZIP</strong></a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.12/VLC-Modern-v1.0.12-Setup-Full-Windows.exe"><img src="docs/screenshots/badge-ar-4.png" alt="تثبيت Full · EXE" height="28"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.12/VLC-Modern-v1.0.12-Portable-Full-Windows.zip"><img src="docs/screenshots/badge-ar-5.png" alt="محمول Full · ZIP" height="28"></a></p>
 
-<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.12/VLC-Modern-v1.0.12-Setup-Lite-Windows.exe"><strong>تثبيت Lite &#183; EXE</strong></a> &nbsp;·&nbsp; <a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.12/VLC-Modern-v1.0.12-Portable-Lite-Windows.zip"><strong>محمول Lite &#183; ZIP</strong></a></p>
+<p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.12/VLC-Modern-v1.0.12-Setup-Lite-Windows.exe"><img src="docs/screenshots/badge-ar-6.png" alt="تثبيت Lite · EXE" height="28"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/releases/download/v1.0.12/VLC-Modern-v1.0.12-Portable-Lite-Windows.zip"><img src="docs/screenshots/badge-ar-7.png" alt="محمول Lite · ZIP" height="28"></a></p>
 
 <p dir="rtl" align="right">نسخة Lite بتشغّل الملفات المحلية الشائعة فورًا. تقدر تنزّل مجموعة الإضافات الكاملة وFFmpeg أثناء التثبيت أو بعده. لو انقطع الاتصال، يكتمل تثبيت المشغّل وتقدر تعيد المحاولة من الإعدادات ← Components.</p>
 
@@ -20,7 +20,7 @@
   <li><strong>الإعدادات ← Playback Components</strong> تفتح نافذة تثبيت المكوّنات ومزامنتها. أعد تشغيل المشغّل بعد تثبيت أو تحديث إضافات LibVLC.</li>
 </ul>
 
-<p align="center"><a href="https://diagoo1.github.io/VLC-Modern/#download"><strong>تحميل لويندوز</strong></a> &nbsp;·&nbsp; <a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><strong>الإبلاغ عن خطأ</strong></a> &nbsp;·&nbsp; <a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.12"><img alt="v1.0.12" src="https://img.shields.io/badge/v1.0.12-243850?style=for-the-badge&amp;logo=github&amp;logoColor=white"></a></p>
+<p align="center"><a href="https://diagoo1.github.io/VLC-Modern/#download"><img src="docs/screenshots/badge-ar-8.png" alt="تحميل لويندوز" height="28"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img src="docs/screenshots/badge-ar-9.png" alt="الإبلاغ عن خطأ" height="28"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.12"><img alt="v1.0.12" src="https://img.shields.io/badge/v1.0.12-243850?style=for-the-badge&amp;logo=github&amp;logoColor=white"></a></p>
 
 ## صور البرنامج
 
@@ -53,15 +53,15 @@
 
 ### البث وIPTV وتحويل الوسائط
 
-| واجهة IPTV بالعربية | واجهة IPTV بالإنجليزية |
+| الوضع الداكن | الوضع الفاتح |
 | --- | --- |
-| ![واجهة عربية](docs/screenshots/iptv-ar-grid-light.png) | ![واجهة إنجليزية](docs/screenshots/iptv-en-grid-light.png) |
+| [![الوضع الداكن](docs/screenshots/iptv-ar-grid-dark.png)](docs/screenshots/iptv-ar-grid-dark.png) | [![الوضع الفاتح](docs/screenshots/iptv-ar-grid-light.png)](docs/screenshots/iptv-ar-grid-light.png) |
 
 اضغط على أي لقطة لفتحها بالحجم الكامل.
 
-| البث التلفزيوني وIPTV | فتح بث شبكي | تحويل الوسائط |
-| --- | --- | --- |
-| [![إعداد مصادر البث التلفزيوني](docs/screenshots/iptv.png)](docs/screenshots/iptv.png) | [![فتح رابط بث شبكي](docs/screenshots/open-media.png)](docs/screenshots/open-media.png) | [![إعداد تحويل ملف وسائط](docs/screenshots/convert-stream.png)](docs/screenshots/convert-stream.png) |
+| 
+| --- | --- |
+| 
 | اتصل بمزوّد Xtream Codes أو Stalker / MAC، أو افتح رابط M3U أو ملفًا محليًا، أو جرّب عينات التشغيل. | افتح مصدر HTTP أو RTSP أو RTMP واضبط التخزين المؤقت للشبكة. تبويبات منفصلة للأقراص وأجهزة الالتقاط. | اختَر ملفًا أو رابطًا، وصيغة الإخراج، ومكان الحفظ. اللقطة بتوضح H.264 + AAC داخل MP4. |
 
 استخدمنا [IPTVnator](https://github.com/4gray/iptvnator) مرجعًا لتجربة إضافة مصادر IPTV. اللقطات اللي فوق من VLC Modern، وتقدر تشوف واجهة المشروع المرجعي ومميزاته على [موقع IPTVnator](https://4gray.github.io/iptvnator/).
