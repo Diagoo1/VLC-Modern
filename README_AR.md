@@ -1,7 +1,7 @@
 <p align="center"><img src="res/app_icon.png" width="120" alt="أيقونة VLC Modern"></p>
 <h1 align="center">VLC Modern</h1>
 <p align="center">مشغّل وسائط لويندوز مبني باستخدام Delphi وVCL وLibVLC.</p>
-<p align="center"><a href="README.md"><img alt="English" src="https://img.shields.io/badge/English-243850?style=for-the-badge&amp;logo=googletranslate&amp;logoColor=white"></a>&nbsp;<a href="https://diagoo1.github.io/VLC-Modern/#screenshots"><img src="docs/screenshots/badge-ar-2.png" alt="معرض الصور" height="28"></a>&nbsp;<a href="https://diagoo1.github.io/VLC-Modern/#download"><img src="docs/screenshots/badge-ar-3.png" alt="التحميل" height="28"></a></p>
+<p align="center"><a href="README.md"><img alt="English" src="https://img.shields.io/badge/English-243850?style=for-the-badge&amp;logo=googletranslate&amp;logoColor=white"></a>&nbsp;<a href="https://diagoo1.github.io/VLC-Modern/?lang=ar#gallery"><img src="docs/screenshots/badge-ar-2.png" alt="معرض الصور" height="28"></a>&nbsp;<a href="https://diagoo1.github.io/VLC-Modern/?lang=ar#download"><img src="docs/screenshots/badge-ar-3.png" alt="التحميل" height="28"></a></p>
 
 <p align="center"><a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.12"><img src="https://img.shields.io/badge/Release-v1.0.12-1473E6" alt="Release: v1.0.12"></a> <img src="https://img.shields.io/badge/Platform-Windows%20x86-1473E6" alt="Platform: Windows x86"> <img src="https://img.shields.io/badge/Language-Delphi%2013-E62431" alt="Language: Delphi 13"> <img src="https://img.shields.io/badge/UI-VCL-6D4AFF" alt="UI: VCL"> <img src="https://img.shields.io/badge/Playback-LibVLC%203.0.20-E56A16" alt="Playback: LibVLC 3.0.20"> <img src="https://img.shields.io/badge/Theme-Dark-333333" alt="Theme: Dark"></p>
 
@@ -20,7 +20,7 @@
   <li><strong>الإعدادات ← Playback Components</strong> تفتح نافذة تثبيت المكوّنات ومزامنتها. أعد تشغيل المشغّل بعد تثبيت أو تحديث إضافات LibVLC.</li>
 </ul>
 
-<p align="center"><a href="https://diagoo1.github.io/VLC-Modern/#download"><img src="docs/screenshots/badge-ar-8.png" alt="تحميل لويندوز" height="28"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img src="docs/screenshots/badge-ar-9.png" alt="الإبلاغ عن خطأ" height="28"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.12"><img alt="v1.0.12" src="https://img.shields.io/badge/v1.0.12-243850?style=for-the-badge&amp;logo=github&amp;logoColor=white"></a></p>
+<p align="center"><a href="https://diagoo1.github.io/VLC-Modern/?lang=ar#download"><img src="docs/screenshots/badge-ar-8.png" alt="تحميل لويندوز" height="28"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/issues/new"><img src="docs/screenshots/badge-ar-9.png" alt="الإبلاغ عن خطأ" height="28"></a>&nbsp;<a href="https://github.com/Diagoo1/VLC-Modern/releases/tag/v1.0.12"><img alt="v1.0.12" src="https://img.shields.io/badge/v1.0.12-243850?style=for-the-badge&amp;logo=github&amp;logoColor=white"></a></p>
 
 ## صور البرنامج
 
